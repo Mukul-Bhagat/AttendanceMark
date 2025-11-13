@@ -29,17 +29,28 @@ const AuthContext = createContext<IAuthContext | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<IUser | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [isLoading, setIsLoading] = useState(false); // We can use this later
+  const [isLoading, setIsLoading] = useState(true); // Start as true to check token on mount
 
   // On initial load, try to load user from token
   useEffect(() => {
-    if (token) {
-      // In a real app, you'd verify the token with a '/api/auth/me' endpoint
-      // For now, we'll just set the token and (later) the user
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      // We'll add a "get me" function in a future step
-    }
-  }, [token]);
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('token');
+      
+      if (storedToken) {
+        // Set token for axios requests
+        axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        
+        // In a real app, you'd verify the token with a '/api/auth/me' endpoint
+        // For now, we'll just set the token
+        // TODO: Add token verification endpoint in future
+        setToken(storedToken);
+      }
+      
+      setIsLoading(false);
+    };
+
+    initAuth();
+  }, []);
 
   // Login function
   const login = async (formData: any) => {

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 // This is the component for our /register route
@@ -14,16 +15,28 @@ const RegisterSuperAdmin: React.FC = () => {
 
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
+  const orgNameInputRef = useRef<HTMLInputElement>(null);
 
   const { organizationName, firstName, lastName, email, password, phone } = formData;
 
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+  // Auto-focus first input on mount
+  useEffect(() => {
+    orgNameInputRef.current?.focus();
+  }, []);
+
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    // Clear error when user starts typing
+    if (error) setError('');
+  };
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage('');
     setError('');
+    setIsSubmitting(true);
 
     try {
       // This is the API endpoint from Step 1
@@ -32,7 +45,7 @@ const RegisterSuperAdmin: React.FC = () => {
         formData
       );
 
-      setMessage(response.data.msg); // Show success message
+      setMessage(`${response.data.msg} Redirecting to login...`); // Show success message
       setFormData({ // Clear the form
         organizationName: '',
         firstName: '',
@@ -41,6 +54,11 @@ const RegisterSuperAdmin: React.FC = () => {
         password: '',
         phone: '',
       });
+      
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err: any) {
       // Handle errors
       if (err.response && err.response.data) {
@@ -53,8 +71,10 @@ const RegisterSuperAdmin: React.FC = () => {
           setError(err.response.data.msg || 'Registration failed');
         }
       } else {
-        setError('Registration failed. Server may be down.');
+        setError('Registration failed. Please check your connection and try again.');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -67,11 +87,13 @@ const RegisterSuperAdmin: React.FC = () => {
         <div className="form-group">
           <label>Organization Name *</label>
           <input
+            ref={orgNameInputRef}
             type="text"
             name="organizationName"
             value={organizationName}
             onChange={onChange}
             required
+            autoComplete="organization"
           />
         </div>
         <div className="form-group">
@@ -102,6 +124,7 @@ const RegisterSuperAdmin: React.FC = () => {
             value={email}
             onChange={onChange}
             required
+            autoComplete="email"
           />
         </div>
         <div className="form-group">
@@ -113,6 +136,7 @@ const RegisterSuperAdmin: React.FC = () => {
             onChange={onChange}
             minLength={6}
             required
+            autoComplete="new-password"
           />
         </div>
         <div className="form-group">
@@ -124,8 +148,13 @@ const RegisterSuperAdmin: React.FC = () => {
             onChange={onChange}
           />
         </div>
-        <button type="submit">Register</button>
+        <button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Registering...' : 'Register'}
+        </button>
       </form>
+      <p style={{ textAlign: 'center', marginTop: '20px', color: '#6b7280' }}>
+        Already have an account? <Link to="/login" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}>Login here</Link>
+      </p>
     </div>
   );
 };

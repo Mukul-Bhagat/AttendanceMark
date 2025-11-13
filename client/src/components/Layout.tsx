@@ -1,11 +1,21 @@
 import React from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import './Layout.css'; // We will create this CSS file next
+import './Layout.css';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get page title based on current route
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path === '/dashboard') return 'Dashboard';
+    if (path.startsWith('/sessions')) return 'Sessions';
+    if (path.startsWith('/manage-users')) return 'Manage Users';
+    return 'Dashboard';
+  };
 
   const handleLogout = () => {
     logout();
@@ -17,31 +27,61 @@ const Layout: React.FC = () => {
       {/* 1. Left Side Navigation Bar */}
       <nav className="sidebar">
         <div className="sidebar-header">
-          <h2>Smart Attend</h2>
+          <div className="logo-container">
+            <div className="logo-icon">📅</div>
+            <h2>Smart Attend</h2>
+          </div>
         </div>
         <ul className="sidebar-nav">
           <li>
-            <Link to="/dashboard">Dashboard</Link>
-          </li>
-          {/* We'll add these links in future steps */}
-          {/* <li>
-            <Link to="/sessions">Sessions</Link>
+            <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'active' : ''}>
+              <span className="nav-icon">🏠</span>
+              <span className="nav-text">Dashboard</span>
+            </NavLink>
           </li>
           <li>
-            <Link to="/manage-users">Manage Users</Link>
+            <NavLink to="/sessions" className={({ isActive }) => isActive ? 'active' : ''}>
+              <span className="nav-icon">📋</span>
+              <span className="nav-text">Sessions</span>
+            </NavLink>
+          </li>
+          {/* <li>
+            <NavLink to="/manage-users" className={({ isActive }) => isActive ? 'active' : ''}>
+              <span className="nav-icon">👥</span>
+              <span className="nav-text">Manage Users</span>
+            </NavLink>
           </li> */}
         </ul>
+        <div className="sidebar-footer">
+          <div className="user-profile-mini">
+            <div className="user-avatar">
+              {user ? user.profile.firstName[0].toUpperCase() : 'U'}
+            </div>
+            <div className="user-details-mini">
+              <div className="user-name-mini">
+                {user ? `${user.profile.firstName} ${user.profile.lastName}` : 'User'}
+              </div>
+              <div className="user-role-mini">{user?.role || 'Guest'}</div>
+            </div>
+          </div>
+        </div>
       </nav>
 
       {/* 2. Main Content Area */}
       <div className="app-main">
         {/* Top Header Bar */}
         <header className="app-header">
+          <div className="header-left">
+            <h3 className="page-title">{getPageTitle()}</h3>
+          </div>
           <div className="user-info">
-            {/* Show user's email or a default */}
-            <span>{user ? user.email : 'Welcome!'}</span>
+            <div className="user-details">
+              <div className="user-name">{user ? `${user.profile.firstName} ${user.profile.lastName}` : 'Welcome!'}</div>
+              <div className="user-email">{user ? user.email : ''}</div>
+            </div>
             <button onClick={handleLogout} className="logout-button">
-              Logout
+              <span className="logout-icon">🚪</span>
+              <span>Logout</span>
             </button>
           </div>
         </header>

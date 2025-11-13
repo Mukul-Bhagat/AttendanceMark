@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom'; // To redirect after login
 
 const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -10,23 +10,34 @@ const LoginPage: React.FC = () => {
   });
   
   const [error, setError] = useState('');
-  const { login } = useAuth(); // Get the login function from our context
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+  const orgNameInputRef = useRef<HTMLInputElement>(null);
 
   const { organizationName, email, password } = formData;
 
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+  // Auto-focus first input on mount
+  useEffect(() => {
+    orgNameInputRef.current?.focus();
+  }, []);
+
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    // Clear error when user starts typing
+    if (error) setError('');
+  };
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    setIsSubmitting(true);
     
     try {
       // Call the login function from the context
       await login(formData);
       
-      // On success, redirect to a dashboard (we'll create this next)
+      // On success, redirect to dashboard
       navigate('/dashboard'); 
     } catch (err: any) {
       if (err.response && err.response.data) {
@@ -38,8 +49,10 @@ const LoginPage: React.FC = () => {
           setError(err.response.data.msg || 'Login failed');
         }
       } else {
-        setError('Login failed. Server may be down.');
+        setError('Login failed. Please check your connection and try again.');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -51,11 +64,13 @@ const LoginPage: React.FC = () => {
         <div className="form-group">
           <label>Organization Name *</label>
           <input
+            ref={orgNameInputRef}
             type="text"
             name="organizationName"
             value={organizationName}
             onChange={onChange}
             required
+            autoComplete="organization"
           />
         </div>
         <div className="form-group">
@@ -66,6 +81,7 @@ const LoginPage: React.FC = () => {
             value={email}
             onChange={onChange}
             required
+            autoComplete="email"
           />
         </div>
         <div className="form-group">
@@ -76,10 +92,16 @@ const LoginPage: React.FC = () => {
             value={password}
             onChange={onChange}
             required
+            autoComplete="current-password"
           />
         </div>
-        <button type="submit">Login</button>
+        <button type="submit" disabled={isSubmitting || isLoading}>
+          {isSubmitting || isLoading ? 'Logging in...' : 'Login'}
+        </button>
       </form>
+      <p style={{ textAlign: 'center', marginTop: '20px', color: '#6b7280' }}>
+        Don't have an account? <Link to="/register" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}>Register here</Link>
+      </p>
     </div>
   );
 };

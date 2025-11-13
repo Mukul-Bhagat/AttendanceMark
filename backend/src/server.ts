@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import connectDB from './config/db';
 import authRoutes from './routes/authRoutes';
+import userRoutes from './routes/userRoutes';
+import sessionRoutes from './routes/sessionRoutes';
 
 // Load env vars
 dotenv.config();
@@ -18,6 +20,8 @@ app.use(express.json());
 
 // Define Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/sessions', sessionRoutes);
 
 app.get('/', (req, res) => res.send('API Running'));
 
