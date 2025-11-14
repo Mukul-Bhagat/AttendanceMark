@@ -12,6 +12,7 @@ export interface IUser extends Document {
     phone?: string;
   };
   mustResetPassword: boolean;
+  registeredDeviceId?: string; // Device ID for device-locking feature
   matchPassword(enteredPassword: string): Promise<boolean>;
 }
 
@@ -42,6 +43,10 @@ const UserSchema: Schema = new Schema({
   mustResetPassword: {
     type: Boolean,
     default: true,
+  },
+  registeredDeviceId: {
+    type: String,
+    select: false, // Don't return by default, only when explicitly requested
   },
 }, { timestamps: true });
 

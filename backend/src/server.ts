@@ -5,6 +5,7 @@ import connectDB from './config/db';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import sessionRoutes from './routes/sessionRoutes';
+import attendanceRoutes from './routes/attendanceRoutes';
 
 // Load env vars
 dotenv.config();
@@ -22,6 +23,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 app.get('/', (req, res) => res.send('API Running'));
 

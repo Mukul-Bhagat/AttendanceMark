@@ -60,3 +60,53 @@ export const createSession = async (req: Request, res: Response) => {
   }
 };
 
+// @route   GET /api/sessions
+// @desc    Get all sessions for the user's organization
+// @access  Private
+export const getSessions = async (req: Request, res: Response) => {
+  try {
+    const { collectionPrefix } = req.user!;
+
+    // Get the organization-specific Session model
+    const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
+
+    // Find all sessions for this organization, sorted by creation date (newest first)
+    const sessions = await SessionCollection.find()
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json(sessions);
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   GET /api/sessions/:id
+// @desc    Get a single session by its ID
+// @access  Private
+export const getSessionById = async (req: Request, res: Response) => {
+  try {
+    const { collectionPrefix } = req.user!;
+    const { id } = req.params;
+
+    // Get the organization-specific Session model
+    const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
+
+    // Find the session by ID
+    const session = await SessionCollection.findById(id).lean();
+
+    if (!session) {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+
+    res.json(session);
+  } catch (err: any) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+    res.status(500).send('Server error');
+  }
+};
+

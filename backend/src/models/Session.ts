@@ -12,6 +12,11 @@ export interface ISession extends Document {
   locationType: 'Physical' | 'Virtual' | 'Hybrid';
   physicalLocation?: string;
   virtualLocation?: string; // URL for virtual meetings
+  geolocation?: {
+    latitude: number;
+    longitude: number;
+  };
+  radius?: number; // Radius in meters for geolocation check
   assignedUsers: Array<{
     userId: string;
     email: string;
@@ -64,6 +69,14 @@ const SessionSchema: Schema = new Schema({
   },
   virtualLocation: {
     type: String,
+  },
+  geolocation: {
+    latitude: { type: Number },
+    longitude: { type: Number },
+  },
+  radius: {
+    type: Number, // Radius in meters
+    default: 100, // Default 100 meters
   },
   assignedUsers: [{
     userId: {

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { createSession } from '../controllers/sessionController';
+import { createSession, getSessions, getSessionById } from '../controllers/sessionController';
 
 const router = Router();
 
@@ -21,6 +21,16 @@ router.post(
   ],
   createSession
 );
+
+// @route   GET /api/sessions
+// @desc    Get all sessions for the user's organization
+// @access  Private
+router.get('/', protect, getSessions);
+
+// @route   GET /api/sessions/:id
+// @desc    Get a single session by its ID
+// @access  Private
+router.get('/:id', protect, getSessionById);
 
 export default router;
 

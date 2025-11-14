@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
 import CreateSession from './pages/CreateSession';
+import SessionDetails from './pages/SessionDetails';
+import ScanQR from './pages/ScanQR';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
@@ -57,6 +59,8 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/sessions/create" element={<CreateSession />} />
+            <Route path="/sessions/:id" element={<SessionDetails />} />
+            <Route path="/scan" element={<ScanQR />} />
             {/* <Route path="/manage-users" element={<ManageUsers />} /> */}
           </Route>
         </Route>

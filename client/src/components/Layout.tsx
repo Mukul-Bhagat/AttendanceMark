@@ -13,6 +13,7 @@ const Layout: React.FC = () => {
     const path = location.pathname;
     if (path === '/dashboard') return 'Dashboard';
     if (path.startsWith('/sessions')) return 'Sessions';
+    if (path === '/scan') return 'Scan QR Code';
     if (path.startsWith('/manage-users')) return 'Manage Users';
     return 'Dashboard';
   };
@@ -43,6 +44,12 @@ const Layout: React.FC = () => {
             <NavLink to="/sessions" className={({ isActive }) => isActive ? 'active' : ''}>
               <span className="nav-icon">📋</span>
               <span className="nav-text">Sessions</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/scan" className={({ isActive }) => isActive ? 'active' : ''}>
+              <span className="nav-icon">📷</span>
+              <span className="nav-text">Scan QR</span>
             </NavLink>
           </li>
           {/* <li>
