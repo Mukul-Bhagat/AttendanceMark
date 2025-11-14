@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ISession } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import './Sessions.css';
 
 const Sessions: React.FC = () => {
   const navigate = useNavigate();
+  const { isSuperAdmin, isCompanyAdmin, isManager } = useAuth();
   const [sessions, setSessions] = useState<ISession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Only SuperAdmin, CompanyAdmin, and Manager can create sessions
+  const canCreateSession = isSuperAdmin || isCompanyAdmin || isManager;
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -61,9 +66,11 @@ const Sessions: React.FC = () => {
       <div className="sessions-page">
         <div className="sessions-header">
           <h1>Sessions</h1>
-          <Link to="/sessions/create" className="btn-primary create-session-link">
-            + Create New Session
-          </Link>
+          {canCreateSession && (
+            <Link to="/sessions/create" className="btn-primary create-session-link">
+              + Create New Session
+            </Link>
+          )}
         </div>
         <div className="sessions-loading">
           <div className="loading-spinner-inline">
@@ -80,9 +87,11 @@ const Sessions: React.FC = () => {
       <div className="sessions-page">
         <div className="sessions-header">
           <h1>Sessions</h1>
-          <Link to="/sessions/create" className="btn-primary create-session-link">
-            + Create New Session
-          </Link>
+          {canCreateSession && (
+            <Link to="/sessions/create" className="btn-primary create-session-link">
+              + Create New Session
+            </Link>
+          )}
         </div>
         <div className="sessions-placeholder">
           <p className="error-message">{error}</p>
@@ -95,9 +104,11 @@ const Sessions: React.FC = () => {
     <div className="sessions-page">
       <div className="sessions-header">
         <h1>Sessions</h1>
-        <Link to="/sessions/create" className="btn-primary create-session-link">
-          + Create New Session
-        </Link>
+        {canCreateSession && (
+          <Link to="/sessions/create" className="btn-primary create-session-link">
+            + Create New Session
+          </Link>
+        )}
       </div>
 
       {sessions.length === 0 ? (

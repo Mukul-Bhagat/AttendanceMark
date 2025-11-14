@@ -3,8 +3,14 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 
-const ProtectedRoute: React.FC = () => {
-  const { token, isLoading } = useAuth();
+type UserRole = 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'EndUser';
+
+interface ProtectedRouteProps {
+  allowedRoles?: UserRole[];
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
+  const { token, isLoading, user } = useAuth();
 
   // Show a loading spinner while context is checking for a token
   if (isLoading) {
@@ -16,7 +22,15 @@ const ProtectedRoute: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // If there is a token, show the child component (which will be our Layout)
+  // If allowedRoles is specified, check if user's role is in the allowed list
+  if (allowedRoles && allowedRoles.length > 0) {
+    if (!user || !allowedRoles.includes(user.role as UserRole)) {
+      // User doesn't have the required role, redirect to dashboard
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
+  // If there is a token and role check passes, show the child component
   // The <Outlet> renders the *nested* routes (e.g., /dashboard)
   return <Outlet />;
 };

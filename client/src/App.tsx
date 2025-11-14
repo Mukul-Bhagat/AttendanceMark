@@ -57,19 +57,36 @@ function App() {
         {/* Protected Routes - Wrapped in ProtectedRoute and Layout */}
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
+            {/* Routes accessible to all authenticated users */}
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/sessions" element={<Sessions />} />
-            <Route path="/sessions/create" element={<CreateSession />} />
             <Route path="/sessions/:id" element={<SessionDetails />} />
             <Route path="/scan" element={<ScanQR />} />
             <Route path="/my-attendance" element={<MyAttendance />} />
-            {/* <Route path="/manage-users" element={<ManageUsers />} /> */}
           </Route>
         </Route>
+        
+        {/* Routes restricted to SuperAdmin, CompanyAdmin, and Manager */}
+        <Route 
+          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager']} />}
+        >
+          <Route element={<Layout />}>
+            <Route path="/sessions/create" element={<CreateSession />} />
+          </Route>
+        </Route>
+        
+        {/* <Route 
+          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin']} />}
+        >
+          <Route element={<Layout />}>
+            <Route path="/manage-users" element={<ManageUsers />} />
+          </Route>
+        </Route> */}
       </Routes>
     </div>
   )
 }
 
 export default App
+
 

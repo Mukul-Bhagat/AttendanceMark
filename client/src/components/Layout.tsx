@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './Layout.css';
 
 const Layout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isEndUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,30 +41,50 @@ const Layout: React.FC = () => {
               <span className="nav-text">Dashboard</span>
             </NavLink>
           </li>
+          
+          {/* Sessions - visible to all authenticated users */}
           <li>
             <NavLink to="/sessions" className={({ isActive }) => isActive ? 'active' : ''}>
               <span className="nav-icon">📋</span>
               <span className="nav-text">Sessions</span>
             </NavLink>
           </li>
+          
+          {/* Create Session - only for SuperAdmin, CompanyAdmin, and Manager */}
+          {(isSuperAdmin || isCompanyAdmin || isManager) && (
+            <li>
+              <NavLink to="/sessions/create" className={({ isActive }) => isActive ? 'active' : ''}>
+                <span className="nav-icon">➕</span>
+                <span className="nav-text">Create Session</span>
+              </NavLink>
+            </li>
+          )}
+          
+          {/* Scan QR - visible to all authenticated users */}
           <li>
             <NavLink to="/scan" className={({ isActive }) => isActive ? 'active' : ''}>
               <span className="nav-icon">📷</span>
               <span className="nav-text">Scan QR</span>
             </NavLink>
           </li>
+          
+          {/* My Attendance - visible to all authenticated users */}
           <li>
             <NavLink to="/my-attendance" className={({ isActive }) => isActive ? 'active' : ''}>
               <span className="nav-icon">📊</span>
               <span className="nav-text">My Attendance</span>
             </NavLink>
           </li>
-          {/* <li>
-            <NavLink to="/manage-users" className={({ isActive }) => isActive ? 'active' : ''}>
-              <span className="nav-icon">👥</span>
-              <span className="nav-text">Manage Users</span>
-            </NavLink>
-          </li> */}
+          
+          {/* Manage Users - only for SuperAdmin and CompanyAdmin */}
+          {(isSuperAdmin || isCompanyAdmin) && (
+            <li>
+              <NavLink to="/manage-users" className={({ isActive }) => isActive ? 'active' : ''}>
+                <span className="nav-icon">👥</span>
+                <span className="nav-text">Manage Users</span>
+              </NavLink>
+            </li>
+          )}
         </ul>
         <div className="sidebar-footer">
           <div className="user-profile-mini">

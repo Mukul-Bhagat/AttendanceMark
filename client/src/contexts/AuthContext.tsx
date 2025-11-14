@@ -2,10 +2,10 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import axios from 'axios';
 
 // Define the shape of the user object and the auth context
-interface IUser {
+export interface IUser {
   id: string;
   email: string;
-  role: string;
+  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'EndUser';
   profile: {
     firstName: string;
     lastName: string;
@@ -20,6 +20,11 @@ interface IAuthContext {
   isLoading: boolean;
   login: (formData: any) => Promise<void>;
   logout: () => void;
+  // Role helper booleans
+  isSuperAdmin: boolean;
+  isCompanyAdmin: boolean;
+  isManager: boolean;
+  isEndUser: boolean;
 }
 
 // Create the context
@@ -30,6 +35,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<IUser | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [isLoading, setIsLoading] = useState(true); // Start as true to check token on mount
+
+  // Derived role states - helper booleans for easy role checking
+  const isSuperAdmin = user?.role === 'SuperAdmin';
+  const isCompanyAdmin = user?.role === 'CompanyAdmin';
+  const isManager = user?.role === 'Manager';
+  const isEndUser = user?.role === 'EndUser';
 
   // On initial load, try to load user from token
   useEffect(() => {
@@ -83,9 +94,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     delete axios.defaults.headers.common['Authorization'];
   };
 
+  const value = {
+    user,
+    token,
+    isLoading,
+    login,
+    logout,
+    isSuperAdmin,
+    isCompanyAdmin,
+    isManager,
+    isEndUser,
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!isLoading && children}
     </AuthContext.Provider>
   );
 };
