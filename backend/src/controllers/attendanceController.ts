@@ -154,3 +154,55 @@ export const markAttendance = async (req: Request, res: Response) => {
   }
 };
 
+// @route   GET /api/attendance/me
+// @desc    Get all attendance records for the logged-in user with session details
+// @access  Private
+export const getMyAttendance = async (req: Request, res: Response) => {
+  try {
+    const { id: userId, collectionPrefix } = req.user!;
+
+    // Load organization-specific collections
+    const AttendanceCollection = createAttendanceModel(`${collectionPrefix}_attendance`);
+    const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
+
+    // Find all attendance records for this user, sorted by check-in time (newest first)
+    const attendanceRecords = await AttendanceCollection.find({ userId })
+      .sort({ checkInTime: -1 })
+      .lean();
+
+    // Since we're using factory functions, we can't use Mongoose populate()
+    // Instead, we'll manually join the session data
+    const sessionIds = attendanceRecords
+      .map(record => record.sessionId)
+      .filter(id => id); // Filter out any null/undefined IDs
+    
+    let sessions: any[] = [];
+    if (sessionIds.length > 0) {
+      sessions = await SessionCollection.find({
+        _id: { $in: sessionIds }
+      }).lean();
+    }
+
+    // Create a map of sessionId -> session for quick lookup
+    const sessionMap = new Map();
+    sessions.forEach(session => {
+      sessionMap.set(session._id.toString(), session);
+    });
+
+    // Combine attendance records with session data
+    const recordsWithSessions = attendanceRecords.map(record => {
+      const sessionIdStr = record.sessionId?.toString() || '';
+      const session = sessionMap.get(sessionIdStr);
+      return {
+        ...record,
+        sessionId: session || null, // Include full session data or null if deleted
+      };
+    });
+
+    res.json(recordsWithSessions);
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+};
+

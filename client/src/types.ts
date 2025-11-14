@@ -11,6 +11,11 @@ export interface ISession {
   locationType: 'Physical' | 'Virtual' | 'Hybrid';
   physicalLocation?: string;
   virtualLocation?: string;
+  geolocation?: {
+    latitude: number;
+    longitude: number;
+  };
+  radius?: number;
   assignedUsers: Array<{
     userId: string;
     email: string;
@@ -20,6 +25,22 @@ export interface ISession {
   weeklyDays?: string[];
   createdBy: string;
   organizationPrefix: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// My Attendance Record interface (attendance with populated session)
+export interface IMyAttendanceRecord {
+  _id: string;
+  userId: string;
+  sessionId: ISession | null; // Full session object or null if session was deleted
+  checkInTime: string; // ISO date string
+  locationVerified: boolean;
+  userLocation: {
+    latitude: number;
+    longitude: number;
+  };
+  deviceId: string;
   createdAt: string;
   updatedAt: string;
 }

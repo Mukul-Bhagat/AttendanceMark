@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { markAttendance } from '../controllers/attendanceController';
+import { markAttendance, getMyAttendance } from '../controllers/attendanceController';
 
 const router = Router();
 
@@ -19,6 +19,11 @@ router.post(
   ],
   markAttendance
 );
+
+// @route   GET /api/attendance/me
+// @desc    Get all attendance records for the logged-in user
+// @access  Private
+router.get('/me', protect, getMyAttendance);
 
 export default router;
 
