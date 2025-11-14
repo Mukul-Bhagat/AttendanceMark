@@ -23,6 +23,7 @@ export interface ISession {
     lastName: string;
   }>;
   weeklyDays?: string[];
+  sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
   createdBy: string;
   organizationPrefix: string;
   createdAt: string;

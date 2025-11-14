@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, IUser as IAuthUser } from '../contexts/AuthContext';
+import { ISession } from '../types';
 import AddUsersModal from '../components/AddUsersModal';
 import './CreateSession.css';
 
@@ -15,9 +16,10 @@ interface IUser {
   };
 }
 
-const CreateSession: React.FC = () => {
+const EditSession: React.FC = () => {
   const navigate = useNavigate();
-  const { isSuperAdmin } = useAuth();
+  const { id: sessionId } = useParams<{ id: string }>();
+  const { user, isSuperAdmin } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -37,15 +39,71 @@ const CreateSession: React.FC = () => {
   const [sessionAdmins, setSessionAdmins] = useState<IAuthUser[]>([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  // Auto-focus first input on mount
+  // Fetch session data on mount
   useEffect(() => {
-    nameInputRef.current?.focus();
-  }, []);
+    const fetchSession = async () => {
+      if (!sessionId) {
+        setError('Session ID is required');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const { data }: { data: ISession } = await axios.get(
+          `http://localhost:5001/api/sessions/${sessionId}`
+        );
+
+        // Populate form with existing data
+        setFormData({
+          name: data.name,
+          description: data.description || '',
+          frequency: data.frequency,
+          startDate: data.startDate.split('T')[0], // Extract date part from ISO string
+          endDate: data.endDate ? data.endDate.split('T')[0] : '',
+          startTime: data.startTime,
+          endTime: data.endTime,
+          locationType: data.locationType,
+          physicalLocation: data.physicalLocation || '',
+          virtualLocation: data.virtualLocation || '',
+          weeklyDays: data.weeklyDays || [],
+          sessionAdmin: data.sessionAdmin || '',
+        });
+
+        // Set assigned users
+        if (data.assignedUsers && Array.isArray(data.assignedUsers)) {
+          const users: IUser[] = data.assignedUsers.map((u) => ({
+            _id: u.userId,
+            email: u.email,
+            role: '', // Role not included in assignedUsers
+            profile: {
+              firstName: u.firstName,
+              lastName: u.lastName,
+            },
+          }));
+          setAssignedUsers(users);
+        }
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          setError('Session not found');
+        } else if (err.response?.status === 403) {
+          setError('You are not authorized to edit this session');
+        } else {
+          setError('Failed to fetch session data');
+        }
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSession();
+  }, [sessionId]);
 
   // Fetch SessionAdmins if user is SuperAdmin
   useEffect(() => {
@@ -62,6 +120,13 @@ const CreateSession: React.FC = () => {
       fetchSessionAdmins();
     }
   }, [isSuperAdmin]);
+
+  // Auto-focus first input after loading
+  useEffect(() => {
+    if (!isLoading) {
+      nameInputRef.current?.focus();
+    }
+  }, [isLoading]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -108,14 +173,20 @@ const CreateSession: React.FC = () => {
 
     try {
       const sessionData = {
-        ...formData,
+        name: formData.name,
+        description: formData.description || undefined,
+        frequency: formData.frequency,
+        startDate: formData.startDate,
+        endDate: formData.endDate || undefined,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        locationType: formData.locationType,
         assignedUsers: assignedUsers.map(u => ({
           userId: u._id,
           email: u.email,
           firstName: u.profile.firstName,
           lastName: u.profile.lastName,
         })),
-        endDate: formData.endDate || undefined,
         weeklyDays: formData.frequency === 'Weekly' ? formData.weeklyDays : undefined,
         physicalLocation: formData.locationType === 'Physical' || formData.locationType === 'Hybrid' 
           ? formData.physicalLocation 
@@ -126,23 +197,38 @@ const CreateSession: React.FC = () => {
         sessionAdmin: isSuperAdmin && formData.sessionAdmin ? formData.sessionAdmin : undefined,
       };
 
-      await axios.post('http://localhost:5001/api/sessions', sessionData);
+      await axios.put(`http://localhost:5001/api/sessions/${sessionId}`, sessionData);
       navigate('/sessions');
     } catch (err: any) {
-      if (err.response && err.response.data) {
+      if (err.response?.status === 403) {
+        setError('You are not authorized to edit this session');
+      } else if (err.response && err.response.data) {
         if (err.response.data.errors && Array.isArray(err.response.data.errors)) {
           const errorMessages = err.response.data.errors.map((e: any) => e.msg).join(', ');
           setError(errorMessages);
         } else {
-          setError(err.response.data.msg || 'Failed to create session');
+          setError(err.response.data.msg || 'Failed to update session');
         }
       } else {
-        setError('Failed to create session. Please try again.');
+        setError('Failed to update session. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="create-session-form">
+        <div className="sessions-loading">
+          <div className="loading-spinner-inline">
+            <div className="spinner"></div>
+            <p className="loading-text">Loading session data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="create-session-form">
@@ -155,7 +241,7 @@ const CreateSession: React.FC = () => {
         >
           ← Back to Sessions
         </button>
-        <h1>Create New Session</h1>
+        <h1>Edit Session</h1>
       </div>
       {error && <p className="error-message">{error}</p>}
 
@@ -387,7 +473,7 @@ const CreateSession: React.FC = () => {
             Cancel
           </button>
           <button type="submit" disabled={isSubmitting} className="btn-primary create-session-btn">
-            {isSubmitting ? 'Creating Session...' : 'Create Session'}
+            {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
           </button>
         </div>
       </form>
@@ -403,5 +489,5 @@ const CreateSession: React.FC = () => {
   );
 };
 
-export default CreateSession;
+export default EditSession;
 

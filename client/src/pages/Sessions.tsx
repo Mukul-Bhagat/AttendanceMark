@@ -7,13 +7,20 @@ import './Sessions.css';
 
 const Sessions: React.FC = () => {
   const navigate = useNavigate();
-  const { isSuperAdmin, isCompanyAdmin, isManager } = useAuth();
+  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin } = useAuth();
   const [sessions, setSessions] = useState<ISession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Only SuperAdmin, CompanyAdmin, and Manager can create sessions
-  const canCreateSession = isSuperAdmin || isCompanyAdmin || isManager;
+  // SuperAdmin, CompanyAdmin, Manager, and SessionAdmin can create sessions
+  const canCreateSession = isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin;
+  
+  // Check if user can edit a specific session
+  const canEditSession = (session: ISession) => {
+    if (isSuperAdmin) return true; // SuperAdmin can edit any session
+    if (isSessionAdmin && session.sessionAdmin === user?.id) return true; // SessionAdmin can edit their assigned sessions
+    return false;
+  };
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -151,14 +158,27 @@ const Sessions: React.FC = () => {
                   </p>
                 )}
               </div>
-              <div
-                className="btn-secondary view-session-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/sessions/${session._id}`);
-                }}
-              >
-                View Details
+              <div className="session-actions">
+                <div
+                  className="btn-secondary view-session-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/sessions/${session._id}`);
+                  }}
+                >
+                  View Details
+                </div>
+                {canEditSession(session) && (
+                  <div
+                    className="btn-primary edit-session-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/sessions/edit/${session._id}`);
+                    }}
+                  >
+                    Edit
+                  </div>
+                )}
               </div>
             </div>
           ))}

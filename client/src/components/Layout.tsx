@@ -51,8 +51,8 @@ const Layout: React.FC = () => {
             </NavLink>
           </li>
           
-          {/* Create Session - only for SuperAdmin, CompanyAdmin, and Manager */}
-          {(isSuperAdmin || isCompanyAdmin || isManager) && (
+          {/* Create Session - for SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
+          {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin) && (
             <li>
               <NavLink to="/sessions/create" className={({ isActive }) => isActive ? 'active' : ''}>
                 <span className="nav-icon">➕</span>

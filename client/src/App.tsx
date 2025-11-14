@@ -8,6 +8,7 @@ import SessionDetails from './pages/SessionDetails';
 import ScanQR from './pages/ScanQR';
 import MyAttendance from './pages/MyAttendance';
 import ManageStaff from './pages/ManageStaff';
+import EditSession from './pages/EditSession';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
@@ -62,14 +63,15 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/sessions/:id" element={<SessionDetails />} />
+            <Route path="/sessions/edit/:id" element={<EditSession />} />
             <Route path="/scan" element={<ScanQR />} />
             <Route path="/my-attendance" element={<MyAttendance />} />
           </Route>
         </Route>
         
-        {/* Routes restricted to SuperAdmin, CompanyAdmin, and Manager */}
+        {/* Routes restricted to SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
         <Route 
-          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager']} />}
+          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin']} />}
         >
           <Route element={<Layout />}>
             <Route path="/sessions/create" element={<CreateSession />} />

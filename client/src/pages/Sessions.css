@@ -120,11 +120,33 @@
   font-weight: 600;
 }
 
-.view-session-btn {
+.session-actions {
+  display: flex;
+  gap: 10px;
   margin-top: 15px;
+}
+
+.view-session-btn,
+.edit-session-btn {
+  flex: 1;
   text-align: center;
-  width: 100%;
+  padding: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
   pointer-events: auto;
+}
+
+.edit-session-btn {
+  background-color: #007aff;
+  color: #fff;
+  border: none;
+}
+
+.edit-session-btn:hover {
+  background-color: #005ecb;
 }
 
 .sessions-placeholder {
