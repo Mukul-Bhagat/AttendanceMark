@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 export interface IUser extends Document {
   email: string;
   password?: string;
-  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'EndUser';
+  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser';
   profile: {
     firstName: string;
     lastName: string;
@@ -32,7 +32,7 @@ const UserSchema: Schema = new Schema({
   },
   role: {
     type: String,
-    enum: ['SuperAdmin', 'CompanyAdmin', 'Manager', 'EndUser'],
+    enum: ['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin', 'EndUser'],
     required: true,
   },
   profile: {

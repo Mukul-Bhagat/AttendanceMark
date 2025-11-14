@@ -3,7 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 
-type UserRole = 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'EndUser';
+type UserRole = 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser';
 
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[];

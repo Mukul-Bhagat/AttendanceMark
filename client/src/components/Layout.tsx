@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './Layout.css';
 
 const Layout: React.FC = () => {
-  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isEndUser } = useAuth();
+  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -15,6 +15,7 @@ const Layout: React.FC = () => {
     if (path.startsWith('/sessions')) return 'Sessions';
     if (path === '/scan') return 'Scan QR Code';
     if (path === '/my-attendance') return 'My Attendance';
+    if (path === '/manage-staff') return 'Manage Staff';
     if (path.startsWith('/manage-users')) return 'Manage Users';
     return 'Dashboard';
   };
@@ -76,11 +77,21 @@ const Layout: React.FC = () => {
             </NavLink>
           </li>
           
+          {/* Manage Staff - only for SuperAdmin */}
+          {isSuperAdmin && (
+            <li>
+              <NavLink to="/manage-staff" className={({ isActive }) => isActive ? 'active' : ''}>
+                <span className="nav-icon">👥</span>
+                <span className="nav-text">Manage Staff</span>
+              </NavLink>
+            </li>
+          )}
+          
           {/* Manage Users - only for SuperAdmin and CompanyAdmin */}
           {(isSuperAdmin || isCompanyAdmin) && (
             <li>
               <NavLink to="/manage-users" className={({ isActive }) => isActive ? 'active' : ''}>
-                <span className="nav-icon">👥</span>
+                <span className="nav-icon">👤</span>
                 <span className="nav-text">Manage Users</span>
               </NavLink>
             </li>

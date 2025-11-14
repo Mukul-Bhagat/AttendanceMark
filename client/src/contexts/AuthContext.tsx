@@ -5,7 +5,7 @@ import axios from 'axios';
 export interface IUser {
   id: string;
   email: string;
-  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'EndUser';
+  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser';
   profile: {
     firstName: string;
     lastName: string;
@@ -24,6 +24,7 @@ interface IAuthContext {
   isSuperAdmin: boolean;
   isCompanyAdmin: boolean;
   isManager: boolean;
+  isSessionAdmin: boolean;
   isEndUser: boolean;
 }
 
@@ -40,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isSuperAdmin = user?.role === 'SuperAdmin';
   const isCompanyAdmin = user?.role === 'CompanyAdmin';
   const isManager = user?.role === 'Manager';
+  const isSessionAdmin = user?.role === 'SessionAdmin';
   const isEndUser = user?.role === 'EndUser';
 
   // On initial load, try to load user from token
@@ -103,6 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isSuperAdmin,
     isCompanyAdmin,
     isManager,
+    isSessionAdmin,
     isEndUser,
   };
 

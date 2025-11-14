@@ -7,6 +7,7 @@ import CreateSession from './pages/CreateSession';
 import SessionDetails from './pages/SessionDetails';
 import ScanQR from './pages/ScanQR';
 import MyAttendance from './pages/MyAttendance';
+import ManageStaff from './pages/ManageStaff';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
@@ -72,6 +73,15 @@ function App() {
         >
           <Route element={<Layout />}>
             <Route path="/sessions/create" element={<CreateSession />} />
+          </Route>
+        </Route>
+        
+        {/* Routes restricted to SuperAdmin only */}
+        <Route 
+          element={<ProtectedRoute allowedRoles={['SuperAdmin']} />}
+        >
+          <Route element={<Layout />}>
+            <Route path="/manage-staff" element={<ManageStaff />} />
           </Route>
         </Route>
         

@@ -24,6 +24,7 @@ export interface ISession extends Document {
     lastName: string;
   }>;
   weeklyDays?: string[]; // For Weekly frequency: ['Monday', 'Tuesday', etc.]
+  sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
   createdBy: string; // User ID who created the session
   organizationPrefix: string; // To identify which organization this belongs to
 }
@@ -100,6 +101,9 @@ const SessionSchema: Schema = new Schema({
     type: String,
     enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
   }],
+  sessionAdmin: {
+    type: String, // User ID of the SessionAdmin
+  },
   createdBy: {
     type: String,
     required: true,
