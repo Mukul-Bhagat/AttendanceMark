@@ -1,17 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { getOrCreateDeviceId } from '../utils/deviceId';
 import './ScanQR.css';
 
 const ScanQR: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const sessionIdFromUrl = searchParams.get('sessionId');
+  
   const [message, setMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info' | ''>('');
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [sessionInfo, setSessionInfo] = useState<any>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const qrCodeRegionId = 'qr-reader';
+
+  // Fetch session info if sessionId is provided in URL
+  useEffect(() => {
+    const fetchSessionInfo = async () => {
+      if (sessionIdFromUrl) {
+        try {
+          const { data } = await api.get(`/api/sessions/${sessionIdFromUrl}`);
+          setSessionInfo(data);
+        } catch (err) {
+          console.error('Failed to fetch session info:', err);
+        }
+      }
+    };
+
+    fetchSessionInfo();
+  }, [sessionIdFromUrl]);
 
   useEffect(() => {
     // Start scanning when component mounts
@@ -87,8 +108,23 @@ const ScanQR: React.FC = () => {
     }
   };
 
-  const handleScan = (sessionId: string) => {
-    if (isProcessing || !sessionId) return;
+  const handleScan = (scannedSessionId: string) => {
+    if (isProcessing || !scannedSessionId) return;
+
+    // If sessionId was provided in URL, validate that scanned QR matches it
+    if (sessionIdFromUrl && scannedSessionId !== sessionIdFromUrl) {
+      setMessageType('error');
+      setMessage('QR code does not match the selected session. Please scan the correct QR code.');
+      setIsProcessing(false);
+      // Restart scanning
+      setTimeout(() => {
+        startScanning();
+      }, 2000);
+      return;
+    }
+
+    // Use sessionId from URL if available, otherwise use scanned sessionId
+    const sessionId = sessionIdFromUrl || scannedSessionId;
 
     setIsProcessing(true);
     setMessageType('info');
@@ -161,6 +197,15 @@ const ScanQR: React.FC = () => {
   return (
     <div className="scan-qr-container">
       <h2>Scan Session QR Code</h2>
+      {sessionInfo ? (
+        <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#0369a1' }}>{sessionInfo.name}</h3>
+          {sessionInfo.description && <p style={{ margin: '5px 0', color: '#64748b' }}>{sessionInfo.description}</p>}
+          <p style={{ margin: '5px 0', fontSize: '0.9rem', color: '#64748b' }}>
+            <strong>Time:</strong> {sessionInfo.startTime} - {sessionInfo.endTime}
+          </p>
+        </div>
+      ) : null}
       <p>Point your camera at the QR code displayed by your admin.</p>
 
       {/* Show the scanner ONLY if we are not processing and haven't succeeded */}

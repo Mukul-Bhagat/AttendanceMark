@@ -5,7 +5,7 @@ import LoadingSpinner from './LoadingSpinner';
 import './Layout.css';
 
 const Layout: React.FC = () => {
-  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isLoading } = useAuth();
+  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,13 +50,15 @@ const Layout: React.FC = () => {
             </NavLink>
           </li>
           
-          {/* Sessions - visible to all authenticated users */}
-          <li>
-            <NavLink to="/sessions" className={({ isActive }) => isActive ? 'active' : ''}>
-              <span className="nav-icon">📋</span>
-              <span className="nav-text">Sessions</span>
-            </NavLink>
-          </li>
+          {/* Sessions - visible only to Admins (not EndUsers) */}
+          {!isEndUser && (
+            <li>
+              <NavLink to="/sessions" className={({ isActive }) => isActive ? 'active' : ''}>
+                <span className="nav-icon">📋</span>
+                <span className="nav-text">Sessions</span>
+              </NavLink>
+            </li>
+          )}
           
           {/* Create Session - for SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
           {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin) && (
@@ -64,6 +66,16 @@ const Layout: React.FC = () => {
               <NavLink to="/sessions/create" className={({ isActive }) => isActive ? 'active' : ''}>
                 <span className="nav-icon">➕</span>
                 <span className="nav-text">Create Session</span>
+              </NavLink>
+            </li>
+          )}
+          
+          {/* My Sessions - visible only to EndUsers */}
+          {isEndUser && (
+            <li>
+              <NavLink to="/my-sessions" className={({ isActive }) => isActive ? 'active' : ''}>
+                <span className="nav-icon">📋</span>
+                <span className="nav-text">My Sessions</span>
               </NavLink>
             </li>
           )}

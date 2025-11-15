@@ -24,7 +24,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
 
   // CRITICAL: Wait for user data to be loaded before allowing access
   // This prevents race conditions where token exists but user object is still null
-  if (!user) {
+  // Also check that user.profile exists to prevent crashes when accessing user.profile.firstName
+  if (!user || !user.profile) {
     return <LoadingSpinner />;
   }
 
