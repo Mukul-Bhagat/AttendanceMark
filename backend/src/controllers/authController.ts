@@ -181,3 +181,48 @@ export const getMe = async (req: Request, res: Response) => {
   }
 };
 
+// @route   POST /api/auth/force-reset-password
+// @desc    Force password reset - requires old password and new password
+// @access  Private
+export const forceResetPassword = async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { id: userId, collectionPrefix } = req.user!;
+  const { oldPassword, newPassword } = req.body;
+
+  try {
+    // 1. Get the correct user collection
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+
+    // 2. Find the user by their ID - MUST select password since it's select: false by default
+    const user = await UserCollection.findById(userId).select('+password');
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // 3. Verify the old password matches
+    const isMatch = await user.matchPassword(oldPassword);
+    if (!isMatch) {
+      return res.status(401).json({ msg: 'Old password is incorrect' });
+    }
+
+    // 4. Update the password and set mustResetPassword to false
+    user.password = newPassword; // Will be hashed by the pre-save hook
+    user.mustResetPassword = false;
+
+    // 5. Save the user
+    await user.save();
+
+    res.json({
+      msg: 'Password reset successfully. Please log in again with your new password.',
+    });
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+};
+

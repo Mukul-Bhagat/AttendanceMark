@@ -14,6 +14,8 @@ import EditSession from './pages/EditSession';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
+import ForceResetPassword from './components/ForceResetPassword';
+import { useAuth } from './contexts/AuthContext';
 
 // Component to conditionally show navigation only on public routes
 const PublicNav = () => {
@@ -35,8 +37,14 @@ const PublicNav = () => {
 };
 
 function App() {
+  const { user, isLoading } = useAuth();
+  const showForceReset = !isLoading && user?.mustResetPassword === true;
+
   return (
     <div>
+      {/* Force Password Reset Modal - Blocks entire app if mustResetPassword is true */}
+      {showForceReset && <ForceResetPassword />}
+      
       <PublicNav />
       <Routes>
         {/* Public Routes - Redirect to dashboard if already logged in */}

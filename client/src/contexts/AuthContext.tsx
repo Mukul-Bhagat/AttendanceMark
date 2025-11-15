@@ -20,6 +20,7 @@ interface IAuthContext {
   isLoading: boolean;
   login: (formData: any) => Promise<void>;
   logout: () => void;
+  refetchUser: () => Promise<void>;
   // Role helper booleans
   isSuperAdmin: boolean;
   isCompanyAdmin: boolean;
@@ -108,12 +109,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     delete axios.defaults.headers.common['Authorization'];
   };
 
+  // Refetch user data from the backend
+  const refetchUser = async () => {
+    const storedToken = localStorage.getItem('token');
+    if (!storedToken) {
+      return;
+    }
+
+    try {
+      const response = await axios.get('http://localhost:5001/api/auth/me');
+      const { user } = response.data;
+      setUser(user);
+    } catch (err: any) {
+      console.error('Failed to refetch user:', err);
+      // If token is invalid, logout
+      logout();
+    }
+  };
+
   const value = {
     user,
     token,
     isLoading,
     login,
     logout,
+    refetchUser,
     isSuperAdmin,
     isCompanyAdmin,
     isManager,

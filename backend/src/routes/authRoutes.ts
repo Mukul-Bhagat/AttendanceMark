@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { registerSuperAdmin, login, getMe } from '../controllers/authController';
+import { registerSuperAdmin, login, getMe, forceResetPassword } from '../controllers/authController';
 
 const router = Router();
 
@@ -37,6 +37,19 @@ router.post(
 // @desc    Get the logged-in user's data from their token
 // @access  Private
 router.get('/me', protect, getMe);
+
+// @route   POST /api/auth/force-reset-password
+// @desc    Force password reset - requires old password and new password
+// @access  Private
+router.post(
+  '/force-reset-password',
+  protect,
+  [
+    check('oldPassword', 'Old password is required').exists(),
+    check('newPassword', 'New password must be at least 6 characters').isLength({ min: 6 }),
+  ],
+  forceResetPassword
+);
 
 export default router;
 
