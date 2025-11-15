@@ -7,7 +7,9 @@ import CreateSession from './pages/CreateSession';
 import SessionDetails from './pages/SessionDetails';
 import ScanQR from './pages/ScanQR';
 import MyAttendance from './pages/MyAttendance';
+import AttendanceReport from './pages/AttendanceReport';
 import ManageStaff from './pages/ManageStaff';
+import ManageUsers from './pages/ManageUsers';
 import EditSession from './pages/EditSession';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
@@ -69,6 +71,15 @@ function App() {
           </Route>
         </Route>
         
+        {/* Routes restricted to Manager and SuperAdmin */}
+        <Route 
+          element={<ProtectedRoute allowedRoles={['Manager', 'SuperAdmin']} />}
+        >
+          <Route element={<Layout />}>
+            <Route path="/reports" element={<AttendanceReport />} />
+          </Route>
+        </Route>
+        
         {/* Routes restricted to SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
         <Route 
           element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin']} />}
@@ -87,13 +98,14 @@ function App() {
           </Route>
         </Route>
         
-        {/* <Route 
+        {/* Routes restricted to SuperAdmin and CompanyAdmin */}
+        <Route 
           element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin']} />}
         >
           <Route element={<Layout />}>
             <Route path="/manage-users" element={<ManageUsers />} />
           </Route>
-        </Route> */}
+        </Route>
       </Routes>
     </div>
   )

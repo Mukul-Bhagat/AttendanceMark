@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
-import { registerSuperAdmin, login } from '../controllers/authController';
+import { protect } from '../middleware/authMiddleware';
+import { registerSuperAdmin, login, getMe } from '../controllers/authController';
 
 const router = Router();
 
@@ -31,6 +32,11 @@ router.post(
   ],
   login
 );
+
+// @route   GET /api/auth/me
+// @desc    Get the logged-in user's data from their token
+// @access  Private
+router.get('/me', protect, getMe);
 
 export default router;
 

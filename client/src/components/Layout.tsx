@@ -15,6 +15,7 @@ const Layout: React.FC = () => {
     if (path.startsWith('/sessions')) return 'Sessions';
     if (path === '/scan') return 'Scan QR Code';
     if (path === '/my-attendance') return 'My Attendance';
+    if (path === '/reports') return 'Attendance Report';
     if (path === '/manage-staff') return 'Manage Staff';
     if (path.startsWith('/manage-users')) return 'Manage Users';
     return 'Dashboard';
@@ -76,6 +77,16 @@ const Layout: React.FC = () => {
               <span className="nav-text">My Attendance</span>
             </NavLink>
           </li>
+          
+          {/* Attendance Report - for Manager and SuperAdmin */}
+          {(isSuperAdmin || isManager) && (
+            <li>
+              <NavLink to="/reports" className={({ isActive }) => isActive ? 'active' : ''}>
+                <span className="nav-icon">📈</span>
+                <span className="nav-text">Attendance Report</span>
+              </NavLink>
+            </li>
+          )}
           
           {/* Manage Staff - only for SuperAdmin */}
           {isSuperAdmin && (

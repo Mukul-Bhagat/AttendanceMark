@@ -12,8 +12,9 @@ export const getOrganizationUsers = async (req: Request, res: Response) => {
 
     // 2. Find all users in that collection
     // We only select fields the admin needs to see
+    // Include registeredDeviceId explicitly using + prefix (it's marked select: false in schema)
     const users = await UserCollection.find().select(
-      'profile.firstName profile.lastName email role'
+      'profile.firstName profile.lastName profile.phone email role +registeredDeviceId'
     );
 
     res.json(users);
@@ -83,6 +84,100 @@ export const createStaff = async (req: Request, res: Response) => {
     if (err.code === 11000) {
       return res.status(400).json({ msg: 'User with this email already exists' });
     }
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   POST /api/users/end-user
+// @desc    Create a new EndUser
+// @access  Private (SuperAdmin or CompanyAdmin)
+export const createEndUser = async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { collectionPrefix, role: requesterRole } = req.user!;
+
+  // 1. Security Check: Only SuperAdmin or CompanyAdmin can create users
+  if (requesterRole !== 'SuperAdmin' && requesterRole !== 'CompanyAdmin') {
+    return res.status(403).json({ msg: 'Not authorized' });
+  }
+
+  const { email, password, firstName, lastName, phone } = req.body;
+
+  try {
+    // 2. Get the correct User collection
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+
+    // 3. Check if user already exists
+    const existingUser = await UserCollection.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({ msg: 'User with this email already exists' });
+    }
+
+    // 4. Create new EndUser
+    const newEndUser = new UserCollection({
+      email: email.toLowerCase(),
+      password, // Will be hashed by the pre-save hook
+      role: 'EndUser', // Hard-code the role
+      profile: {
+        firstName,
+        lastName,
+        phone: phone || undefined,
+      },
+      mustResetPassword: true,
+    });
+
+    await newEndUser.save();
+
+    // Return user without password
+    const userResponse = await UserCollection.findById(newEndUser._id).select('-password');
+
+    res.status(201).json({
+      msg: 'EndUser created successfully',
+      user: userResponse,
+    });
+  } catch (err: any) {
+    console.error(err.message);
+    if (err.code === 11000) {
+      return res.status(400).json({ msg: 'User with this email already exists' });
+    }
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   PUT /api/users/:userId/reset-device
+// @desc    Reset a user's registered device ID
+// @access  Private (SuperAdmin or CompanyAdmin)
+export const resetDevice = async (req: Request, res: Response) => {
+  const { collectionPrefix, role: requesterRole } = req.user!;
+  const { userId } = req.params;
+
+  // 1. Security Check
+  if (requesterRole !== 'SuperAdmin' && requesterRole !== 'CompanyAdmin') {
+    return res.status(403).json({ msg: 'Not authorized' });
+  }
+
+  try {
+    // 2. Get the User collection
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+
+    // 3. Find the user
+    const user = await UserCollection.findById(userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // 4. Clear the device ID and save
+    user.registeredDeviceId = undefined;
+    await user.save();
+
+    res.json({
+      msg: 'User device has been reset. They can register a new device on their next scan.',
+    });
+  } catch (err: any) {
+    console.error(err.message);
     res.status(500).send('Server error');
   }
 };

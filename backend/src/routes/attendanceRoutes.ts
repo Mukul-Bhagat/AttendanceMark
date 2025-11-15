@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { markAttendance, getMyAttendance } from '../controllers/attendanceController';
+import { markAttendance, getMyAttendance, getSessionAttendance, getUserAttendance } from '../controllers/attendanceController';
 
 const router = Router();
 
@@ -24,6 +24,16 @@ router.post(
 // @desc    Get all attendance records for the logged-in user
 // @access  Private
 router.get('/me', protect, getMyAttendance);
+
+// @route   GET /api/attendance/session/:id
+// @desc    Get all attendance records for a specific session (with user data)
+// @access  Private (Manager, SuperAdmin only)
+router.get('/session/:id', protect, getSessionAttendance);
+
+// @route   GET /api/attendance/user/:id
+// @desc    Get all attendance records for a specific user (with session data)
+// @access  Private (Manager, SuperAdmin only)
+router.get('/user/:id', protect, getUserAttendance);
 
 export default router;
 

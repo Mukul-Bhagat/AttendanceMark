@@ -206,3 +206,157 @@ export const getMyAttendance = async (req: Request, res: Response) => {
   }
 };
 
+// @route   GET /api/attendance/session/:id
+// @desc    Get all attendance records for a specific session (with user data populated)
+// @access  Private (Manager, SuperAdmin only)
+export const getSessionAttendance = async (req: Request, res: Response) => {
+  try {
+    const { collectionPrefix, role: userRole } = req.user!;
+    const { id: sessionId } = req.params;
+
+    // Check if user has permission (Manager or SuperAdmin)
+    if (userRole !== 'Manager' && userRole !== 'SuperAdmin') {
+      return res.status(403).json({ msg: 'Not authorized to view attendance reports' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      return res.status(400).json({ msg: 'Invalid Session ID' });
+    }
+
+    // Load organization-specific collections
+    const AttendanceCollection = createAttendanceModel(`${collectionPrefix}_attendance`);
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
+
+    // Verify session exists
+    const session = await SessionCollection.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+
+    // Find all attendance records for this session, sorted by check-in time
+    const attendanceRecords = await AttendanceCollection.find({ sessionId })
+      .sort({ checkInTime: -1 })
+      .lean();
+
+    // Get user IDs from attendance records
+    const userIds = attendanceRecords
+      .map(record => record.userId)
+      .filter(id => id);
+
+    // Fetch user data
+    let users: any[] = [];
+    if (userIds.length > 0) {
+      users = await UserCollection.find({
+        _id: { $in: userIds }
+      }).select('email profile').lean();
+    }
+
+    // Create a map of userId -> user for quick lookup
+    const userMap = new Map();
+    users.forEach(user => {
+      userMap.set(user._id.toString(), user);
+    });
+
+    // Combine attendance records with user data
+    const recordsWithUsers = attendanceRecords.map(record => {
+      const userIdStr = record.userId?.toString() || '';
+      const user = userMap.get(userIdStr);
+      return {
+        _id: record._id,
+        checkInTime: record.checkInTime,
+        locationVerified: record.locationVerified,
+        userId: user || null, // Include full user data or null if deleted
+      };
+    });
+
+    res.json(recordsWithUsers);
+  } catch (err: any) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   GET /api/attendance/user/:id
+// @desc    Get all attendance records for a specific user (with session data populated)
+// @access  Private (Manager, SuperAdmin only)
+export const getUserAttendance = async (req: Request, res: Response) => {
+  try {
+    const { collectionPrefix, role: userRole } = req.user!;
+    const { id: userId } = req.params;
+
+    // Check if user has permission (Manager or SuperAdmin)
+    if (userRole !== 'Manager' && userRole !== 'SuperAdmin') {
+      return res.status(403).json({ msg: 'Not authorized to view attendance reports' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ msg: 'Invalid User ID' });
+    }
+
+    // Load organization-specific collections
+    const AttendanceCollection = createAttendanceModel(`${collectionPrefix}_attendance`);
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
+
+    // Verify user exists
+    const user = await UserCollection.findById(userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // Find all attendance records for this user, sorted by check-in time (newest first)
+    const attendanceRecords = await AttendanceCollection.find({ userId })
+      .sort({ checkInTime: -1 })
+      .lean();
+
+    // Get session IDs from attendance records
+    const sessionIds = attendanceRecords
+      .map(record => record.sessionId)
+      .filter(id => id);
+
+    // Fetch session data
+    let sessions: any[] = [];
+    if (sessionIds.length > 0) {
+      sessions = await SessionCollection.find({
+        _id: { $in: sessionIds }
+      }).lean();
+    }
+
+    // Create a map of sessionId -> session for quick lookup
+    const sessionMap = new Map();
+    sessions.forEach(session => {
+      sessionMap.set(session._id.toString(), session);
+    });
+
+    // Combine attendance records with session data
+    const recordsWithSessions = attendanceRecords.map(record => {
+      const sessionIdStr = record.sessionId?.toString() || '';
+      const session = sessionMap.get(sessionIdStr);
+      const recordAny = record as any; // Type assertion for timestamps
+      return {
+        _id: record._id,
+        userId: record.userId,
+        sessionId: session || null, // Include full session data or null if deleted
+        checkInTime: record.checkInTime,
+        locationVerified: record.locationVerified,
+        userLocation: record.userLocation,
+        deviceId: record.deviceId,
+        createdAt: recordAny.createdAt,
+        updatedAt: recordAny.updatedAt,
+      };
+    });
+
+    res.json(recordsWithSessions);
+  } catch (err: any) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+    res.status(500).send('Server error');
+  }
+};
+

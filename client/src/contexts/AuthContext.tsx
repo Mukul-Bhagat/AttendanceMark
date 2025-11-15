@@ -53,10 +53,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Set token for axios requests
         axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
         
-        // In a real app, you'd verify the token with a '/api/auth/me' endpoint
-        // For now, we'll just set the token
-        // TODO: Add token verification endpoint in future
-        setToken(storedToken);
+        try {
+          // Verify the token and fetch user data from the backend
+          const response = await axios.get('http://localhost:5001/api/auth/me');
+          const { user } = response.data;
+          
+          // Update state with fetched user data
+          setUser(user);
+          setToken(storedToken);
+        } catch (err: any) {
+          // Token is invalid or expired, clear it
+          console.error('Failed to verify token:', err);
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['Authorization'];
+          setToken(null);
+          setUser(null);
+        }
       }
       
       setIsLoading(false);

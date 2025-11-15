@@ -141,3 +141,43 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+// @route   GET /api/auth/me
+// @desc    Get the logged-in user's data from their token
+// @access  Private
+export const getMe = async (req: Request, res: Response) => {
+  const { id: userId, collectionPrefix } = req.user!;
+
+  try {
+    // 1. Get the correct user collection
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+
+    // 2. Find the user by their ID (from the token)
+    const user = await UserCollection.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // 3. Find the organization name
+    const org = await Organization.findOne({ collectionPrefix });
+    if (!org) {
+      return res.status(404).json({ msg: 'Organization not found' });
+    }
+
+    // 4. Send back the same user object as the login route (plus organization)
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        profile: user.profile,
+        mustResetPassword: user.mustResetPassword,
+        organization: org.name,
+      },
+    });
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+};
+
