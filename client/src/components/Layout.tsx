@@ -1,12 +1,18 @@
 import React from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import LoadingSpinner from './LoadingSpinner';
 import './Layout.css';
 
 const Layout: React.FC = () => {
-  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin } = useAuth();
+  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Safety check: If user data is still loading or not available, show loading
+  if (isLoading || !user || !user.profile) {
+    return <LoadingSpinner />;
+  }
 
   // Get page title based on current route
   const getPageTitle = () => {
@@ -111,11 +117,13 @@ const Layout: React.FC = () => {
         <div className="sidebar-footer">
           <div className="user-profile-mini">
             <div className="user-avatar">
-              {user ? user.profile.firstName[0].toUpperCase() : 'U'}
+              {user?.profile?.firstName?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className="user-details-mini">
               <div className="user-name-mini">
-                {user ? `${user.profile.firstName} ${user.profile.lastName}` : 'User'}
+                {user?.profile?.firstName && user?.profile?.lastName
+                  ? `${user.profile.firstName} ${user.profile.lastName}`
+                  : 'User'}
               </div>
               <div className="user-role-mini">{user?.role || 'Guest'}</div>
             </div>
@@ -132,8 +140,12 @@ const Layout: React.FC = () => {
           </div>
           <div className="user-info">
             <div className="user-details">
-              <div className="user-name">{user ? `${user.profile.firstName} ${user.profile.lastName}` : 'Welcome!'}</div>
-              <div className="user-email">{user ? user.email : ''}</div>
+              <div className="user-name">
+                {user?.profile?.firstName && user?.profile?.lastName
+                  ? `${user.profile.firstName} ${user.profile.lastName}`
+                  : 'Welcome!'}
+              </div>
+              <div className="user-email">{user?.email || ''}</div>
             </div>
             <button onClick={handleLogout} className="logout-button">
               <span className="logout-icon">🚪</span>

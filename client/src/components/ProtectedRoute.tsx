@@ -22,9 +22,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
+  // CRITICAL: Wait for user data to be loaded before allowing access
+  // This prevents race conditions where token exists but user object is still null
+  if (!user) {
+    return <LoadingSpinner />;
+  }
+
   // If allowedRoles is specified, check if user's role is in the allowed list
   if (allowedRoles && allowedRoles.length > 0) {
-    if (!user || !allowedRoles.includes(user.role as UserRole)) {
+    if (!allowedRoles.includes(user.role as UserRole)) {
       // User doesn't have the required role, redirect to dashboard
       return <Navigate to="/dashboard" replace />;
     }

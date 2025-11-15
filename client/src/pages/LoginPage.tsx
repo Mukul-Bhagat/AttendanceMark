@@ -37,6 +37,10 @@ const LoginPage: React.FC = () => {
       // Call the login function from the context
       await login(formData);
       
+      // Wait a brief moment to ensure state has updated before navigating
+      // This prevents race conditions where navigation happens before user state is set
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // On success, redirect to dashboard
       navigate('/dashboard'); 
     } catch (err: any) {
