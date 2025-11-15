@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import axios from 'axios';
+import api from '../api';
 import { getOrCreateDeviceId } from '../utils/deviceId';
 import './ScanQR.css';
 
@@ -47,9 +47,10 @@ const ScanQR: React.FC = () => {
           // QR code detected
           handleScan(decodedText);
         },
-        (errorMessage) => {
+        (_errorMessage) => {
           // Error handling is done in onScanFailure callback
           // We don't need to show every error, just log it
+          // Prefix with underscore to indicate intentionally unused
         }
       );
 
@@ -128,14 +129,11 @@ const ScanQR: React.FC = () => {
   // This function sends all data to our backend
   const markAttendance = async (sessionId: string, userLocation: any, deviceId: string) => {
     try {
-      const { data } = await axios.post(
-        'http://localhost:5001/api/attendance/scan',
-        {
-          sessionId,
-          userLocation,
-          deviceId, // Send the device "fingerprint"
-        }
-      );
+      const { data } = await api.post('/api/attendance/scan', {
+        sessionId,
+        userLocation,
+        deviceId, // Send the device "fingerprint"
+      });
 
       setMessageType('success');
       setMessage(data.msg || 'Attendance marked successfully!');

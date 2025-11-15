@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { IUser } from '../contexts/AuthContext';
+import api from '../api';
 import './ManageUsers.css';
 
 type EndUser = {
@@ -37,7 +36,7 @@ const ManageUsers: React.FC = () => {
     try {
       setIsLoading(true);
       setError('');
-      const { data } = await axios.get('http://localhost:5001/api/users/my-organization');
+      const { data } = await api.get('/api/users/my-organization');
       // Filter for EndUser role only
       const endUsers = data.filter((user: EndUser) => user.role === 'EndUser');
       setUsersList(endUsers);
@@ -94,7 +93,7 @@ const ManageUsers: React.FC = () => {
     };
 
     try {
-      const { data } = await axios.post('http://localhost:5001/api/users/end-user', userData);
+      const { data } = await api.post('/api/users/end-user', userData);
       
       setMessage(data.msg || 'EndUser created successfully');
       clearForm();
@@ -125,9 +124,7 @@ const ManageUsers: React.FC = () => {
     setMessage('');
 
     try {
-      const { data } = await axios.put(
-        `http://localhost:5001/api/users/${userId}/reset-device`
-      );
+      const { data } = await api.put(`/api/users/${userId}/reset-device`);
       
       setMessage(data.msg || 'Device reset successfully');
       // Refresh the list to show updated device status

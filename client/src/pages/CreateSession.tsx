@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, IUser as IAuthUser } from '../contexts/AuthContext';
 import AddUsersModal from '../components/AddUsersModal';
@@ -52,7 +52,7 @@ const CreateSession: React.FC = () => {
     if (isSuperAdmin) {
       const fetchSessionAdmins = async () => {
         try {
-          const { data } = await axios.get('http://localhost:5001/api/users/my-organization');
+          const { data } = await api.get('/api/users/my-organization');
           const admins = data.filter((u: IAuthUser) => u.role === 'SessionAdmin');
           setSessionAdmins(admins);
         } catch (err) {
@@ -126,7 +126,7 @@ const CreateSession: React.FC = () => {
         sessionAdmin: isSuperAdmin && formData.sessionAdmin ? formData.sessionAdmin : undefined,
       };
 
-      await axios.post('http://localhost:5001/api/sessions', sessionData);
+      await api.post('/api/sessions', sessionData);
       navigate('/sessions');
     } catch (err: any) {
       if (err.response && err.response.data) {

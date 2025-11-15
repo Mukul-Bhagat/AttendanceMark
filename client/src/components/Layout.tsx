@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import './Layout.css';
 
 const Layout: React.FC = () => {
-  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser } = useAuth();
+  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 

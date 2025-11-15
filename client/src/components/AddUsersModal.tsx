@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../api';
 import './AddUsersModal.css';
 
 // Define the User shape
@@ -33,7 +33,7 @@ const AddUsersModal: React.FC<IProps> = ({ onClose, onSave, initialSelectedUsers
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const { data } = await axios.get('http://localhost:5001/api/users/my-organization');
+        const { data } = await api.get('/api/users/my-organization');
         setAllUsers(data);
         if (data.length === 0) {
           setError('No users found in your organization');

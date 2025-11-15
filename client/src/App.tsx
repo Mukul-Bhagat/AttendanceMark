@@ -1,6 +1,8 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import RegisterSuperAdmin from './pages/RegisterSuperAdmin';
 import LoginPage from './pages/LoginPage';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
 import CreateSession from './pages/CreateSession';
@@ -61,6 +63,22 @@ function App() {
           element={
             <PublicRoute>
               <LoginPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/forgot-password" 
+          element={
+            <PublicRoute>
+              <ForgotPassword />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/reset-password/:collectionPrefix/:token" 
+          element={
+            <PublicRoute>
+              <ResetPassword />
             </PublicRoute>
           } 
         />

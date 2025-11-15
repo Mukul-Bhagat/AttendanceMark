@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, IUser as IAuthUser } from '../contexts/AuthContext';
 import { ISession } from '../types';
@@ -19,7 +19,7 @@ interface IUser {
 const EditSession: React.FC = () => {
   const navigate = useNavigate();
   const { id: sessionId } = useParams<{ id: string }>();
-  const { user, isSuperAdmin } = useAuth();
+  const { isSuperAdmin } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -55,9 +55,7 @@ const EditSession: React.FC = () => {
       }
 
       try {
-        const { data }: { data: ISession } = await axios.get(
-          `http://localhost:5001/api/sessions/${sessionId}`
-        );
+        const { data }: { data: ISession } = await api.get(`/api/sessions/${sessionId}`);
 
         // Populate form with existing data
         setFormData({
@@ -110,7 +108,7 @@ const EditSession: React.FC = () => {
     if (isSuperAdmin) {
       const fetchSessionAdmins = async () => {
         try {
-          const { data } = await axios.get('http://localhost:5001/api/users/my-organization');
+          const { data } = await api.get('/api/users/my-organization');
           const admins = data.filter((u: IAuthUser) => u.role === 'SessionAdmin');
           setSessionAdmins(admins);
         } catch (err) {
@@ -197,7 +195,7 @@ const EditSession: React.FC = () => {
         sessionAdmin: isSuperAdmin && formData.sessionAdmin ? formData.sessionAdmin : undefined,
       };
 
-      await axios.put(`http://localhost:5001/api/sessions/${sessionId}`, sessionData);
+      await api.put(`/api/sessions/${sessionId}`, sessionData);
       navigate('/sessions');
     } catch (err: any) {
       if (err.response?.status === 403) {

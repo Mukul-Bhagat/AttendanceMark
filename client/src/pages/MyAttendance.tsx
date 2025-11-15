@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { IMyAttendanceRecord } from '../types';
 import './MyAttendance.css';
 
@@ -12,7 +12,7 @@ const MyAttendance: React.FC = () => {
     const fetchMyAttendance = async () => {
       try {
         // Call the new endpoint we just created
-        const { data } = await axios.get('http://localhost:5001/api/attendance/me');
+        const { data } = await api.get('/api/attendance/me');
         setRecords(data || []);
       } catch (err: any) {
         if (err.response?.status === 401) {

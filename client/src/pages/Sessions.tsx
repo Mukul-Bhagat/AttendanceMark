@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import { ISession } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import './Sessions.css';
@@ -25,7 +25,7 @@ const Sessions: React.FC = () => {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const { data } = await axios.get('http://localhost:5001/api/sessions');
+        const { data } = await api.get('/api/sessions');
         setSessions(data || []);
       } catch (err: any) {
         if (err.response?.status === 401) {

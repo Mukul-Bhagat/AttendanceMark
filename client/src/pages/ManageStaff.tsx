@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { IUser } from '../contexts/AuthContext';
+import api from '../api';
 import './ManageStaff.css';
 
 type StaffUser = {
@@ -36,7 +35,7 @@ const ManageStaff: React.FC = () => {
     try {
       setIsLoading(true);
       setError(''); // Clear any previous errors
-      const { data } = await axios.get('http://localhost:5001/api/users/my-organization');
+      const { data } = await api.get('/api/users/my-organization');
       // Filter for staff roles (Manager and SessionAdmin)
       const staff = data.filter(
         (user: StaffUser) => user.role === 'SessionAdmin' || user.role === 'Manager'
@@ -98,7 +97,7 @@ const ManageStaff: React.FC = () => {
 
     try {
       // Use the API endpoint from Step 11
-      const { data } = await axios.post('http://localhost:5001/api/users/staff', staffData);
+      const { data } = await api.post('/api/users/staff', staffData);
       
       setMessage(data.msg || `${role} created successfully`);
       clearForm();

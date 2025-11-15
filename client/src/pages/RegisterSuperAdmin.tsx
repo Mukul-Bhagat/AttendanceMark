@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 
 // This is the component for our /register route
 const RegisterSuperAdmin: React.FC = () => {
@@ -40,10 +40,7 @@ const RegisterSuperAdmin: React.FC = () => {
 
     try {
       // This is the API endpoint from Step 1
-      const response = await axios.post(
-        'http://localhost:5001/api/auth/register-super-admin',
-        formData
-      );
+      const response = await api.post('/api/auth/register-super-admin', formData);
 
       setMessage(`${response.data.msg} Redirecting to login...`); // Show success message
       setFormData({ // Clear the form

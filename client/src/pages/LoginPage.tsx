@@ -98,6 +98,13 @@ const LoginPage: React.FC = () => {
         <button type="submit" disabled={isSubmitting || isLoading}>
           {isSubmitting || isLoading ? 'Logging in...' : 'Login'}
         </button>
+
+        {/* Forgot Password Link */}
+        <div style={{ textAlign: 'center', marginTop: '15px' }}>
+          <Link to="/forgot-password" style={{ color: '#3b82f6', textDecoration: 'none', fontSize: '0.95rem' }}>
+            Forgot Password?
+          </Link>
+        </div>
       </form>
       <p style={{ textAlign: 'center', marginTop: '20px', color: '#6b7280' }}>
         Don't have an account? <Link to="/register" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 600 }}>Register here</Link>

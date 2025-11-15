@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import axios from 'axios';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import api from '../api';
 
 // Define the shape of the user object and the auth context
 export interface IUser {
@@ -51,12 +51,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const storedToken = localStorage.getItem('token');
       
       if (storedToken) {
-        // Set token for axios requests
-        axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
-        
         try {
           // Verify the token and fetch user data from the backend
-          const response = await axios.get('http://localhost:5001/api/auth/me');
+          const response = await api.get('/api/auth/me');
           const { user } = response.data;
           
           // Update state with fetched user data
@@ -66,7 +63,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Token is invalid or expired, clear it
           console.error('Failed to verify token:', err);
           localStorage.removeItem('token');
-          delete axios.defaults.headers.common['Authorization'];
           setToken(null);
           setUser(null);
         }
@@ -82,10 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (formData: any) => {
     setIsLoading(true);
     // This hits the API endpoint from Step 2
-    const response = await axios.post(
-      'http://localhost:5001/api/auth/login',
-      formData
-    );
+    const response = await api.post('/api/auth/login', formData);
     
     // Get token and user from response
     const { token, user } = response.data;
@@ -93,9 +86,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(token);
     setUser(user);
     localStorage.setItem('token', token);
-    
-    // Set token for all future axios requests
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     
     setIsLoading(false);
   };
@@ -106,7 +96,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
   };
 
   // Refetch user data from the backend
@@ -117,7 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const response = await axios.get('http://localhost:5001/api/auth/me');
+      const response = await api.get('/api/auth/me');
       const { user } = response.data;
       setUser(user);
     } catch (err: any) {

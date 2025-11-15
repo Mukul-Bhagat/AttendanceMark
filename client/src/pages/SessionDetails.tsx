@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useParams, Link } from 'react-router-dom';
 import { ISession } from '../types';
 import { QRCodeSVG } from 'qrcode.react';
@@ -20,9 +20,7 @@ const SessionDetails: React.FC = () => {
       }
 
       try {
-        const { data } = await axios.get(
-          `http://localhost:5001/api/sessions/${id}`
-        );
+        const { data } = await api.get(`/api/sessions/${id}`);
         setSession(data);
       } catch (err: any) {
         if (err.response?.status === 401) {

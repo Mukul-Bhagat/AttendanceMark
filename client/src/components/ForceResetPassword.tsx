@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import './ForceResetPassword.css';
 
@@ -23,10 +23,7 @@ const ForceResetPassword: React.FC = () => {
 
     try {
       // 1. Call the new API endpoint
-      const { data } = await axios.post(
-        'http://localhost:5001/api/auth/force-reset-password',
-        { oldPassword, newPassword }
-      );
+      const { data } = await api.post('/api/auth/force-reset-password', { oldPassword, newPassword });
       
       setMessage(data.msg + ' You will be logged out in 3 seconds.');
       

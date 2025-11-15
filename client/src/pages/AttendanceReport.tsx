@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { ISession, IMyAttendanceRecord } from '../types';
 import { IUser } from '../contexts/AuthContext';
 import './MyAttendance.css';
@@ -47,8 +47,8 @@ const AttendanceReport: React.FC = () => {
       try {
         // Fetch sessions and users in parallel
         const [sessionRes, userRes] = await Promise.all([
-          axios.get('http://localhost:5001/api/sessions'),
-          axios.get('http://localhost:5001/api/users/my-organization')
+          api.get('/api/sessions'),
+          api.get('/api/users/my-organization')
         ]);
         setAllSessions(sessionRes.data || []);
         setAllUsers(userRes.data || []);
@@ -75,14 +75,10 @@ const AttendanceReport: React.FC = () => {
 
     try {
       if (filterType === 'session' && selectedSession) {
-        const { data } = await axios.get(
-          `http://localhost:5001/api/attendance/session/${selectedSession}`
-        );
+        const { data } = await api.get(`/api/attendance/session/${selectedSession}`);
         setSessionReport(data || []);
       } else if (filterType === 'user' && selectedUser) {
-        const { data } = await axios.get(
-          `http://localhost:5001/api/attendance/user/${selectedUser}`
-        );
+        const { data } = await api.get(`/api/attendance/user/${selectedUser}`);
         setUserReport(data || []);
       } else {
         setError('Please select a session or user.');
