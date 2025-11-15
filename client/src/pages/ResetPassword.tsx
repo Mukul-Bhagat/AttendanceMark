@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../api';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 
 const ResetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
