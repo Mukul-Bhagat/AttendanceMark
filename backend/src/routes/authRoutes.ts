@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { registerSuperAdmin, login, getMe, forceResetPassword } from '../controllers/authController';
+import { registerSuperAdmin, login, getMe, forceResetPassword, forgotPassword, resetPassword } from '../controllers/authController';
 
 const router = Router();
 
@@ -49,6 +49,29 @@ router.post(
     check('newPassword', 'New password must be at least 6 characters').isLength({ min: 6 }),
   ],
   forceResetPassword
+);
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send password reset email
+// @access  Public
+router.post(
+  '/forgot-password',
+  [
+    check('organizationName', 'Organization name is required').not().isEmpty(),
+    check('email', 'Please include a valid email').isEmail(),
+  ],
+  forgotPassword
+);
+
+// @route   PUT /api/auth/reset-password/:collectionPrefix/:resetToken
+// @desc    Reset password with token
+// @access  Public
+router.put(
+  '/reset-password/:collectionPrefix/:resetToken',
+  [
+    check('newPassword', 'New password must be at least 6 characters').isLength({ min: 6 }),
+  ],
+  resetPassword
 );
 
 export default router;

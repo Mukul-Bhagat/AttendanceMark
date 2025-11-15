@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import Organization from '../models/Organization';
 import createUserModel from '../models/User'; // Import the factory
+import { sendEmail } from '../utils/email';
 
 // Utility to create a safe collection name
 const createCollectionPrefix = (name: string): string => {
@@ -219,6 +221,130 @@ export const forceResetPassword = async (req: Request, res: Response) => {
 
     res.json({
       msg: 'Password reset successfully. Please log in again with your new password.',
+    });
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send password reset email
+// @access  Public
+export const forgotPassword = async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { organizationName, email } = req.body;
+
+  try {
+    // 1. Find the organization in the MASTER list to get the collectionPrefix
+    const org = await Organization.findOne({ name: organizationName });
+    if (!org) {
+      // Don't reveal that the organization doesn't exist (security best practice)
+      return res.json({
+        msg: 'If that email exists in our system, you will receive a password reset link.',
+      });
+    }
+
+    // 2. Get the correct user collection
+    const UserCollection = createUserModel(`${org.collectionPrefix}_users`);
+
+    // 3. Find the user by email - MUST select reset token fields
+    const user = await UserCollection.findOne({ email }).select('+resetPasswordToken +resetPasswordExpire');
+
+    if (!user) {
+      // Don't reveal that the email doesn't exist (security best practice)
+      return res.json({
+        msg: 'If that email exists in our system, you will receive a password reset link.',
+      });
+    }
+
+    // 4. Generate reset token
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+
+    // 5. Create reset URL
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password/${org.collectionPrefix}/${resetToken}`;
+
+    // 6. Create message
+    const message = `
+      <h2>You have requested a password reset</h2>
+      <p>Please click on the following link to reset your password:</p>
+      <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #007aff; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
+      <p>This link will expire in 10 minutes.</p>
+      <p>If you did not request this, please ignore this email.</p>
+      <p>If the button doesn't work, copy and paste this link into your browser:</p>
+      <p>${resetUrl}</p>
+    `;
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Password Reset Request - Smart Attend',
+        text: `You have requested a password reset. Please visit the following link: ${resetUrl}`,
+        html: message,
+      });
+
+      res.json({
+        msg: 'If that email exists in our system, you will receive a password reset link.',
+      });
+    } catch (err: any) {
+      console.error(err);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({ msg: 'Email could not be sent' });
+    }
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   PUT /api/auth/reset-password/:collectionPrefix/:resetToken
+// @desc    Reset password with token
+// @access  Public
+export const resetPassword = async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { collectionPrefix, resetToken } = req.params;
+  const { newPassword } = req.body;
+
+  try {
+    // 1. Hash the token from the URL to compare with the stored hash
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // 2. Get the correct user collection
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+
+    // 3. Find user with matching token that hasn't expired
+    const user = await UserCollection.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    }).select('+resetPasswordToken +resetPasswordExpire');
+
+    if (!user) {
+      return res.status(400).json({ msg: 'Invalid or expired reset token' });
+    }
+
+    // 4. Set new password
+    user.password = newPassword; // Will be hashed by the pre-save hook
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    user.mustResetPassword = false; // Also clear the force reset flag
+
+    // 5. Save the user
+    await user.save();
+
+    res.json({
+      msg: 'Password reset successful. You can now log in with your new password.',
     });
   } catch (err: any) {
     console.error(err.message);
