@@ -16,26 +16,11 @@ connectDB();
 const app = express();
 
 // Middleware
-// Configure CORS to explicitly allow your frontend origins
-const allowedOrigins = [
-  process.env.FRONTEND_URL || '', // e.g. https://attend-mark.netlify.app
-  'http://localhost:5173',        // local Vite dev
-];
-
+// Relaxed CORS for now: echo back the request origin.
+// This will allow requests from Netlify, localhost, etc.
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow non-browser requests (like Postman) with no origin
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error(`Not allowed by CORS: ${origin}`));
-    },
+    origin: true,
   })
 );
 app.use(express.json());
