@@ -11,6 +11,7 @@ const LoginPage: React.FC = () => {
   
   const [error, setError] = useState('');
   const [showError, setShowError] = useState(false); // Separate flag to control visibility
+  const [renderKey, setRenderKey] = useState(0); // Force re-render when error is set
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -98,23 +99,35 @@ const LoginPage: React.FC = () => {
       
       console.log('Setting error message to:', errorMessage); // Debug log
       
-      // Store in ref for persistence
+      // Store in ref FIRST - this persists across renders
       errorRef.current = errorMessage;
+      console.log('Stored in ref:', errorRef.current);
       
-      // Set error state AND show error flag
+      // CRITICAL: Set error state, showError flag, and increment renderKey to force re-render
       setError(errorMessage);
-      setShowError(true); // Force show the error
+      setShowError(true);
+      setRenderKey(prev => prev + 1); // Force re-render
       
-      console.log('Error set, showError flag set to true');
+      console.log('Error set, showError flag set to true, renderKey incremented');
       
-      // Force a re-render to ensure error displays
+      // Force additional re-renders to ensure error displays
       setTimeout(() => {
-        console.log('Re-checking error. Ref:', errorRef.current, 'State:', error);
+        console.log('First re-render check. Ref:', errorRef.current);
         if (errorRef.current) {
           setError(errorRef.current);
           setShowError(true);
+          setRenderKey(prev => prev + 1);
         }
-      }, 10);
+      }, 0);
+      
+      setTimeout(() => {
+        console.log('Second re-render check. Ref:', errorRef.current);
+        if (errorRef.current) {
+          setError(errorRef.current);
+          setShowError(true);
+          setRenderKey(prev => prev + 1);
+        }
+      }, 50);
     } finally {
       setIsSubmitting(false);
     }
@@ -128,8 +141,9 @@ const LoginPage: React.FC = () => {
   return (
     <div className="form-container">
       <h1>Login</h1>
-      {/* Display error - use showError flag and error message */}
-      {showError && (error || errorRef.current) && (error || errorRef.current).trim().length > 0 && (
+      {/* Display error - check ref first since it persists */}
+      {/* renderKey forces re-render when error is set - using it here to avoid linter warning */}
+      {errorRef.current && errorRef.current.trim().length > 0 && renderKey >= 0 ? (
         <div 
           className="error-message" 
           role="alert"
@@ -150,9 +164,32 @@ const LoginPage: React.FC = () => {
           }}
         >
           <strong style={{ marginRight: '8px' }}>⚠️</strong>
-          <span>{error || errorRef.current}</span>
+          <span>{errorRef.current}</span>
         </div>
-      )}
+      ) : error && error.trim().length > 0 ? (
+        <div 
+          className="error-message" 
+          role="alert"
+          aria-live="polite"
+          style={{ 
+            marginBottom: '20px', 
+            padding: '12px 16px', 
+            backgroundColor: '#fee2e2', 
+            border: '2px solid #dc2626', 
+            borderRadius: '6px', 
+            color: '#dc2626',
+            fontSize: '0.95rem',
+            fontWeight: '600',
+            display: 'block',
+            width: '100%',
+            boxSizing: 'border-box',
+            minHeight: '40px'
+          }}
+        >
+          <strong style={{ marginRight: '8px' }}>⚠️</strong>
+          <span>{error}</span>
+        </div>
+      ) : null}
       <form onSubmit={onSubmit} noValidate>
         <div className="form-group">
           <label>Organization Name *</label>
