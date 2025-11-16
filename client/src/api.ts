@@ -24,13 +24,21 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle 401 errors (unauthorized) - clear token and redirect to login
+    // Handle 401 errors (unauthorized)
     if (error.response?.status === 401) {
+      // Clear token if it exists
       localStorage.removeItem('token');
-      // Only redirect if not already on login page
-      if (window.location.pathname !== '/login') {
+      
+      // Only redirect if NOT on login/register pages
+      // This allows login page to handle its own 401 errors and show error messages
+      const currentPath = window.location.pathname;
+      const isAuthPage = currentPath === '/login' || currentPath === '/register' || currentPath.startsWith('/forgot-password') || currentPath.startsWith('/reset-password');
+      
+      if (!isAuthPage) {
+        // Redirect to login only if we're on a protected page
         window.location.href = '/login';
       }
+      // If we're already on login page, let the error propagate so LoginPage can handle it
     }
     return Promise.reject(error);
   }

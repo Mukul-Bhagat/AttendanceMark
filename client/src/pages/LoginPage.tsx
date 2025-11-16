@@ -47,7 +47,9 @@ const LoginPage: React.FC = () => {
       navigate('/dashboard'); 
     } catch (err: any) {
       // IMPORTANT: Don't navigate on error - stay on login page and show error
+      console.log('Login error caught:', err); // Debug log
       const status = err.response?.status;
+      console.log('Error status:', status); // Debug log
 
       // Friendly message for invalid credentials / org name
       if (status === 401) {
@@ -60,9 +62,14 @@ const LoginPage: React.FC = () => {
         } else {
           setError(err.response.data.msg || 'Login failed');
         }
+      } else if (err.message) {
+        // Handle network errors or other errors
+        setError(err.message || 'Login failed. Please check your connection and try again.');
       } else {
         setError('Login failed. Please check your connection and try again.');
       }
+      
+      console.log('Error message set to:', error); // Debug log
     } finally {
       setIsSubmitting(false);
     }
