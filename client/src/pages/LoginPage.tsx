@@ -1,6 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+
+// Helper functions for sessionStorage (moved outside component to avoid recreation)
+const getStoredError = (): string => {
+  try {
+    return sessionStorage.getItem('loginError') || '';
+  } catch {
+    return '';
+  }
+};
+
+const setStoredError = (errorMsg: string): void => {
+  try {
+    if (errorMsg) {
+      sessionStorage.setItem('loginError', errorMsg);
+    } else {
+      sessionStorage.removeItem('loginError');
+    }
+  } catch {
+    // Ignore sessionStorage errors
+  }
+};
 
 const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -14,32 +35,7 @@ const LoginPage: React.FC = () => {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const orgNameInputRef = useRef<HTMLInputElement>(null);
-  const errorPersistRef = useRef<string>(''); // Persist error across remounts
-  
-  // Get error from localStorage on mount (persists across remounts and page refreshes)
-  const getStoredError = () => {
-    try {
-      const stored = sessionStorage.getItem('loginError');
-      if (stored) {
-        return stored;
-      }
-    } catch (e) {
-      // Ignore localStorage errors
-    }
-    return '';
-  };
-  
-  const setStoredError = (errorMsg: string) => {
-    try {
-      if (errorMsg) {
-        sessionStorage.setItem('loginError', errorMsg);
-      } else {
-        sessionStorage.removeItem('loginError');
-      }
-    } catch (e) {
-      // Ignore localStorage errors
-    }
-  };
+  const errorPersistRef = useRef<string>('');
 
   const { organizationName, email, password } = formData;
 
@@ -48,52 +44,29 @@ const LoginPage: React.FC = () => {
     orgNameInputRef.current?.focus();
   }, []);
 
-  // Restore error from localStorage/ref on mount (in case component was remounted)
+  // Restore error from sessionStorage/ref on mount (in case component was remounted)
   useEffect(() => {
     const storedError = getStoredError();
     if (storedError && !error) {
-      console.log('Restoring error from localStorage on mount:', storedError);
       setError(storedError);
       errorPersistRef.current = storedError;
     } else if (errorPersistRef.current && !error) {
-      console.log('Restoring error from ref on mount:', errorPersistRef.current);
       setError(errorPersistRef.current);
     }
   }, []);
 
-  // Continuously check and restore error if it was lost (handles remounts)
-  useEffect(() => {
-    const checkInterval = setInterval(() => {
-      const storedError = getStoredError();
-      if (storedError && !error) {
-        console.log('Periodic check - restoring error from localStorage:', storedError);
-        setError(storedError);
-        errorPersistRef.current = storedError;
-      }
-    }, 100); // Check every 100ms
-
-    return () => clearInterval(checkInterval);
-  }, [error]);
-
-  // Debug: Log when error state changes
-  useEffect(() => {
-    console.log('Error state changed. Current error:', error);
-    if (error) {
-      console.log('Error state updated to:', error, 'Length:', error.length);
-      // Force a re-render by updating a dummy state if needed
-      // This ensures the error displays even if React batches updates
-    } else {
-      console.log('Error state is empty/null');
-    }
-  }, [error]);
+  // Memoize clear error function
+  const clearError = useCallback(() => {
+    setError('');
+    errorPersistRef.current = '';
+    setStoredError('');
+  }, []);
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     // Clear error when user starts typing
     if (error || errorPersistRef.current || getStoredError()) {
-      setError('');
-      errorPersistRef.current = '';
-      setStoredError('');
+      clearError();
     }
   };
 
@@ -101,13 +74,9 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     e.stopPropagation(); // Prevent event bubbling
     
-    // Clear any previous errors BEFORE setting submitting
-    // This ensures the error is cleared before the async operation
+    // Clear any previous errors before new attempt
     if (error || errorPersistRef.current || getStoredError()) {
-      console.log('Clearing previous error before new attempt');
-      setError('');
-      errorPersistRef.current = '';
-      setStoredError('');
+      clearError();
     }
     
     setIsSubmitting(true);
@@ -124,17 +93,14 @@ const LoginPage: React.FC = () => {
       // On success, redirect to dashboard
       navigate('/dashboard'); 
     } catch (err: any) {
-      // IMPORTANT: Don't navigate on error - stay on login page and show error
-      console.log('Login error caught:', err); // Debug log
+      // Don't navigate on error - stay on login page and show error
       const status = err.response?.status;
-      console.log('Error status:', status); // Debug log
-
       let errorMessage = '';
       
-      // Friendly message for invalid credentials / org name
+      // Friendly message for invalid credentials
       if (status === 401) {
         errorMessage = 'Email and password is invalid. Please check your credentials and try again.';
-      } else if (err.response && err.response.data) {
+      } else if (err.response?.data) {
         // Handle express-validator errors (array format)
         if (err.response.data.errors && Array.isArray(err.response.data.errors)) {
           errorMessage = err.response.data.errors.map((e: any) => e.msg).join(', ');
@@ -142,80 +108,35 @@ const LoginPage: React.FC = () => {
           errorMessage = err.response.data.msg || 'Login failed';
         }
       } else if (err.message) {
-        // Handle network errors or other errors
+        // Handle network errors
         errorMessage = err.message || 'Login failed. Please check your connection and try again.';
       } else {
         errorMessage = 'Login failed. Please check your connection and try again.';
       }
       
-      console.log('Setting error message to:', errorMessage); // Debug log
-      
-      // Store in MULTIPLE places to persist across remounts:
-      // 1. localStorage (survives page refresh and remounts)
+      // Store in multiple places to persist across remounts
       setStoredError(errorMessage);
-      // 2. ref (survives remounts)
       errorPersistRef.current = errorMessage;
-      console.log('Stored in localStorage and ref:', errorMessage);
-      
-      // 3. Then set the error state - this will trigger a re-render
       setError(errorMessage);
-      console.log('Error state set to:', errorMessage);
       
-      // Force multiple re-renders to ensure it displays even if component remounts
+      // Restore error if component remounts (check after a brief delay)
       setTimeout(() => {
         const stored = getStoredError();
         if (stored) {
-          setError(prevError => {
-            if (!prevError) {
-              console.log('First check - restoring error from localStorage:', stored);
-              return stored;
-            }
-            return prevError;
-          });
+          setError(prevError => prevError || stored);
         }
-      }, 10);
-      
-      setTimeout(() => {
-        const stored = getStoredError();
-        if (stored) {
-          setError(prevError => {
-            if (!prevError) {
-              console.log('Second check - restoring error from localStorage:', stored);
-              return stored;
-            }
-            return prevError;
-          });
-        }
-      }, 100);
-      
-      setTimeout(() => {
-        const stored = getStoredError();
-        if (stored) {
-          setError(prevError => {
-            if (!prevError) {
-              console.log('Third check - restoring error from localStorage:', stored);
-              return stored;
-            }
-            return prevError;
-          });
-        }
-      }, 300);
+      }, 50);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Debug: Log error value during render
-  // Check localStorage FIRST (most persistent), then ref, then state
-  const storedError = getStoredError();
-  const errorText = (error?.trim() || errorPersistRef.current?.trim() || storedError?.trim() || '');
-  const hasError = errorText.length > 0;
-  
-  if (hasError) {
-    console.log('Rendering LoginPage WITH ERROR. State:', error, 'Ref:', errorPersistRef.current, 'Stored:', storedError, 'Displaying:', errorText);
-  } else {
-    console.log('Rendering LoginPage WITHOUT ERROR. State:', error, 'Ref:', errorPersistRef.current, 'Stored:', storedError);
-  }
+  // Get error from most persistent source first (sessionStorage > ref > state)
+  const { errorText, hasError } = useMemo(() => {
+    const storedError = getStoredError();
+    const text = (error?.trim() || errorPersistRef.current?.trim() || storedError?.trim() || '');
+    return { errorText: text, hasError: text.length > 0 };
+  }, [error]);
 
   return (
     <div className="form-container">
