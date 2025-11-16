@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 // Create a configured axios instance
+// IMPORTANT: VITE_API_URL **must** be set in your environment (e.g. .env for local, Netlify/Render for prod)
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001',
+  baseURL: import.meta.env.VITE_API_URL,
 });
 
 // Request interceptor - add auth token if available
