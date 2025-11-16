@@ -24,8 +24,12 @@ const LoginPage: React.FC = () => {
 
   // Debug: Log when error state changes
   useEffect(() => {
+    console.log('Error state changed. Current error:', error);
     if (error) {
       console.log('Error state updated to:', error);
+      console.log('Error length:', error.length);
+    } else {
+      console.log('Error state is empty/null');
     }
   }, [error]);
 
@@ -78,40 +82,56 @@ const LoginPage: React.FC = () => {
       }
       
       console.log('Setting error message to:', errorMessage); // Debug log
+      
+      // Force state update and ensure it persists
       setError(errorMessage);
       
-      // Verify the error was set (for debugging)
+      // Double-check the state was set (for debugging)
       setTimeout(() => {
         console.log('Error state should now be:', errorMessage);
-      }, 0);
+        // Force a re-check by reading the state
+        setError((prevError) => {
+          console.log('Previous error state was:', prevError);
+          console.log('Setting new error state to:', errorMessage);
+          return errorMessage;
+        });
+      }, 10);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Debug: Log error value during render
+  console.log('Rendering LoginPage. Current error state:', error);
+
   return (
     <div className="form-container">
       <h1>Login</h1>
-      {error && error.length > 0 && (
+      {error && error.trim().length > 0 ? (
         <div 
           className="error-message" 
           role="alert"
+          aria-live="polite"
           style={{ 
             marginBottom: '20px', 
             padding: '12px 16px', 
             backgroundColor: '#fee2e2', 
-            border: '2px solid #fecaca', 
+            border: '2px solid #dc2626', 
             borderRadius: '6px', 
             color: '#dc2626',
             fontSize: '0.95rem',
-            fontWeight: '500',
+            fontWeight: '600',
             display: 'block',
             width: '100%',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            minHeight: '40px'
           }}
         >
-          <strong>⚠️ </strong>{error}
+          <strong style={{ marginRight: '8px' }}>⚠️</strong>
+          <span>{error}</span>
         </div>
+      ) : (
+        <div style={{ display: 'none' }} data-testid="no-error">No error</div>
       )}
       <form onSubmit={onSubmit} noValidate>
         <div className="form-group">
