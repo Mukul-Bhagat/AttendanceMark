@@ -14,12 +14,21 @@ const LoginPage: React.FC = () => {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const orgNameInputRef = useRef<HTMLInputElement>(null);
+  const errorPersistRef = useRef<string>(''); // Persist error across remounts
 
   const { organizationName, email, password } = formData;
 
   // Auto-focus first input on mount
   useEffect(() => {
     orgNameInputRef.current?.focus();
+  }, []);
+
+  // Restore error from ref on mount (in case component was remounted)
+  useEffect(() => {
+    if (errorPersistRef.current && !error) {
+      console.log('Restoring error from ref on mount:', errorPersistRef.current);
+      setError(errorPersistRef.current);
+    }
   }, []);
 
   // Debug: Log when error state changes
@@ -37,8 +46,9 @@ const LoginPage: React.FC = () => {
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     // Clear error when user starts typing
-    if (error) {
+    if (error || errorPersistRef.current) {
       setError('');
+      errorPersistRef.current = '';
     }
   };
 
@@ -48,9 +58,10 @@ const LoginPage: React.FC = () => {
     
     // Clear any previous errors BEFORE setting submitting
     // This ensures the error is cleared before the async operation
-    if (error) {
+    if (error || errorPersistRef.current) {
       console.log('Clearing previous error before new attempt');
       setError('');
+      errorPersistRef.current = '';
     }
     
     setIsSubmitting(true);
@@ -93,28 +104,68 @@ const LoginPage: React.FC = () => {
       
       console.log('Setting error message to:', errorMessage); // Debug log
       
-      // Simply set the error state - this will trigger a re-render
+      // Store in ref FIRST to persist across remounts
+      errorPersistRef.current = errorMessage;
+      console.log('Stored in ref:', errorPersistRef.current);
+      
+      // Then set the error state - this will trigger a re-render
       setError(errorMessage);
       console.log('Error state set to:', errorMessage);
+      
+      // Force a re-render after a tiny delay to ensure it displays
+      // This handles cases where the component might remount
+      setTimeout(() => {
+        // Check ref directly (not closure variable) to see if error was lost
+        if (errorPersistRef.current) {
+          // Use functional update to get current state
+          setError(prevError => {
+            if (!prevError && errorPersistRef.current) {
+              console.log('Error was lost, restoring from ref:', errorPersistRef.current);
+              return errorPersistRef.current;
+            }
+            return prevError;
+          });
+        }
+      }, 50);
+      
+      // Also try after a longer delay in case of slow remount
+      setTimeout(() => {
+        if (errorPersistRef.current) {
+          setError(prevError => {
+            if (!prevError && errorPersistRef.current) {
+              console.log('Second check - restoring error from ref:', errorPersistRef.current);
+              return errorPersistRef.current;
+            }
+            return prevError;
+          });
+        }
+      }, 200);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // Debug: Log error value during render
-  const errorText = error?.trim() || '';
+  // Check both state and ref - ref persists across remounts
+  const errorText = (error?.trim() || errorPersistRef.current?.trim() || '');
   const hasError = errorText.length > 0;
   
+  // If ref has error but state doesn't, restore it
+  if (errorPersistRef.current && !error) {
+    console.log('Error mismatch detected - ref has:', errorPersistRef.current, 'but state has:', error);
+    // Don't set state here (causes infinite loop), just use ref value for display
+  }
+  
   if (hasError) {
-    console.log('Rendering LoginPage WITH ERROR. Error state:', error, 'Length:', error.length, 'hasError:', hasError);
+    console.log('Rendering LoginPage WITH ERROR. Error state:', error, 'Ref:', errorPersistRef.current, 'Displaying:', errorText);
   } else {
-    console.log('Rendering LoginPage WITHOUT ERROR. Error state:', error);
+    console.log('Rendering LoginPage WITHOUT ERROR. Error state:', error, 'Ref:', errorPersistRef.current);
   }
 
   return (
     <div className="form-container">
       <h1>Login</h1>
-      {/* Display error - simple and direct */}
+      {/* Display error - check ref first (persists across remounts), then state */}
       {hasError && (
         <div 
           key={`error-${errorText}`}
