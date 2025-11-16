@@ -22,6 +22,13 @@ const LoginPage: React.FC = () => {
     orgNameInputRef.current?.focus();
   }, []);
 
+  // Debug: Log when error state changes
+  useEffect(() => {
+    if (error) {
+      console.log('Error state updated to:', error);
+    }
+  }, [error]);
+
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     // Clear error when user starts typing
@@ -51,25 +58,32 @@ const LoginPage: React.FC = () => {
       const status = err.response?.status;
       console.log('Error status:', status); // Debug log
 
+      let errorMessage = '';
+      
       // Friendly message for invalid credentials / org name
       if (status === 401) {
-        setError('Email and password is invalid. Please check your credentials and try again.');
+        errorMessage = 'Email and password is invalid. Please check your credentials and try again.';
       } else if (err.response && err.response.data) {
         // Handle express-validator errors (array format)
         if (err.response.data.errors && Array.isArray(err.response.data.errors)) {
-          const errorMessages = err.response.data.errors.map((e: any) => e.msg).join(', ');
-          setError(errorMessages);
+          errorMessage = err.response.data.errors.map((e: any) => e.msg).join(', ');
         } else {
-          setError(err.response.data.msg || 'Login failed');
+          errorMessage = err.response.data.msg || 'Login failed';
         }
       } else if (err.message) {
         // Handle network errors or other errors
-        setError(err.message || 'Login failed. Please check your connection and try again.');
+        errorMessage = err.message || 'Login failed. Please check your connection and try again.';
       } else {
-        setError('Login failed. Please check your connection and try again.');
+        errorMessage = 'Login failed. Please check your connection and try again.';
       }
       
-      console.log('Error message set to:', error); // Debug log
+      console.log('Setting error message to:', errorMessage); // Debug log
+      setError(errorMessage);
+      
+      // Verify the error was set (for debugging)
+      setTimeout(() => {
+        console.log('Error state should now be:', errorMessage);
+      }, 0);
     } finally {
       setIsSubmitting(false);
     }
@@ -78,18 +92,25 @@ const LoginPage: React.FC = () => {
   return (
     <div className="form-container">
       <h1>Login</h1>
-      {error && (
-        <div className="error-message" style={{ 
-          marginBottom: '20px', 
-          padding: '12px', 
-          backgroundColor: '#fee2e2', 
-          border: '1px solid #fecaca', 
-          borderRadius: '6px', 
-          color: '#dc2626',
-          fontSize: '0.95rem',
-          fontWeight: '500'
-        }}>
-          {error}
+      {error && error.length > 0 && (
+        <div 
+          className="error-message" 
+          role="alert"
+          style={{ 
+            marginBottom: '20px', 
+            padding: '12px 16px', 
+            backgroundColor: '#fee2e2', 
+            border: '2px solid #fecaca', 
+            borderRadius: '6px', 
+            color: '#dc2626',
+            fontSize: '0.95rem',
+            fontWeight: '500',
+            display: 'block',
+            width: '100%',
+            boxSizing: 'border-box'
+          }}
+        >
+          <strong>⚠️ </strong>{error}
         </div>
       )}
       <form onSubmit={onSubmit} noValidate>
