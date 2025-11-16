@@ -44,7 +44,12 @@ const LoginPage: React.FC = () => {
       // On success, redirect to dashboard
       navigate('/dashboard'); 
     } catch (err: any) {
-      if (err.response && err.response.data) {
+      const status = err.response?.status;
+
+      // Friendly message for invalid credentials / org name
+      if (status === 401) {
+        setError('Email or password is invalid. Please check your credentials and try again.');
+      } else if (err.response && err.response.data) {
         // Handle express-validator errors (array format)
         if (err.response.data.errors && Array.isArray(err.response.data.errors)) {
           const errorMessages = err.response.data.errors.map((e: any) => e.msg).join(', ');
