@@ -15,6 +15,31 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const orgNameInputRef = useRef<HTMLInputElement>(null);
   const errorPersistRef = useRef<string>(''); // Persist error across remounts
+  
+  // Get error from localStorage on mount (persists across remounts and page refreshes)
+  const getStoredError = () => {
+    try {
+      const stored = sessionStorage.getItem('loginError');
+      if (stored) {
+        return stored;
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+    return '';
+  };
+  
+  const setStoredError = (errorMsg: string) => {
+    try {
+      if (errorMsg) {
+        sessionStorage.setItem('loginError', errorMsg);
+      } else {
+        sessionStorage.removeItem('loginError');
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+  };
 
   const { organizationName, email, password } = formData;
 
@@ -23,13 +48,32 @@ const LoginPage: React.FC = () => {
     orgNameInputRef.current?.focus();
   }, []);
 
-  // Restore error from ref on mount (in case component was remounted)
+  // Restore error from localStorage/ref on mount (in case component was remounted)
   useEffect(() => {
-    if (errorPersistRef.current && !error) {
+    const storedError = getStoredError();
+    if (storedError && !error) {
+      console.log('Restoring error from localStorage on mount:', storedError);
+      setError(storedError);
+      errorPersistRef.current = storedError;
+    } else if (errorPersistRef.current && !error) {
       console.log('Restoring error from ref on mount:', errorPersistRef.current);
       setError(errorPersistRef.current);
     }
   }, []);
+
+  // Continuously check and restore error if it was lost (handles remounts)
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      const storedError = getStoredError();
+      if (storedError && !error) {
+        console.log('Periodic check - restoring error from localStorage:', storedError);
+        setError(storedError);
+        errorPersistRef.current = storedError;
+      }
+    }, 100); // Check every 100ms
+
+    return () => clearInterval(checkInterval);
+  }, [error]);
 
   // Debug: Log when error state changes
   useEffect(() => {
@@ -46,9 +90,10 @@ const LoginPage: React.FC = () => {
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     // Clear error when user starts typing
-    if (error || errorPersistRef.current) {
+    if (error || errorPersistRef.current || getStoredError()) {
       setError('');
       errorPersistRef.current = '';
+      setStoredError('');
     }
   };
 
@@ -58,10 +103,11 @@ const LoginPage: React.FC = () => {
     
     // Clear any previous errors BEFORE setting submitting
     // This ensures the error is cleared before the async operation
-    if (error || errorPersistRef.current) {
+    if (error || errorPersistRef.current || getStoredError()) {
       console.log('Clearing previous error before new attempt');
       setError('');
       errorPersistRef.current = '';
+      setStoredError('');
     }
     
     setIsSubmitting(true);
@@ -104,62 +150,71 @@ const LoginPage: React.FC = () => {
       
       console.log('Setting error message to:', errorMessage); // Debug log
       
-      // Store in ref FIRST to persist across remounts
+      // Store in MULTIPLE places to persist across remounts:
+      // 1. localStorage (survives page refresh and remounts)
+      setStoredError(errorMessage);
+      // 2. ref (survives remounts)
       errorPersistRef.current = errorMessage;
-      console.log('Stored in ref:', errorPersistRef.current);
+      console.log('Stored in localStorage and ref:', errorMessage);
       
-      // Then set the error state - this will trigger a re-render
+      // 3. Then set the error state - this will trigger a re-render
       setError(errorMessage);
       console.log('Error state set to:', errorMessage);
       
-      // Force a re-render after a tiny delay to ensure it displays
-      // This handles cases where the component might remount
+      // Force multiple re-renders to ensure it displays even if component remounts
       setTimeout(() => {
-        // Check ref directly (not closure variable) to see if error was lost
-        if (errorPersistRef.current) {
-          // Use functional update to get current state
+        const stored = getStoredError();
+        if (stored) {
           setError(prevError => {
-            if (!prevError && errorPersistRef.current) {
-              console.log('Error was lost, restoring from ref:', errorPersistRef.current);
-              return errorPersistRef.current;
+            if (!prevError) {
+              console.log('First check - restoring error from localStorage:', stored);
+              return stored;
             }
             return prevError;
           });
         }
-      }, 50);
+      }, 10);
       
-      // Also try after a longer delay in case of slow remount
       setTimeout(() => {
-        if (errorPersistRef.current) {
+        const stored = getStoredError();
+        if (stored) {
           setError(prevError => {
-            if (!prevError && errorPersistRef.current) {
-              console.log('Second check - restoring error from ref:', errorPersistRef.current);
-              return errorPersistRef.current;
+            if (!prevError) {
+              console.log('Second check - restoring error from localStorage:', stored);
+              return stored;
             }
             return prevError;
           });
         }
-      }, 200);
+      }, 100);
+      
+      setTimeout(() => {
+        const stored = getStoredError();
+        if (stored) {
+          setError(prevError => {
+            if (!prevError) {
+              console.log('Third check - restoring error from localStorage:', stored);
+              return stored;
+            }
+            return prevError;
+          });
+        }
+      }, 300);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // Debug: Log error value during render
-  // Check both state and ref - ref persists across remounts
-  const errorText = (error?.trim() || errorPersistRef.current?.trim() || '');
+  // Check localStorage FIRST (most persistent), then ref, then state
+  const storedError = getStoredError();
+  const errorText = (error?.trim() || errorPersistRef.current?.trim() || storedError?.trim() || '');
   const hasError = errorText.length > 0;
   
-  // If ref has error but state doesn't, restore it
-  if (errorPersistRef.current && !error) {
-    console.log('Error mismatch detected - ref has:', errorPersistRef.current, 'but state has:', error);
-    // Don't set state here (causes infinite loop), just use ref value for display
-  }
-  
   if (hasError) {
-    console.log('Rendering LoginPage WITH ERROR. Error state:', error, 'Ref:', errorPersistRef.current, 'Displaying:', errorText);
+    console.log('Rendering LoginPage WITH ERROR. State:', error, 'Ref:', errorPersistRef.current, 'Stored:', storedError, 'Displaying:', errorText);
   } else {
-    console.log('Rendering LoginPage WITHOUT ERROR. Error state:', error, 'Ref:', errorPersistRef.current);
+    console.log('Rendering LoginPage WITHOUT ERROR. State:', error, 'Ref:', errorPersistRef.current, 'Stored:', storedError);
   }
 
   return (
