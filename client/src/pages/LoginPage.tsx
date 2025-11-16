@@ -14,6 +14,7 @@ const LoginPage: React.FC = () => {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
   const orgNameInputRef = useRef<HTMLInputElement>(null);
+  const errorRef = useRef<string>(''); // Use ref to persist error across renders
 
   const { organizationName, email, password } = formData;
 
@@ -36,13 +37,23 @@ const LoginPage: React.FC = () => {
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     // Clear error when user starts typing
-    if (error) setError('');
+    if (error) {
+      setError('');
+      errorRef.current = '';
+    }
   };
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     e.stopPropagation(); // Prevent event bubbling
+    
+    // Clear any previous errors
+    const previousError = error;
+    if (previousError) {
+      console.log('Clearing previous error:', previousError);
+    }
     setError('');
+    
     setIsSubmitting(true);
     
     try {
@@ -83,31 +94,40 @@ const LoginPage: React.FC = () => {
       
       console.log('Setting error message to:', errorMessage); // Debug log
       
-      // Force state update and ensure it persists
+      // Store in ref for persistence
+      errorRef.current = errorMessage;
+      
+      // Set error state - use a simple direct update
       setError(errorMessage);
       
-      // Double-check the state was set (for debugging)
+      // Force a re-render by updating state again after a tiny delay
       setTimeout(() => {
         console.log('Error state should now be:', errorMessage);
-        // Force a re-check by reading the state
-        setError((prevError) => {
-          console.log('Previous error state was:', prevError);
-          console.log('Setting new error state to:', errorMessage);
-          return errorMessage;
+        console.log('Error ref is:', errorRef.current);
+        // Ensure error is still set - use ref to check current value
+        setError((currentError) => {
+          if (errorRef.current && errorRef.current !== currentError) {
+            console.log('Re-setting error from ref. Current:', currentError, 'Ref:', errorRef.current);
+            return errorRef.current;
+          }
+          return currentError;
         });
-      }, 10);
+      }, 100);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // Debug: Log error value during render
-  console.log('Rendering LoginPage. Current error state:', error);
+  if (error) {
+    console.log('Rendering LoginPage WITH ERROR. Error state:', error, 'Length:', error.length);
+  }
 
   return (
     <div className="form-container">
       <h1>Login</h1>
-      {error && error.trim().length > 0 ? (
+      {/* Display error - use ref as fallback if state is cleared */}
+      {(error || errorRef.current) && (error.trim().length > 0 || errorRef.current.trim().length > 0) && (
         <div 
           className="error-message" 
           role="alert"
@@ -128,10 +148,8 @@ const LoginPage: React.FC = () => {
           }}
         >
           <strong style={{ marginRight: '8px' }}>⚠️</strong>
-          <span>{error}</span>
+          <span>{error || errorRef.current}</span>
         </div>
-      ) : (
-        <div style={{ display: 'none' }} data-testid="no-error">No error</div>
       )}
       <form onSubmit={onSubmit} noValidate>
         <div className="form-group">
