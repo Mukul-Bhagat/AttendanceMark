@@ -30,6 +30,7 @@ const LoginPage: React.FC = () => {
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent event bubbling
     setError('');
     setIsSubmitting(true);
     
@@ -50,7 +51,7 @@ const LoginPage: React.FC = () => {
 
       // Friendly message for invalid credentials / org name
       if (status === 401) {
-        setError('Email or password is invalid. Please check your credentials and try again.');
+        setError('Email and password is invalid. Please check your credentials and try again.');
       } else if (err.response && err.response.data) {
         // Handle express-validator errors (array format)
         if (err.response.data.errors && Array.isArray(err.response.data.errors)) {
@@ -70,8 +71,21 @@ const LoginPage: React.FC = () => {
   return (
     <div className="form-container">
       <h1>Login</h1>
-      {error && <p className="error-message">{error}</p>}
-      <form onSubmit={onSubmit}>
+      {error && (
+        <div className="error-message" style={{ 
+          marginBottom: '20px', 
+          padding: '12px', 
+          backgroundColor: '#fee2e2', 
+          border: '1px solid #fecaca', 
+          borderRadius: '6px', 
+          color: '#dc2626',
+          fontSize: '0.95rem',
+          fontWeight: '500'
+        }}>
+          {error}
+        </div>
+      )}
+      <form onSubmit={onSubmit} noValidate>
         <div className="form-group">
           <label>Organization Name *</label>
           <input
