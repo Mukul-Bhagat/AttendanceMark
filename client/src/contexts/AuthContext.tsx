@@ -77,17 +77,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Login function
   const login = async (formData: any) => {
     setIsLoading(true);
-    // This hits the API endpoint from Step 2
-    const response = await api.post('/api/auth/login', formData);
-    
-    // Get token and user from response
-    const { token, user } = response.data;
-    // Save to state and localStorage
-    setToken(token);
-    setUser(user);
-    localStorage.setItem('token', token);
-    
-    setIsLoading(false);
+    try {
+      // This hits the API endpoint from Step 2
+      const response = await api.post('/api/auth/login', formData);
+      
+      // Get token and user from response
+      const { token, user } = response.data;
+      // Save to state and localStorage
+      setToken(token);
+      setUser(user);
+      localStorage.setItem('token', token);
+      
+      setIsLoading(false);
+    } catch (error: any) {
+      setIsLoading(false);
+      // Re-throw the error so LoginPage can catch it and display the message
+      throw error;
+    }
   };
 
   // Logout function
