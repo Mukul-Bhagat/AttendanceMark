@@ -16,11 +16,15 @@ connectDB();
 const app = express();
 
 // Middleware
-// Relaxed CORS for now: echo back the request origin.
-// This will allow requests from Netlify, localhost, etc.
+// CORS configuration - explicitly allow all origins for maximum compatibility
+// This ensures the frontend at attendmark.onrender.com can access the backend
 app.use(
   cors({
-    origin: true,
+    origin: true, // Allow all origins - this echoes back the request origin
+    credentials: true, // Allow cookies/auth headers
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Authorization'],
   })
 );
 app.use(express.json());
