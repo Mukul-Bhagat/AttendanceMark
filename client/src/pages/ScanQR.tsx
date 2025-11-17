@@ -15,6 +15,7 @@ const ScanQR: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<any>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const qrCodeRegionId = 'qr-reader';
 
@@ -173,6 +174,7 @@ const ScanQR: React.FC = () => {
 
       setMessageType('success');
       setMessage(data.msg || 'Attendance marked successfully!');
+      setIsSuccess(true);
       // isProcessing stays true to prevent re-scans
     } catch (err: any) {
       const errorMsg = err.response?.data?.msg || 'Failed to mark attendance';
@@ -191,8 +193,30 @@ const ScanQR: React.FC = () => {
     setMessageType('');
     setIsProcessing(false);
     setCameraError(false);
+    setIsSuccess(false);
     startScanning();
   };
+
+  // Show PhonePe-style success screen
+  if (isSuccess) {
+    return (
+      <div className="scan-qr-container">
+        <div className="success-screen">
+          <div className="checkmark-container">
+            <svg className="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+              <circle className="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+              <path className="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+          </div>
+          <h2 className="success-title">Attendance Marked!</h2>
+          <p className="success-message">{message}</p>
+          <button onClick={handleRetry} className="scan-another-button">
+            Scan Another QR Code
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="scan-qr-container">
@@ -209,7 +233,7 @@ const ScanQR: React.FC = () => {
       <p>Point your camera at the QR code displayed by your admin.</p>
 
       {/* Show the scanner ONLY if we are not processing and haven't succeeded */}
-      {messageType !== 'success' && !isProcessing && !cameraError && (
+      {!isProcessing && !cameraError && (
         <div className="qr-reader-wrapper">
           <div id={qrCodeRegionId}></div>
         </div>
@@ -223,7 +247,7 @@ const ScanQR: React.FC = () => {
         </div>
       )}
 
-      {message && messageType !== 'info' && (
+      {message && messageType !== 'info' && messageType !== 'success' && (
         <div className={`scan-message ${messageType}`}>
           {message}
           {messageType === 'error' && !isProcessing && (
@@ -231,16 +255,6 @@ const ScanQR: React.FC = () => {
               Try Again
             </button>
           )}
-        </div>
-      )}
-
-      {messageType === 'success' && (
-        <div className="success-actions">
-          <div className="success-icon">✓</div>
-          <p className="success-note">Your attendance has been recorded successfully!</p>
-          <button onClick={handleRetry} className="scan-another-button">
-            Scan Another QR Code
-          </button>
         </div>
       )}
 

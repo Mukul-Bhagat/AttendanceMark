@@ -94,20 +94,7 @@ export const markAttendance = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Attendance already marked' });
     }
 
-    // 6. *** DEVICE-LOCKING CHECK ***
-    if (!user.registeredDeviceId) {
-      // This is the user's FIRST scan. Register this device.
-      user.registeredDeviceId = deviceId;
-      await user.save();
-    } else if (user.registeredDeviceId !== deviceId) {
-      // Device IDs DO NOT match.
-      return res.status(403).json({
-        msg: 'This is not your registered device. Please use your own phone or contact your admin to reset your device.',
-      });
-    }
-    // If user.registeredDeviceId === deviceId, the check passes.
-
-    // 7. *** GEOLOCATION CHECK ***
+    // 6. *** GEOLOCATION CHECK (MOVED FIRST) ***
     // Only check geolocation if session has geolocation data
     let locationVerified = false;
     if (session.geolocation && session.geolocation.latitude && session.geolocation.longitude) {
@@ -122,15 +109,28 @@ export const markAttendance = async (req: Request, res: Response) => {
       if (distance <= radius) {
         locationVerified = true;
       } else {
-        // Strictly enforce location
+        // Send Geolocation error first (priority)
         return res.status(403).json({
-          msg: `You are too far from the session. You are ${distance}m away; must be within ${radius}m.`,
+          msg: `You are not at the correct location. You are ${distance}m away; please verify you are at the correct place as per the session.`,
         });
       }
     } else {
       // If no geolocation is set, mark as verified (for virtual sessions)
       locationVerified = true;
     }
+
+    // 7. *** DEVICE-LOCKING CHECK (MOVED SECOND) ***
+    if (!user.registeredDeviceId) {
+      // This is the user's FIRST scan. Register this device.
+      user.registeredDeviceId = deviceId;
+      await user.save();
+    } else if (user.registeredDeviceId !== deviceId) {
+      // Device IDs DO NOT match.
+      return res.status(403).json({
+        msg: 'This is not your registered device. Please check you are using the phone you use every day.',
+      });
+    }
+    // If user.registeredDeviceId === deviceId, the check passes.
 
     // 8. ALL CHECKS PASSED: CREATE ATTENDANCE RECORD
     const newAttendance = new AttendanceCollection({
