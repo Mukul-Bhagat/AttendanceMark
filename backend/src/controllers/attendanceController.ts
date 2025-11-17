@@ -36,11 +36,18 @@ export const markAttendance = async (req: Request, res: Response) => {
     if (!user) return res.status(404).json({ msg: 'User not found' });
     if (!session) return res.status(404).json({ msg: 'Session not found' });
 
-    // 4. CHECK IF SESSION IS ACTIVE (with 15-minute grace period)
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // 4. CHECK IF SESSION IS ACTIVE (with 15-minute grace period and IST timezone conversion)
+    // Server runs in UTC, but session times are stored in IST (UTC+5:30)
+    const nowUTC = new Date();
     
-    // Parse startTime and endTime (HH:mm format)
+    // Convert UTC to IST: IST is UTC+5:30 (5.5 hours ahead)
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
+    const nowInIST = new Date(nowUTC.getTime() + IST_OFFSET_MS);
+    
+    // Get today's date in IST
+    const todayIST = new Date(nowInIST.getFullYear(), nowInIST.getMonth(), nowInIST.getDate());
+    
+    // Parse startTime and endTime (HH:mm format in IST)
     const [startHour, startMinute] = session.startTime.split(':').map(Number);
     const [endHour, endMinute] = session.endTime.split(':').map(Number);
     
@@ -51,6 +58,7 @@ export const markAttendance = async (req: Request, res: Response) => {
     
     if (session.frequency === 'OneTime') {
       // For one-time sessions, check the exact start/end datetime with grace period
+      // session.startDate is stored as a Date, we need to interpret it in IST context
       const sessionStartDateTime = new Date(session.startDate);
       sessionStartDateTime.setHours(startHour, startMinute, 0, 0);
       const sessionStartWithGrace = new Date(sessionStartDateTime.getTime() - GRACE_PERIOD_MS);
@@ -59,7 +67,8 @@ export const markAttendance = async (req: Request, res: Response) => {
       sessionEndDateTime.setHours(endHour, endMinute, 59, 999);
       const sessionEndWithGrace = new Date(sessionEndDateTime.getTime() + GRACE_PERIOD_MS);
       
-      isActive = now >= sessionStartWithGrace && now <= sessionEndWithGrace;
+      // Compare IST time with session times
+      isActive = nowInIST >= sessionStartWithGrace && nowInIST <= sessionEndWithGrace;
     } else {
       // For recurring sessions (Daily, Weekly, Monthly)
       const sessionStartDate = new Date(session.startDate);
@@ -72,21 +81,22 @@ export const markAttendance = async (req: Request, res: Response) => {
         sessionEndDate.setHours(23, 59, 59, 999);
       }
       
-      // Check if today is within the date range
-      const isWithinDateRange = now >= sessionStartDate && 
-        (!sessionEndDate || now <= sessionEndDate);
+      // Check if today (in IST) is within the date range
+      const isWithinDateRange = nowInIST >= sessionStartDate && 
+        (!sessionEndDate || nowInIST <= sessionEndDate);
       
       if (isWithinDateRange) {
-        // Check if current time is within the time window (with grace period)
-        const todayStart = new Date(today);
+        // Check if current time (in IST) is within the time window (with grace period)
+        const todayStart = new Date(todayIST);
         todayStart.setHours(startHour, startMinute, 0, 0);
         const todayStartWithGrace = new Date(todayStart.getTime() - GRACE_PERIOD_MS);
         
-        const todayEnd = new Date(today);
+        const todayEnd = new Date(todayIST);
         todayEnd.setHours(endHour, endMinute, 59, 999);
         const todayEndWithGrace = new Date(todayEnd.getTime() + GRACE_PERIOD_MS);
         
-        isActive = now >= todayStartWithGrace && now <= todayEndWithGrace;
+        // Compare IST time with session times
+        isActive = nowInIST >= todayStartWithGrace && nowInIST <= todayEndWithGrace;
       }
     }
     
@@ -97,25 +107,30 @@ export const markAttendance = async (req: Request, res: Response) => {
     }
 
     // 5. CHECK FOR DUPLICATE ATTENDANCE
-    // For recurring sessions, check if attendance was already marked TODAY
+    // For recurring sessions, check if attendance was already marked TODAY (in IST)
     // For one-time sessions, check if attendance was already marked at all
     let existingAttendance;
     if (session.frequency === 'OneTime') {
       // One-time session: check if attendance exists for this session
       existingAttendance = await AttendanceCollection.findOne({ userId, sessionId });
     } else {
-      // Recurring session: check if attendance was marked TODAY for this session
-      const todayStart = new Date(today);
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date(today);
-      todayEnd.setHours(23, 59, 59, 999);
+      // Recurring session: check if attendance was marked TODAY (in IST) for this session
+      const todayStartIST = new Date(todayIST);
+      todayStartIST.setHours(0, 0, 0, 0);
+      // Convert IST start of day back to UTC for database query
+      const todayStartUTC = new Date(todayStartIST.getTime() - IST_OFFSET_MS);
+      
+      const todayEndIST = new Date(todayIST);
+      todayEndIST.setHours(23, 59, 59, 999);
+      // Convert IST end of day back to UTC for database query
+      const todayEndUTC = new Date(todayEndIST.getTime() - IST_OFFSET_MS);
       
       existingAttendance = await AttendanceCollection.findOne({
         userId,
         sessionId,
         checkInTime: {
-          $gte: todayStart,
-          $lte: todayEnd
+          $gte: todayStartUTC,
+          $lte: todayEndUTC
         }
       });
     }
@@ -171,7 +186,7 @@ export const markAttendance = async (req: Request, res: Response) => {
       userLocation,
       locationVerified,
       deviceId, // Log the device used for this scan
-      checkInTime: now,
+      checkInTime: nowUTC, // Store in UTC (standard practice)
     });
 
     await newAttendance.save();
