@@ -18,7 +18,7 @@ export const markAttendance = async (req: Request, res: Response) => {
   const { sessionId, userLocation, deviceId } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(sessionId)) {
-    return res.status(400).json({ msg: 'Invalid Session ID' });
+    return res.status(400).json({ msg: 'Invalid Session ID. Please scan a valid QR code.' });
   }
 
   try {
@@ -36,8 +36,7 @@ export const markAttendance = async (req: Request, res: Response) => {
     if (!user) return res.status(404).json({ msg: 'User not found' });
     if (!session) return res.status(404).json({ msg: 'Session not found' });
 
-    // 4. CHECK IF SESSION IS ACTIVE
-    // Since startTime and endTime are strings (HH:mm), we need to combine with startDate
+    // 4. CHECK IF SESSION IS ACTIVE (with 15-minute grace period)
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
@@ -45,19 +44,24 @@ export const markAttendance = async (req: Request, res: Response) => {
     const [startHour, startMinute] = session.startTime.split(':').map(Number);
     const [endHour, endMinute] = session.endTime.split(':').map(Number);
     
+    // Grace period: 15 minutes before start and 15 minutes after end
+    const GRACE_PERIOD_MS = 15 * 60 * 1000; // 15 minutes in milliseconds
+    
     let isActive = false;
     
     if (session.frequency === 'OneTime') {
-      // For one-time sessions, check the exact start/end datetime
+      // For one-time sessions, check the exact start/end datetime with grace period
       const sessionStartDateTime = new Date(session.startDate);
       sessionStartDateTime.setHours(startHour, startMinute, 0, 0);
+      const sessionStartWithGrace = new Date(sessionStartDateTime.getTime() - GRACE_PERIOD_MS);
       
       const sessionEndDateTime = new Date(session.startDate);
       sessionEndDateTime.setHours(endHour, endMinute, 59, 999);
+      const sessionEndWithGrace = new Date(sessionEndDateTime.getTime() + GRACE_PERIOD_MS);
       
-      isActive = now >= sessionStartDateTime && now <= sessionEndDateTime;
+      isActive = now >= sessionStartWithGrace && now <= sessionEndWithGrace;
     } else {
-      // For recurring sessions, check if today is within the date range and time window
+      // For recurring sessions (Daily, Weekly, Monthly)
       const sessionStartDate = new Date(session.startDate);
       sessionStartDate.setHours(0, 0, 0, 0);
       
@@ -73,25 +77,53 @@ export const markAttendance = async (req: Request, res: Response) => {
         (!sessionEndDate || now <= sessionEndDate);
       
       if (isWithinDateRange) {
-        // Check if current time is within the time window
+        // Check if current time is within the time window (with grace period)
         const todayStart = new Date(today);
         todayStart.setHours(startHour, startMinute, 0, 0);
+        const todayStartWithGrace = new Date(todayStart.getTime() - GRACE_PERIOD_MS);
         
         const todayEnd = new Date(today);
         todayEnd.setHours(endHour, endMinute, 59, 999);
+        const todayEndWithGrace = new Date(todayEnd.getTime() + GRACE_PERIOD_MS);
         
-        isActive = now >= todayStart && now <= todayEnd;
+        isActive = now >= todayStartWithGrace && now <= todayEndWithGrace;
       }
     }
     
     if (!isActive) {
-      return res.status(400).json({ msg: 'Session is not currently active' });
+      return res.status(400).json({ 
+        msg: 'Session is not currently active. Please check the session time and try again.' 
+      });
     }
 
     // 5. CHECK FOR DUPLICATE ATTENDANCE
-    const existingAttendance = await AttendanceCollection.findOne({ userId, sessionId });
+    // For recurring sessions, check if attendance was already marked TODAY
+    // For one-time sessions, check if attendance was already marked at all
+    let existingAttendance;
+    if (session.frequency === 'OneTime') {
+      // One-time session: check if attendance exists for this session
+      existingAttendance = await AttendanceCollection.findOne({ userId, sessionId });
+    } else {
+      // Recurring session: check if attendance was marked TODAY for this session
+      const todayStart = new Date(today);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(today);
+      todayEnd.setHours(23, 59, 59, 999);
+      
+      existingAttendance = await AttendanceCollection.findOne({
+        userId,
+        sessionId,
+        checkInTime: {
+          $gte: todayStart,
+          $lte: todayEnd
+        }
+      });
+    }
+    
     if (existingAttendance) {
-      return res.status(400).json({ msg: 'Attendance already marked' });
+      return res.status(400).json({ 
+        msg: 'You have already marked attendance for this session.' 
+      });
     }
 
     // 6. *** GEOLOCATION CHECK (MOVED FIRST) ***

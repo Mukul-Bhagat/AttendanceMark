@@ -13,6 +13,7 @@ const ScanQR: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info' | ''>('');
   const [isScanning, setIsScanning] = useState(false);
+  const [isScannerPaused, setIsScannerPaused] = useState(false);
   const [cameraError, setCameraError] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<any>(null);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -46,8 +47,8 @@ const ScanQR: React.FC = () => {
   }, []);
 
   const startScanning = async () => {
-    // Prevent starting if already scanning
-    if (isScanning || scannerRef.current) {
+    // Prevent starting if already scanning or if scanner is paused
+    if (isScanning || scannerRef.current || isScannerPaused) {
       return;
     }
 
@@ -66,8 +67,10 @@ const ScanQR: React.FC = () => {
           qrbox: { width: 250, height: 250 }, // Scanning box size
         },
         (decodedText) => {
-          // QR code detected
-          handleScan(decodedText);
+          // QR code detected - only process if scanner is not paused
+          if (!isScannerPaused && !isProcessing) {
+            handleScan(decodedText);
+          }
         },
         (_errorMessage) => {
           // Error handling is done in onScanFailure callback
@@ -109,18 +112,21 @@ const ScanQR: React.FC = () => {
     }
   };
 
-  const handleScan = (scannedSessionId: string) => {
-    if (isProcessing || !scannedSessionId) return;
+  const handleScan = async (scannedSessionId: string) => {
+    if (isProcessing || !scannedSessionId || isScannerPaused) return;
+
+    // PAUSE SCANNER IMMEDIATELY to prevent multiple scans
+    setIsScannerPaused(true);
+    
+    // Stop scanning immediately
+    await stopScanning();
 
     // If sessionId was provided in URL, validate that scanned QR matches it
     if (sessionIdFromUrl && scannedSessionId !== sessionIdFromUrl) {
       setMessageType('error');
       setMessage('QR code does not match the selected session. Please scan the correct QR code.');
       setIsProcessing(false);
-      // Restart scanning
-      setTimeout(() => {
-        startScanning();
-      }, 2000);
+      // Don't auto-restart - wait for user to click retry
       return;
     }
 
@@ -130,9 +136,6 @@ const ScanQR: React.FC = () => {
     setIsProcessing(true);
     setMessageType('info');
     setMessage('QR Code detected! Getting your location...');
-
-    // Stop scanning once QR code is detected
-    stopScanning();
 
     // 1. Get User's Geolocation
     navigator.geolocation.getCurrentPosition(
@@ -155,9 +158,8 @@ const ScanQR: React.FC = () => {
         // 2. Location failed
         setMessageType('error');
         setMessage(`Error: Could not get location. Please enable GPS. (${error.message})`);
-        setIsProcessing(false); // Allow retrying
-        // Restart scanning
-        startScanning();
+        setIsProcessing(false);
+        // Don't auto-restart - wait for user to click retry
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -175,26 +177,34 @@ const ScanQR: React.FC = () => {
       setMessageType('success');
       setMessage(data.msg || 'Attendance marked successfully!');
       setIsSuccess(true);
-      // isProcessing stays true to prevent re-scans
+      setIsProcessing(false);
+      // Scanner stays paused - user must click "Scan Another" to continue
     } catch (err: any) {
-      const errorMsg = err.response?.data?.msg || 'Failed to mark attendance';
+      // Extract the exact error message from backend
+      const errorMsg = err.response?.data?.msg || err.response?.data?.errors?.[0]?.msg || 'Failed to mark attendance';
       setMessageType('error');
-      setMessage(`Error: ${errorMsg}`);
-      setIsProcessing(false); // Allow retrying
-      // Restart scanning after error
-      setTimeout(() => {
-        startScanning();
-      }, 2000);
+      setMessage(errorMsg); // Show the exact backend error message
+      setIsProcessing(false);
+      // Don't auto-restart - wait for user to click retry
     }
   };
 
-  const handleRetry = () => {
+  const handleRetry = async () => {
+    // Reset all state
     setMessage('');
     setMessageType('');
     setIsProcessing(false);
     setCameraError(false);
     setIsSuccess(false);
-    startScanning();
+    setIsScannerPaused(false); // Unpause scanner
+    
+    // Stop any existing scanner
+    await stopScanning();
+    
+    // Small delay to ensure cleanup, then restart
+    setTimeout(() => {
+      startScanning();
+    }, 100);
   };
 
   // Show PhonePe-style success screen
@@ -232,8 +242,8 @@ const ScanQR: React.FC = () => {
       ) : null}
       <p>Point your camera at the QR code displayed by your admin.</p>
 
-      {/* Show the scanner ONLY if we are not processing and haven't succeeded */}
-      {!isProcessing && !cameraError && (
+      {/* Show the scanner ONLY if we are not processing, haven't succeeded, and scanner is not paused */}
+      {!isProcessing && !cameraError && !isScannerPaused && (
         <div className="qr-reader-wrapper">
           <div id={qrCodeRegionId}></div>
         </div>
@@ -250,9 +260,9 @@ const ScanQR: React.FC = () => {
       {message && messageType !== 'info' && messageType !== 'success' && (
         <div className={`scan-message ${messageType}`}>
           {message}
-          {messageType === 'error' && !isProcessing && (
+          {messageType === 'error' && (
             <button onClick={handleRetry} className="retry-button">
-              Try Again
+              Retry Scan
             </button>
           )}
         </div>
