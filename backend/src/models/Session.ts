@@ -11,12 +11,20 @@ export interface ISession extends Document {
   endTime: string; // HH:mm format
   locationType: 'Physical' | 'Virtual' | 'Hybrid'; // Legacy field, kept for backward compatibility
   sessionType: 'PHYSICAL' | 'REMOTE' | 'HYBRID'; // New field: Physical, Remote, or Hybrid
-  physicalLocation?: string;
+  physicalLocation?: string; // Legacy field
   virtualLocation?: string; // URL for virtual meetings
+  location?: {
+    type: 'LINK' | 'COORDS';
+    link?: string; // Google Maps link
+    geolocation?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
   geolocation?: {
     latitude: number;
     longitude: number;
-  };
+  }; // Legacy field, kept for backward compatibility
   radius?: number; // Radius in meters for geolocation check
   assignedUsers: Array<{
     userId: string;
@@ -79,10 +87,21 @@ const SessionSchema: Schema = new Schema({
   virtualLocation: {
     type: String,
   },
+  location: {
+    type: {
+      type: String,
+      enum: ['LINK', 'COORDS'],
+    },
+    link: { type: String },
+    geolocation: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+    },
+  },
   geolocation: {
     latitude: { type: Number },
     longitude: { type: Number },
-  },
+  }, // Legacy field, kept for backward compatibility
   radius: {
     type: Number, // Radius in meters
     default: 100, // Default 100 meters

@@ -9,18 +9,28 @@ export interface ISession {
   startTime: string; // HH:mm format
   endTime: string; // HH:mm format
   locationType: 'Physical' | 'Virtual' | 'Hybrid';
+  sessionType: 'PHYSICAL' | 'REMOTE' | 'HYBRID'; // New field: Physical, Remote, or Hybrid
   physicalLocation?: string;
   virtualLocation?: string;
+  location?: {
+    type: 'LINK' | 'COORDS';
+    link?: string; // Google Maps link
+    geolocation?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
   geolocation?: {
     latitude: number;
     longitude: number;
-  };
+  }; // Legacy field
   radius?: number;
   assignedUsers: Array<{
     userId: string;
     email: string;
     firstName: string;
     lastName: string;
+    mode: 'PHYSICAL' | 'REMOTE'; // Specific mode for this user (Physical or Remote)
   }>;
   weeklyDays?: string[];
   sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session

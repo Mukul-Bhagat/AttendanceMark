@@ -169,12 +169,29 @@ export const markAttendance = async (req: Request, res: Response) => {
 
     // Perform location check (if needed)
     if (shouldCheckLocation) {
-      if (session.geolocation && session.geolocation.latitude && session.geolocation.longitude) {
-        const sessionLocation = {
+      // Check new location structure first, then fall back to legacy geolocation
+      let sessionLocation = null;
+      
+      if (session.location) {
+        if (session.location.type === 'COORDS' && session.location.geolocation) {
+          sessionLocation = {
+            latitude: session.location.geolocation.latitude,
+            longitude: session.location.geolocation.longitude,
+          };
+        } else if (session.location.type === 'LINK') {
+          // For LINK type, we can't verify GPS coordinates, so skip geolocation check
+          // Location is still required but we can't verify it via coordinates
+          locationVerified = true;
+        }
+      } else if (session.geolocation && session.geolocation.latitude && session.geolocation.longitude) {
+        // Legacy support: use old geolocation field
+        sessionLocation = {
           latitude: session.geolocation.latitude,
           longitude: session.geolocation.longitude,
         };
-        
+      }
+      
+      if (sessionLocation) {
         const distance = getDistance(userLocation, sessionLocation);
         const radius = session.radius || 100; // Default to 100 meters if not set
         
@@ -186,8 +203,9 @@ export const markAttendance = async (req: Request, res: Response) => {
             msg: `You are not at the correct location. You are ${distance}m away; please verify you are at the correct place as per the session.`,
           });
         }
-      } else {
-        // This should not happen for PHYSICAL/HYBRID sessions, but handle gracefully
+      } else if (!locationVerified) {
+        // If we need to check location but don't have coordinates (and it's not a LINK type)
+        // This should not happen for PHYSICAL/HYBRID sessions with COORDS, but handle gracefully
         return res.status(400).json({
           msg: 'Session location is not configured. Please contact the administrator.',
         });

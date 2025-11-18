@@ -42,6 +42,10 @@ const CreateSession: React.FC = () => {
   const [sessionAdmins, setSessionAdmins] = useState<IAuthUser[]>([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userModalContext, setUserModalContext] = useState<'PHYSICAL' | 'REMOTE' | 'ALL'>('ALL');
+  const [locationMethod, setLocationMethod] = useState<'LINK' | 'COORDS'>('LINK'); // Default to Link
+  const [locationLink, setLocationLink] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -135,12 +139,18 @@ const CreateSession: React.FC = () => {
       return;
     }
     
-    // Validate geolocation for PHYSICAL or HYBRID sessions
-    if ((formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && 
-        (!formData.geolocation || !formData.geolocation.latitude || !formData.geolocation.longitude)) {
-      setError('Geolocation (latitude and longitude) is required for Physical or Hybrid sessions.');
-      setIsSubmitting(false);
-      return;
+    // Validate location for PHYSICAL or HYBRID sessions
+    if (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') {
+      if (locationMethod === 'LINK' && !locationLink.trim()) {
+        setError('Google Maps Link is required for Physical or Hybrid sessions.');
+        setIsSubmitting(false);
+        return;
+      }
+      if (locationMethod === 'COORDS' && (!latitude.trim() || !longitude.trim())) {
+        setError('Latitude and Longitude are required for Physical or Hybrid sessions.');
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -185,6 +195,25 @@ const CreateSession: React.FC = () => {
         }));
       }
 
+      // Build location object for PHYSICAL or HYBRID sessions
+      let locationObj = undefined;
+      if (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') {
+        if (locationMethod === 'LINK') {
+          locationObj = {
+            type: 'LINK',
+            link: locationLink.trim(),
+          };
+        } else {
+          locationObj = {
+            type: 'COORDS',
+            geolocation: {
+              latitude: parseFloat(latitude) || 0,
+              longitude: parseFloat(longitude) || 0,
+            },
+          };
+        }
+      }
+
       const sessionData = {
         ...formData,
         assignedUsers: combinedAssignedUsers,
@@ -196,9 +225,7 @@ const CreateSession: React.FC = () => {
         virtualLocation: formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID' 
           ? formData.virtualLocation 
           : undefined,
-        geolocation: (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && formData.geolocation
-          ? formData.geolocation
-          : undefined,
+        location: locationObj,
         radius: (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && formData.radius
           ? formData.radius
           : undefined,
@@ -355,9 +382,9 @@ const CreateSession: React.FC = () => {
           )}
         </div>
 
-        {/* Session Type and Location */}
+        {/* Session Type */}
         <div className="form-card">
-          <h3>Session Type & Location</h3>
+          <h3>Session Type</h3>
           <div className="form-group">
             <label>Session Type *</label>
             <select
@@ -375,64 +402,6 @@ const CreateSession: React.FC = () => {
             </p>
           </div>
 
-          {(formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && (
-            <>
-              <div className="form-group">
-                <label>Physical Location *</label>
-                <input
-                  type="text"
-                  name="physicalLocation"
-                  value={formData.physicalLocation}
-                  onChange={handleChange}
-                  required
-                  placeholder="Enter physical address or room number"
-                />
-              </div>
-              <div className="form-group">
-                <label>Geolocation (Latitude) *</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="geolocation.latitude"
-                  value={formData.geolocation.latitude}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    geolocation: { ...prev.geolocation, latitude: parseFloat(e.target.value) || 0 }
-                  }))}
-                  required
-                  placeholder="e.g., 28.6139"
-                />
-              </div>
-              <div className="form-group">
-                <label>Geolocation (Longitude) *</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="geolocation.longitude"
-                  value={formData.geolocation.longitude}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    geolocation: { ...prev.geolocation, longitude: parseFloat(e.target.value) || 0 }
-                  }))}
-                  required
-                  placeholder="e.g., 77.2090"
-                />
-              </div>
-              <div className="form-group">
-                <label>Radius (meters)</label>
-                <input
-                  type="number"
-                  name="radius"
-                  value={formData.radius}
-                  onChange={handleChange}
-                  min="1"
-                  placeholder="Default: 100 meters"
-                />
-                <p className="field-hint">Distance in meters from the location where attendance can be marked.</p>
-              </div>
-            </>
-          )}
-
           {(formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID') && (
             <div className="form-group">
               <label>Virtual Location (URL) {formData.sessionType === 'REMOTE' && '*'}</label>
@@ -447,6 +416,104 @@ const CreateSession: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Location Details - Only for PHYSICAL or HYBRID */}
+        {(formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && (
+          <div className="form-card">
+            <h3>Location Details</h3>
+            
+            <div className="form-group">
+              <label>Physical Location *</label>
+              <input
+                type="text"
+                name="physicalLocation"
+                value={formData.physicalLocation}
+                onChange={handleChange}
+                required
+                placeholder="Enter physical address or room number"
+              />
+            </div>
+
+            {/* Radio Buttons for Method Selection */}
+            <div className="form-group">
+              <label>How do you want to specify the location? *</label>
+              <div className="radio-group" style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input 
+                    type="radio" 
+                    name="locationMethod" 
+                    value="LINK" 
+                    checked={locationMethod === 'LINK'}
+                    onChange={() => setLocationMethod('LINK')}
+                  />
+                  Google Maps Link
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input 
+                    type="radio" 
+                    name="locationMethod" 
+                    value="COORDS" 
+                    checked={locationMethod === 'COORDS'}
+                    onChange={() => setLocationMethod('COORDS')}
+                  />
+                  Coordinates (Lat/Long)
+                </label>
+              </div>
+            </div>
+
+            {/* Conditional Inputs */}
+            {locationMethod === 'LINK' ? (
+              <div className="form-group">
+                <label>Google Maps Link *</label>
+                <input 
+                  type="url" 
+                  value={locationLink} 
+                  onChange={(e) => setLocationLink(e.target.value)} 
+                  placeholder="https://maps.google.com/..."
+                  required 
+                />
+              </div>
+            ) : (
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Latitude *</label>
+                  <input 
+                    type="number" 
+                    step="any" 
+                    value={latitude} 
+                    onChange={(e) => setLatitude(e.target.value)} 
+                    required 
+                    placeholder="e.g., 28.6139"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Longitude *</label>
+                  <input 
+                    type="number" 
+                    step="any" 
+                    value={longitude} 
+                    onChange={(e) => setLongitude(e.target.value)} 
+                    required 
+                    placeholder="e.g., 77.2090"
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="form-group">
+              <label>Radius (Meters) *</label>
+              <input 
+                type="number" 
+                value={formData.radius} 
+                onChange={handleChange} 
+                min="1"
+                required
+                placeholder="Default: 100 meters"
+              />
+              <p className="field-hint">Distance in meters from the location where attendance can be marked.</p>
+            </div>
+          </div>
+        )}
 
         {/* Session Admin Assignment - Only for SuperAdmin */}
         {isSuperAdmin && (

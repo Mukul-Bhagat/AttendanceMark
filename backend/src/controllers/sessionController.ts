@@ -23,7 +23,8 @@ export const createSession = async (req: Request, res: Response) => {
     sessionType, // New field: PHYSICAL, REMOTE, or HYBRID
     physicalLocation,
     virtualLocation,
-    geolocation,
+    location, // New location object with type field
+    geolocation, // Legacy field
     radius,
     assignedUsers,
     weeklyDays,
@@ -38,14 +39,32 @@ export const createSession = async (req: Request, res: Response) => {
     const finalSessionType = sessionType || 'PHYSICAL'; // Default to PHYSICAL if not provided
     
     if (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') {
-      // For PHYSICAL or HYBRID sessions, geolocation is required
-      if (!geolocation || !geolocation.latitude || !geolocation.longitude) {
+      // For PHYSICAL or HYBRID sessions, location is required
+      if (!location) {
         return res.status(400).json({ 
-          msg: 'Geolocation (latitude and longitude) is required for Physical or Hybrid sessions.' 
+          msg: 'Location is required for Physical or Hybrid sessions.' 
+        });
+      }
+      
+      if (location.type === 'LINK') {
+        if (!location.link || !location.link.trim()) {
+          return res.status(400).json({ 
+            msg: 'Location Link is required.' 
+          });
+        }
+      } else if (location.type === 'COORDS') {
+        if (!location.geolocation || !location.geolocation.latitude || !location.geolocation.longitude) {
+          return res.status(400).json({ 
+            msg: 'Latitude and Longitude are required.' 
+          });
+        }
+      } else {
+        return res.status(400).json({ 
+          msg: 'Location type must be either LINK or COORDS.' 
         });
       }
     }
-    // For REMOTE sessions, geolocation is optional (ignored)
+    // For REMOTE sessions, location is optional (ignored)
 
     // 3. Determine sessionAdmin
     // If creator is SessionAdmin, auto-assign them
@@ -70,7 +89,8 @@ export const createSession = async (req: Request, res: Response) => {
       sessionType: finalSessionType,
       physicalLocation: finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID' ? physicalLocation : undefined,
       virtualLocation: finalSessionType === 'REMOTE' || finalSessionType === 'HYBRID' ? virtualLocation : undefined,
-      geolocation: (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') && geolocation ? geolocation : undefined,
+      location: (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') && location ? location : undefined,
+      geolocation: (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') && geolocation ? geolocation : undefined, // Legacy support
       radius: (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') && radius ? radius : undefined,
       assignedUsers: assignedUsers || [],
       weeklyDays: frequency === 'Weekly' ? weeklyDays : undefined,
@@ -164,9 +184,10 @@ export const updateSession = async (req: Request, res: Response) => {
     sessionType, // New field: PHYSICAL, REMOTE, or HYBRID
     physicalLocation,
     virtualLocation,
+    location, // New location object with type field
     assignedUsers,
     weeklyDays,
-    geolocation,
+    geolocation, // Legacy field
     radius,
     sessionAdmin, // Optional: Only SuperAdmin can change this
   } = req.body;
@@ -195,10 +216,29 @@ export const updateSession = async (req: Request, res: Response) => {
     // 5. Validate location requirements based on sessionType (if updating)
     const finalSessionType = sessionType || session.sessionType;
     if (sessionType && (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID')) {
-      // For PHYSICAL or HYBRID sessions, geolocation is required
-      if (!geolocation || !geolocation.latitude || !geolocation.longitude) {
+      // For PHYSICAL or HYBRID sessions, location is required
+      if (location) {
+        if (location.type === 'LINK') {
+          if (!location.link || !location.link.trim()) {
+            return res.status(400).json({ 
+              msg: 'Location Link is required.' 
+            });
+          }
+        } else if (location.type === 'COORDS') {
+          if (!location.geolocation || !location.geolocation.latitude || !location.geolocation.longitude) {
+            return res.status(400).json({ 
+              msg: 'Latitude and Longitude are required.' 
+            });
+          }
+        } else {
+          return res.status(400).json({ 
+            msg: 'Location type must be either LINK or COORDS.' 
+          });
+        }
+      } else if (!session.location) {
+        // If updating to PHYSICAL/HYBRID and no location provided, and session doesn't have location
         return res.status(400).json({ 
-          msg: 'Geolocation (latitude and longitude) is required for Physical or Hybrid sessions.' 
+          msg: 'Location is required for Physical or Hybrid sessions.' 
         });
       }
     }
@@ -223,8 +263,16 @@ export const updateSession = async (req: Request, res: Response) => {
     if (weeklyDays !== undefined) {
       session.weeklyDays = frequency === 'Weekly' ? weeklyDays : undefined;
     }
+    if (location !== undefined) {
+      // Only set location for PHYSICAL or HYBRID sessions
+      if (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') {
+        session.location = location;
+      } else {
+        session.location = undefined;
+      }
+    }
     if (geolocation !== undefined) {
-      // Only set geolocation for PHYSICAL or HYBRID sessions
+      // Legacy support: Only set geolocation for PHYSICAL or HYBRID sessions
       if (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') {
         session.geolocation = geolocation;
       } else {
