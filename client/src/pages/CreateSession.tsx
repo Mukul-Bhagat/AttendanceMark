@@ -28,7 +28,6 @@ const CreateSession: React.FC = () => {
     endTime: '',
     locationType: 'Physical' as 'Physical' | 'Virtual' | 'Hybrid', // Legacy field
     sessionType: 'PHYSICAL' as 'PHYSICAL' | 'REMOTE' | 'HYBRID', // New field
-    physicalLocation: '',
     virtualLocation: '',
     geolocation: { latitude: 0, longitude: 0 },
     radius: 100,
@@ -219,9 +218,6 @@ const CreateSession: React.FC = () => {
         assignedUsers: combinedAssignedUsers,
         endDate: formData.endDate || undefined,
         weeklyDays: formData.frequency === 'Weekly' ? formData.weeklyDays : undefined,
-        physicalLocation: formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID' 
-          ? formData.physicalLocation 
-          : undefined,
         virtualLocation: formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID' 
           ? formData.virtualLocation 
           : undefined,
