@@ -30,7 +30,6 @@ const EditSession: React.FC = () => {
     endTime: '',
     locationType: 'Physical' as 'Physical' | 'Virtual' | 'Hybrid', // Legacy field
     sessionType: 'PHYSICAL' as 'PHYSICAL' | 'REMOTE' | 'HYBRID', // New field
-    physicalLocation: '',
     virtualLocation: '',
     geolocation: { latitude: 0, longitude: 0 },
     radius: 100,
@@ -78,7 +77,6 @@ const EditSession: React.FC = () => {
           endTime: data.endTime,
           locationType: data.locationType,
           sessionType: data.sessionType || 'PHYSICAL', // Use sessionType from data, default to PHYSICAL
-          physicalLocation: data.physicalLocation || '',
           virtualLocation: data.virtualLocation || '',
           geolocation: data.geolocation || { latitude: 0, longitude: 0 },
           radius: data.radius || 100,
@@ -343,9 +341,6 @@ const EditSession: React.FC = () => {
         sessionType: formData.sessionType,
         assignedUsers: combinedAssignedUsers,
         weeklyDays: formData.frequency === 'Weekly' ? formData.weeklyDays : undefined,
-        physicalLocation: formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID' 
-          ? formData.physicalLocation 
-          : undefined,
         virtualLocation: formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID' 
           ? formData.virtualLocation 
           : undefined,
@@ -636,18 +631,6 @@ const EditSession: React.FC = () => {
                   <div className="bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-xl p-6 shadow-sm">
                     <h2 className="text-xl font-bold tracking-tight mb-6 dark:text-white">Location Details</h2>
                     <div className="flex flex-col gap-6">
-                      <label className="flex flex-col w-full">
-                        <p className="text-sm font-medium leading-normal pb-2 dark:text-gray-300">Physical Location</p>
-                        <input
-                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:border-primary h-12 placeholder:text-gray-400 dark:placeholder:text-gray-500 p-3 text-base font-normal leading-normal"
-                          type="text"
-                          name="physicalLocation"
-                          value={formData.physicalLocation}
-                          onChange={handleChange}
-                          required
-                          placeholder="Enter physical address or room number"
-                        />
-                      </label>
                       <div className="flex w-full bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
                         <button
                           type="button"

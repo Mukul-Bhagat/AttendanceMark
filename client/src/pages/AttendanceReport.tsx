@@ -3,6 +3,7 @@ import api from '../api';
 import { ISession, IMyAttendanceRecord } from '../types';
 import { IUser } from '../contexts/AuthContext';
 import { FileText, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 // Define a new type for the session report (with populated user)
 interface ISessionAttendanceRecord {
@@ -140,6 +141,268 @@ const AttendanceReport: React.FC = () => {
     } catch {
       return 'N/A';
     }
+  };
+
+  // CSV Download Functions
+  const downloadSessionCSV = () => {
+    if (sessionReport.length === 0) return;
+
+    const selectedSessionData = allSessions.find(s => s._id === selectedSession);
+    const sessionName = selectedSessionData?.name || 'Session Report';
+    
+    // CSV Headers
+    const headers = ['User Name', 'Email', 'Check-in Time', 'Location Status'];
+    
+    // CSV Rows
+    const rows = sessionReport.map(record => [
+      record.userId 
+        ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
+        : 'User (deleted)',
+      record.userId ? record.userId.email : 'N/A',
+      formatDateTime(record.checkInTime),
+      record.locationVerified ? 'Verified' : 'Not Verified'
+    ]);
+    
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${sessionName.replace(/[^a-z0-9]/gi, '_')}_Attendance_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const downloadUserCSV = () => {
+    if (userReport.length === 0) return;
+
+    const selectedUserData = allUsers.find(u => {
+      const userId = (u as any)._id || u.id;
+      return userId === selectedUser;
+    });
+    const userName = selectedUserData 
+      ? `${selectedUserData.profile.firstName} ${selectedUserData.profile.lastName}`
+      : 'User Report';
+    
+    // CSV Headers
+    const headers = ['Session Name', 'Session Start Time', 'Check-in Time', 'Location Status'];
+    
+    // CSV Rows
+    const rows = userReport.map(record => [
+      record.sessionId ? record.sessionId.name : 'Session (deleted)',
+      formatSessionDateTime(record.sessionId),
+      formatDateTime(record.checkInTime),
+      record.locationVerified ? 'Verified' : 'Not Verified'
+    ]);
+    
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${userName.replace(/[^a-z0-9]/gi, '_')}_Attendance_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // PDF Download Functions
+  const downloadSessionPDF = () => {
+    if (sessionReport.length === 0) return;
+
+    const selectedSessionData = allSessions.find(s => s._id === selectedSession);
+    const sessionName = selectedSessionData?.name || 'Session Report';
+    
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 15;
+    const startY = 20;
+    let yPos = startY;
+    
+    // Title
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(sessionName, margin, yPos);
+    yPos += 10;
+    
+    // Subtitle
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Attendance Report - Generated on ${new Date().toLocaleDateString()}`, margin, yPos);
+    yPos += 10;
+    
+    // Summary
+    const verifiedCount = sessionReport.filter(r => r.locationVerified).length;
+    const notVerifiedCount = sessionReport.filter(r => !r.locationVerified).length;
+    pdf.setFontSize(10);
+    pdf.text(`Total Records: ${sessionReport.length} | Verified: ${verifiedCount} | Not Verified: ${notVerifiedCount}`, margin, yPos);
+    yPos += 15;
+    
+    // Table Headers
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    const colWidths = [60, 60, 50, 30];
+    const headers = ['User Name', 'Email', 'Check-in Time', 'Status'];
+    let xPos = margin;
+    
+    headers.forEach((header, index) => {
+      pdf.text(header, xPos, yPos);
+      xPos += colWidths[index];
+    });
+    yPos += 8;
+    
+    // Draw line under headers
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, yPos - 3, pageWidth - margin, yPos - 3);
+    yPos += 5;
+    
+    // Table Rows
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    
+    sessionReport.forEach((record, index) => {
+      // Check if we need a new page
+      if (yPos > pageHeight - 20) {
+        pdf.addPage();
+        yPos = startY;
+      }
+      
+      const userName = record.userId 
+        ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
+        : 'User (deleted)';
+      const email = record.userId ? record.userId.email : 'N/A';
+      const checkInTime = formatDateTime(record.checkInTime);
+      const status = record.locationVerified ? 'Verified' : 'Not Verified';
+      
+      xPos = margin;
+      const rowData = [userName, email, checkInTime, status];
+      
+      rowData.forEach((cell, cellIndex) => {
+        const cellText = pdf.splitTextToSize(String(cell), colWidths[cellIndex] - 2);
+        pdf.text(cellText, xPos, yPos);
+        xPos += colWidths[cellIndex];
+      });
+      
+      yPos += 8;
+      
+      // Draw line between rows
+      if (index < sessionReport.length - 1) {
+        pdf.setLineWidth(0.1);
+        pdf.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
+      }
+    });
+    
+    // Save PDF
+    pdf.save(`${sessionName.replace(/[^a-z0-9]/gi, '_')}_Attendance_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const downloadUserPDF = () => {
+    if (userReport.length === 0) return;
+
+    const selectedUserData = allUsers.find(u => {
+      const userId = (u as any)._id || u.id;
+      return userId === selectedUser;
+    });
+    const userName = selectedUserData 
+      ? `${selectedUserData.profile.firstName} ${selectedUserData.profile.lastName}`
+      : 'User Report';
+    
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 15;
+    const startY = 20;
+    let yPos = startY;
+    
+    // Title
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`${userName} - Attendance Report`, margin, yPos);
+    yPos += 10;
+    
+    // Subtitle
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Generated on ${new Date().toLocaleDateString()}`, margin, yPos);
+    yPos += 10;
+    
+    // Summary
+    const verifiedCount = userReport.filter(r => r.locationVerified).length;
+    const notVerifiedCount = userReport.filter(r => !r.locationVerified).length;
+    pdf.setFontSize(10);
+    pdf.text(`Total Records: ${userReport.length} | Verified: ${verifiedCount} | Not Verified: ${notVerifiedCount}`, margin, yPos);
+    yPos += 15;
+    
+    // Table Headers
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    const colWidths = [50, 50, 50, 30];
+    const headers = ['Session Name', 'Session Start', 'Check-in Time', 'Status'];
+    let xPos = margin;
+    
+    headers.forEach((header, index) => {
+      pdf.text(header, xPos, yPos);
+      xPos += colWidths[index];
+    });
+    yPos += 8;
+    
+    // Draw line under headers
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, yPos - 3, pageWidth - margin, yPos - 3);
+    yPos += 5;
+    
+    // Table Rows
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    
+    userReport.forEach((record, index) => {
+      // Check if we need a new page
+      if (yPos > pageHeight - 20) {
+        pdf.addPage();
+        yPos = startY;
+      }
+      
+      const sessionName = record.sessionId ? record.sessionId.name : 'Session (deleted)';
+      const sessionStart = formatSessionDateTime(record.sessionId);
+      const checkInTime = formatDateTime(record.checkInTime);
+      const status = record.locationVerified ? 'Verified' : 'Not Verified';
+      
+      xPos = margin;
+      const rowData = [sessionName, sessionStart, checkInTime, status];
+      
+      rowData.forEach((cell, cellIndex) => {
+        const cellText = pdf.splitTextToSize(String(cell), colWidths[cellIndex] - 2);
+        pdf.text(cellText, xPos, yPos);
+        xPos += colWidths[cellIndex];
+      });
+      
+      yPos += 8;
+      
+      // Draw line between rows
+      if (index < userReport.length - 1) {
+        pdf.setLineWidth(0.1);
+        pdf.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
+      }
+    });
+    
+    // Save PDF
+    pdf.save(`${userName.replace(/[^a-z0-9]/gi, '_')}_Attendance_Report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   if (isLoadingFilters) {
@@ -320,11 +583,17 @@ const AttendanceReport: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-transparent text-primary dark:text-primary border border-primary gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/10 transition-colors">
+                    <button 
+                      onClick={downloadSessionCSV}
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-transparent text-primary dark:text-primary border border-primary gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/10 transition-colors"
+                    >
                       <FileText className="w-4 h-4" />
                       <span className="truncate">CSV</span>
                     </button>
-                    <button className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-primary text-[#181511] gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors">
+                    <button 
+                      onClick={downloadSessionPDF}
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-primary text-[#181511] gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors"
+                    >
                       <Download className="w-4 h-4" />
                       <span className="truncate">PDF</span>
                     </button>
@@ -394,11 +663,17 @@ const AttendanceReport: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <button className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-transparent text-primary dark:text-primary border border-primary gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/10 transition-colors">
+                    <button 
+                      onClick={downloadUserCSV}
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-transparent text-primary dark:text-primary border border-primary gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/10 transition-colors"
+                    >
                       <FileText className="w-4 h-4" />
                       <span className="truncate">CSV</span>
                     </button>
-                    <button className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-primary text-[#181511] gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors">
+                    <button 
+                      onClick={downloadUserPDF}
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-primary text-[#181511] gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors"
+                    >
                       <Download className="w-4 h-4" />
                       <span className="truncate">PDF</span>
                     </button>
