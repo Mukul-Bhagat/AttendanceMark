@@ -405,7 +405,6 @@ const EditSession: React.FC = () => {
   };
 
   const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  const dayFullNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   return (
     <div className="relative flex min-h-screen w-full flex-col group/design-root overflow-x-hidden bg-background-light dark:bg-background-dark font-display text-[#181511] dark:text-gray-200">
