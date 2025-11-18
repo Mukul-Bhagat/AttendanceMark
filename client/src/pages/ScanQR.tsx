@@ -3,7 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { getOrCreateDeviceId } from '../utils/deviceId';
-import './ScanQR.css';
+import { RefreshCw } from 'lucide-react';
 
 const ScanQR: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -207,77 +207,168 @@ const ScanQR: React.FC = () => {
     }, 100);
   };
 
-  // Show PhonePe-style success screen
+  // Success State
   if (isSuccess) {
     return (
-      <div className="scan-qr-container">
-        <div className="success-screen">
-          <div className="checkmark-container">
-            <svg className="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-              <circle className="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
-              <path className="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-            </svg>
+      <div className="group/design-root relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark">
+        <div className="layout-container flex h-full grow flex-col">
+          <div className="flex flex-1 items-center justify-center bg-background-light p-4 dark:bg-background-dark">
+            <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-xl bg-white p-8 text-center shadow-lg dark:bg-gray-800">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                <span className="material-symbols-outlined text-green-600 dark:text-green-400" style={{ fontSize: '40px' }}>check</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#181511] dark:text-white">Attendance Marked!</p>
+                {message && (
+                  <p className="text-sm font-normal leading-normal text-[#8a7b60] dark:text-gray-400">{message}</p>
+                )}
+              </div>
+              <button
+                onClick={handleRetry}
+                className="flex h-10 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-primary px-4 text-sm font-bold leading-normal tracking-[0.015em] text-white hover:bg-primary/90 transition-colors"
+              >
+                <span className="truncate">Scan Another QR Code</span>
+              </button>
+            </div>
           </div>
-          <h2 className="success-title">Attendance Marked!</h2>
-          <p className="success-message">{message}</p>
-          <button onClick={handleRetry} className="scan-another-button">
-            Scan Another QR Code
-          </button>
         </div>
       </div>
     );
   }
 
+  // Error State (non-camera errors)
+  if (messageType === 'error' && !cameraError) {
+    return (
+      <div className="group/design-root relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark">
+        <div className="layout-container flex h-full grow flex-col">
+          <div className="flex flex-1 items-center justify-center bg-background-light p-4 dark:bg-background-dark">
+            <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-xl bg-white p-8 text-center shadow-lg dark:bg-gray-800">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
+                <span className="material-symbols-outlined text-red-600 dark:text-red-400" style={{ fontSize: '40px' }}>close</span>
+              </div>
+              <div className="flex max-w-[480px] flex-col items-center gap-2">
+                <p className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#181511] dark:text-white">Scan Failed</p>
+                <p className="text-sm font-normal leading-normal text-[#181511] dark:text-gray-300">{message || 'Invalid QR code. Please try again.'}</p>
+              </div>
+              <button
+                onClick={handleRetry}
+                className="flex h-10 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary px-4 text-sm font-bold leading-normal tracking-[0.015em] text-white hover:bg-primary/90 transition-colors"
+              >
+                <RefreshCw className="w-5 h-5" />
+                <span className="truncate">Retry Scan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Camera Error State
+  if (cameraError) {
+    return (
+      <div className="group/design-root relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark">
+        <div className="layout-container flex h-full grow flex-col">
+          <div className="flex flex-1 items-center justify-center bg-background-light p-4 dark:bg-background-dark">
+            <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-xl bg-white p-8 text-center shadow-lg dark:bg-gray-800">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
+                <span className="material-symbols-outlined text-red-600 dark:text-red-400" style={{ fontSize: '40px' }}>camera_alt</span>
+              </div>
+              <div className="flex max-w-[480px] flex-col items-center gap-2">
+                <p className="text-lg font-bold leading-tight tracking-[-0.015em] text-[#181511] dark:text-white">Camera Access Required</p>
+                <p className="text-sm font-normal leading-normal text-[#181511] dark:text-gray-300">{message || 'Please allow camera access to scan QR codes.'}</p>
+                <div className="mt-4 text-left w-full">
+                  <p className="text-xs font-semibold text-[#181511] dark:text-white mb-2">Camera Access Help:</p>
+                  <ul className="text-xs text-[#8a7b60] dark:text-gray-400 space-y-1 list-disc list-inside">
+                    <li>Make sure you've granted camera permissions to this website</li>
+                    <li>Check your browser settings if the camera isn't working</li>
+                    <li>Try refreshing the page and allowing camera access when prompted</li>
+                  </ul>
+                </div>
+              </div>
+              <button
+                onClick={handleRetry}
+                className="flex h-10 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary px-4 text-sm font-bold leading-normal tracking-[0.015em] text-white hover:bg-primary/90 transition-colors"
+              >
+                <RefreshCw className="w-5 h-5" />
+                <span className="truncate">Retry</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main Scanner View
   return (
-    <div className="scan-qr-container">
-      <h2>Scan Session QR Code</h2>
-      {sessionInfo ? (
-        <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#0369a1' }}>{sessionInfo.name}</h3>
-          {sessionInfo.description && <p style={{ margin: '5px 0', color: '#64748b' }}>{sessionInfo.description}</p>}
-          <p style={{ margin: '5px 0', fontSize: '0.9rem', color: '#64748b' }}>
-            <strong>Time:</strong> {sessionInfo.startTime} - {sessionInfo.endTime}
-          </p>
-        </div>
-      ) : null}
-      <p>Point your camera at the QR code displayed by your admin.</p>
+    <div className="group/design-root relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark">
+      <div className="layout-container flex h-full grow flex-col">
+        {/* QR Scanner Active State */}
+        <div className="flex flex-1 flex-col bg-[#0f172a]">
+          <header className="absolute top-0 z-10 flex w-full justify-center p-6">
+            <h1 className="text-2xl font-bold text-white">Scan Session QR</h1>
+          </header>
 
-      {/* Show the scanner ONLY if we are not processing, haven't succeeded, and scanner is not paused */}
-      {!isProcessing && !cameraError && !isScannerPaused && (
-        <div className="qr-reader-wrapper">
-          <div id={qrCodeRegionId}></div>
-        </div>
-      )}
-
-      {/* Show loading indicator when processing */}
-      {isProcessing && messageType === 'info' && (
-        <div className="processing-indicator">
-          <div className="spinner-small"></div>
-          <p>{message}</p>
-        </div>
-      )}
-
-      {message && messageType !== 'info' && messageType !== 'success' && (
-        <div className={`scan-message ${messageType}`}>
-          {message}
-          {messageType === 'error' && (
-            <button onClick={handleRetry} className="retry-button">
-              Retry Scan
-            </button>
+          {/* Session Info Banner (if available) */}
+          {sessionInfo && (
+            <div className="absolute top-20 left-0 right-0 z-10 mx-4">
+              <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/20 rounded-lg p-4 shadow-lg">
+                <h3 className="font-semibold text-sm mb-1 text-[#181511] dark:text-white">{sessionInfo.name}</h3>
+                {sessionInfo.description && (
+                  <p className="text-xs text-[#8a7b60] dark:text-gray-300 mb-1">{sessionInfo.description}</p>
+                )}
+                <p className="text-xs text-[#8a7b60] dark:text-gray-300">
+                  <strong>Time:</strong> {sessionInfo.startTime} - {sessionInfo.endTime}
+                </p>
+              </div>
+            </div>
           )}
-        </div>
-      )}
 
-      {cameraError && (
-        <div className="camera-help">
-          <h3>Camera Access Help</h3>
-          <ul>
-            <li>Make sure you've granted camera permissions to this website</li>
-            <li>Check your browser settings if the camera isn't working</li>
-            <li>Try refreshing the page and allowing camera access when prompted</li>
-          </ul>
+          <main className="flex flex-1 items-center justify-center">
+            <div className="relative flex h-80 w-80 items-center justify-center sm:h-96 sm:w-96">
+              {/* Corner Borders */}
+              <span className="absolute left-0 top-0 h-8 w-8 rounded-tl-lg border-l-4 border-t-4 border-primary"></span>
+              <span className="absolute right-0 top-0 h-8 w-8 rounded-tr-lg border-r-4 border-t-4 border-primary"></span>
+              <span className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-lg border-b-4 border-l-4 border-primary"></span>
+              <span className="absolute bottom-0 right-0 h-8 w-8 rounded-br-lg border-b-4 border-r-4 border-primary"></span>
+
+              {/* Scanner Viewport */}
+              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg">
+                {/* Show scanner if not processing and not paused */}
+                {!isProcessing && !isScannerPaused ? (
+                  <div id={qrCodeRegionId} className="h-full w-full"></div>
+                ) : (
+                  /* Show placeholder when processing or paused */
+                  <div className="flex flex-col items-center justify-center gap-4">
+                    {isProcessing && messageType === 'info' ? (
+                      <>
+                        <svg className="animate-spin h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                        </svg>
+                        <p className="text-white text-sm font-medium">{message || 'Processing...'}</p>
+                      </>
+                    ) : (
+                      <span className="material-symbols-outlined text-primary" style={{ fontSize: '64px' }}>qr_code_scanner</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </main>
+
+          <footer className="absolute bottom-0 w-full rounded-t-3xl bg-white p-6 text-center shadow-lg dark:bg-background-dark">
+            {isProcessing && messageType === 'info' ? (
+              <p className="text-lg font-semibold text-[#181511] dark:text-white">{message || 'Processing...'}</p>
+            ) : (
+              <p className="text-lg font-semibold text-[#181511] dark:text-white">
+                {message || 'Searching for QR code...'}
+              </p>
+            )}
+          </footer>
         </div>
-      )}
+      </div>
     </div>
   );
 };

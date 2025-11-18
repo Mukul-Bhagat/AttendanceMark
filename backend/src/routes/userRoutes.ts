@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { getOrganizationUsers, createStaff, createEndUser, resetDevice } from '../controllers/userController';
+import { getOrganizationUsers, createStaff, createEndUser, resetDevice, deleteUser } from '../controllers/userController';
 
 const router = Router();
 
@@ -47,6 +47,11 @@ router.post(
 // @desc    Reset a user's registered device ID
 // @access  Private (SuperAdmin or CompanyAdmin)
 router.put('/:userId/reset-device', protect, resetDevice);
+
+// @route   DELETE /api/users/:userId
+// @desc    Delete a user account - Only SuperAdmin
+// @access  Private (SuperAdmin only)
+router.delete('/:userId', protect, deleteUser);
 
 export default router;
 

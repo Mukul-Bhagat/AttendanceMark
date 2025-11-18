@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
-import './ManageStaff.css';
+import { useAuth } from '../contexts/AuthContext';
 
 type StaffUser = {
   _id?: string;
@@ -15,6 +15,8 @@ type StaffUser = {
 };
 
 const ManageStaff: React.FC = () => {
+  const { isSuperAdmin } = useAuth();
+  
   // Form state
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -27,6 +29,7 @@ const ManageStaff: React.FC = () => {
   const [staffList, setStaffList] = useState<StaffUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingStaff, setDeletingStaff] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -117,191 +120,307 @@ const ManageStaff: React.FC = () => {
     }
   };
 
+  // Handle staff deletion (SuperAdmin only)
+  const handleDeleteStaff = async (staffId: string, staffName: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${staffName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingStaff(staffId);
+    setError('');
+    setMessage('');
+
+    try {
+      const { data } = await api.delete(`/api/users/${staffId}`);
+      
+      setMessage(data.msg || 'Staff member deleted successfully');
+      // Refresh the list
+      await fetchStaff();
+    } catch (err: any) {
+      if (err.response?.status === 403) {
+        setError('You do not have permission to delete staff members.');
+      } else {
+        setError(err.response?.data?.msg || 'Failed to delete staff member. Please try again.');
+      }
+    } finally {
+      setDeletingStaff(null);
+    }
+  };
+
   return (
-    <div className="manage-staff-container">
-      <h1>Manage Staff</h1>
-      
-      {isLoading ? (
-        <div className="loading-container">
-          <div className="loading-spinner-inline">
-            <div className="spinner"></div>
-            <p className="loading-text">Loading staff list...</p>
+    <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+      <div className="layout-container flex h-full grow flex-col">
+        <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
+          <div className="flex flex-wrap justify-between gap-3 p-4">
+            <p className="text-[#181511] dark:text-white text-4xl font-black leading-tight tracking-[-0.033em] min-w-72">Manage Staff</p>
           </div>
+
+          {/* Success Message */}
+          {message && (
+            <div className="px-4 py-3">
+              <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800 p-4 rounded-xl flex items-center">
+                <span className="material-symbols-outlined mr-2">check_circle</span>
+                {message}
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="px-4 py-3">
+              <div className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-center">
+                <span className="material-symbols-outlined mr-2">cancel</span>
+                {error}
+              </div>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center">
+                <svg className="animate-spin h-8 w-8 text-primary mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                </svg>
+                <p className="text-[#8a7b60] dark:text-gray-400">Loading staff list...</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4">
+              {/* Create Staff Form */}
+              <div className="lg:col-span-1 bg-white dark:bg-background-dark dark:border dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8 lg:sticky lg:top-8 lg:self-start">
+                <h2 className="text-[#181511] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] pb-5 flex items-center">
+                  <span className="material-symbols-outlined mr-3 text-primary" style={{ fontSize: '28px' }}>manage_accounts</span>
+                  Add Staff Member
+                </h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className="flex flex-col min-w-40 flex-1">
+                      <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">First Name</p>
+                      <input
+                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
+                        placeholder="Enter first name"
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => {
+                          setFirstName(e.target.value);
+                          if (error) setError('');
+                        }}
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </label>
+                    <label className="flex flex-col min-w-40 flex-1">
+                      <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Last Name</p>
+                      <input
+                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
+                        placeholder="Enter last name"
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => {
+                          setLastName(e.target.value);
+                          if (error) setError('');
+                        }}
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </label>
+                  </div>
+
+                  <label className="flex flex-col w-full">
+                    <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Email</p>
+                    <input
+                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
+                      placeholder="Enter email address"
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (error) setError('');
+                      }}
+                      required
+                      disabled={isSubmitting}
+                    />
+                  </label>
+
+                  <label className="flex flex-col w-full">
+                    <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Password</p>
+                    <input
+                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
+                      placeholder="Enter password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (error) setError('');
+                      }}
+                      minLength={6}
+                      required
+                      disabled={isSubmitting}
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Min 6 chars</p>
+                  </label>
+
+                  <label className="flex flex-col w-full">
+                    <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Phone (Optional)</p>
+                    <input
+                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
+                      placeholder="Enter phone number"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      disabled={isSubmitting}
+                    />
+                  </label>
+
+                  <div className="flex flex-col w-full">
+                    <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Role</p>
+                    <div className="relative">
+                      <select
+                        className="form-select flex w-full appearance-none min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 p-[15px] text-base font-normal leading-normal"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value as 'SessionAdmin' | 'Manager')}
+                        required
+                        disabled={isSubmitting}
+                      >
+                        <option value="SessionAdmin">Session Admin</option>
+                        <option value="Manager">Manager</option>
+                      </select>
+                      <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Can manage assigned sessions.</p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-4 text-base font-semibold leading-6 text-black shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined">person_add</span>
+                    {isSubmitting ? 'Creating...' : 'Create Staff Member'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearForm}
+                    disabled={isSubmitting}
+                    className="w-full text-center text-gray-500 dark:text-gray-400 mt-2 hover:text-gray-900 dark:hover:text-white transition-colors duration-200 text-sm font-medium py-2 disabled:opacity-50"
+                  >
+                    Clear Form
+                  </button>
+                </form>
+              </div>
+
+              {/* Staff Table */}
+              <div className="lg:col-span-2 bg-white dark:bg-background-dark dark:border dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8">
+                <div className="flex items-center justify-between pb-5">
+                  <h2 className="text-[#181511] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] flex items-center">
+                    Current Staff
+                    <span className="ml-3 px-3 py-1 bg-primary/20 text-primary dark:bg-primary/30 dark:text-primary-300 rounded-full text-sm font-medium">
+                      {staffList.length}
+                    </span>
+                  </h2>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 mb-5">
+                  <div className="relative flex-grow">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
+                    <input
+                      className="form-input w-full rounded-lg text-sm text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-12 placeholder:text-[#8a7b60] pl-10 pr-4"
+                      placeholder="Search by name or email..."
+                      type="text"
+                    />
+                  </div>
+                  <div className="relative min-w-[180px]">
+                    <select className="form-select w-full appearance-none rounded-lg text-sm text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-12 px-4">
+                      <option value="All">All Roles</option>
+                      <option value="SessionAdmin">Session Admin</option>
+                      <option value="Manager">Manager</option>
+                    </select>
+                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+                  </div>
+                </div>
+
+                {staffList.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-[#8a7b60] dark:text-gray-400 text-base mb-2">No staff members found.</p>
+                    <p className="text-[#8a7b60] dark:text-gray-400 text-sm">Create your first staff member using the form above.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-white/5">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Name</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Email</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Role</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Phone</th>
+                          {isSuperAdmin && (
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Actions</th>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-background-dark divide-y divide-gray-200 dark:divide-gray-700">
+                        {staffList.map((staff) => {
+                          const staffId = staff._id || staff.id || '';
+                          const roleDisplay = staff.role === 'SessionAdmin' ? 'Session Admin' : staff.role;
+                          const isDeleting = deletingStaff === staffId;
+                          const staffName = `${staff.profile.firstName} ${staff.profile.lastName}`;
+                          
+                          return (
+                            <tr key={staffId} className="hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors duration-150">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {staffName}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                {staff.email}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                {staff.role === 'SessionAdmin' ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full border bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-800">
+                                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>shield_person</span>
+                                    {roleDisplay}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full border bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-800">
+                                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>supervisor_account</span>
+                                    {roleDisplay}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                {staff.profile.phone || 'N/A'}
+                              </td>
+                              {isSuperAdmin && (
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                  <button
+                                    onClick={() => handleDeleteStaff(staffId, staffName)}
+                                    disabled={isDeleting}
+                                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Delete staff member"
+                                  >
+                                    {isDeleting ? (
+                                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                                      </svg>
+                                    ) : (
+                                      <span className="material-symbols-outlined text-xl">delete</span>
+                                    )}
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      ) : (
-        <>
-      
-      {/* --- CREATE STAFF FORM --- */}
-      <div className="form-card">
-        <h3>Create New Staff Member</h3>
-        {message && (
-          <div className="success-message">
-            <span className="success-icon">✓</span>
-            {message}
-          </div>
-        )}
-        {error && (
-          <div className="error-message">
-            <span className="error-icon">⚠️</span>
-            {error}
-          </div>
-        )}
-        <form onSubmit={handleSubmit}>
-          <div className="form-grid-2">
-            <div className="form-group">
-              <label>First Name *</label>
-              <input
-                type="text"
-                value={firstName}
-                onChange={(e) => {
-                  setFirstName(e.target.value);
-                  if (error) setError('');
-                }}
-                required
-                disabled={isSubmitting}
-              />
-            </div>
-            <div className="form-group">
-              <label>Last Name *</label>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => {
-                  setLastName(e.target.value);
-                  if (error) setError('');
-                }}
-                required
-                disabled={isSubmitting}
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Email *</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (error) setError('');
-              }}
-              required
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Temporary Password *</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (error) setError('');
-              }}
-              minLength={6}
-              required
-              disabled={isSubmitting}
-              placeholder="Minimum 6 characters"
-            />
-            <p className="field-hint">Staff member will be required to reset this password on first login.</p>
-          </div>
-
-          <div className="form-group">
-            <label>Phone (Optional)</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              disabled={isSubmitting}
-              placeholder="+1234567890"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Role *</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'SessionAdmin' | 'Manager')}
-              required
-              disabled={isSubmitting}
-            >
-              <option value="SessionAdmin">Session Admin</option>
-              <option value="Manager">Manager</option>
-            </select>
-            <p className="field-hint">
-              <strong>Session Admin:</strong> Manages specific sessions assigned to them.<br />
-              <strong>Manager:</strong> Can create and manage sessions.
-            </p>
-          </div>
-
-          <div className="form-actions">
-            <button
-              type="button"
-              onClick={clearForm}
-              className="btn-secondary"
-              disabled={isSubmitting}
-            >
-              Clear Form
-            </button>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Creating...' : 'Create Staff Member'}
-            </button>
-          </div>
-        </form>
       </div>
-      
-      {/* --- STAFF LIST --- */}
-      <div className="staff-list-section">
-        <h2>Current Staff ({staffList.length})</h2>
-        {staffList.length === 0 ? (
-          <div className="empty-state">
-            <p>No staff members found.</p>
-            <p className="empty-state-hint">Create your first staff member using the form above.</p>
-          </div>
-        ) : (
-          <div className="staff-table-wrapper">
-            <table className="staff-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Phone</th>
-                </tr>
-              </thead>
-              <tbody>
-                {staffList.map((staff) => {
-                  const staffId = staff._id || staff.id || '';
-                  const roleClass = staff.role.toLowerCase();
-                  const roleDisplay = staff.role === 'SessionAdmin' ? 'Session Admin' : staff.role;
-                  
-                  return (
-                    <tr key={staffId}>
-                      <td className="staff-name-cell">
-                        <strong>{staff.profile.firstName} {staff.profile.lastName}</strong>
-                      </td>
-                      <td>{staff.email}</td>
-                      <td>
-                        <span className={`role-badge role-${roleClass}`}>
-                          {roleDisplay}
-                        </span>
-                      </td>
-                      <td>{staff.profile.phone || 'N/A'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-      </>
-      )}
     </div>
   );
 };

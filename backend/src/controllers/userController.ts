@@ -182,3 +182,47 @@ export const resetDevice = async (req: Request, res: Response) => {
   }
 };
 
+// @route   DELETE /api/users/:userId
+// @desc    Delete a user account - Only SuperAdmin can delete users
+// @access  Private (SuperAdmin only)
+export const deleteUser = async (req: Request, res: Response) => {
+  const { collectionPrefix, role: requesterRole, id: requesterId } = req.user!;
+  const { userId } = req.params;
+
+  // 1. Security Check - Only SuperAdmin can delete users
+  if (requesterRole !== 'SuperAdmin') {
+    return res.status(403).json({ msg: 'Only Super Admin can delete users' });
+  }
+
+  // 2. Prevent SuperAdmin from deleting themselves
+  if (userId === requesterId) {
+    return res.status(400).json({ msg: 'You cannot delete your own account' });
+  }
+
+  try {
+    // 3. Get the User collection
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+
+    // 4. Find the user
+    const user = await UserCollection.findById(userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // 5. Prevent deleting SuperAdmin accounts (except the one making the request, which is already blocked above)
+    if (user.role === 'SuperAdmin') {
+      return res.status(400).json({ msg: 'Cannot delete Super Admin accounts' });
+    }
+
+    // 6. Delete the user
+    await UserCollection.findByIdAndDelete(userId);
+
+    res.json({
+      msg: 'User account deleted successfully',
+    });
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+};
+
