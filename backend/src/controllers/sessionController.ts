@@ -20,8 +20,11 @@ export const createSession = async (req: Request, res: Response) => {
     startTime,
     endTime,
     locationType,
+    sessionType, // New field: PHYSICAL, REMOTE, or HYBRID
     physicalLocation,
     virtualLocation,
+    geolocation,
+    radius,
     assignedUsers,
     weeklyDays,
     sessionAdmin, // Optional: ID of SessionAdmin to assign (only SuperAdmin can set this)
@@ -31,7 +34,20 @@ export const createSession = async (req: Request, res: Response) => {
     // 1. Get the organization-specific Session model
     const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
 
-    // 2. Determine sessionAdmin
+    // 2. Validate location requirements based on sessionType
+    const finalSessionType = sessionType || 'PHYSICAL'; // Default to PHYSICAL if not provided
+    
+    if (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') {
+      // For PHYSICAL or HYBRID sessions, geolocation is required
+      if (!geolocation || !geolocation.latitude || !geolocation.longitude) {
+        return res.status(400).json({ 
+          msg: 'Geolocation (latitude and longitude) is required for Physical or Hybrid sessions.' 
+        });
+      }
+    }
+    // For REMOTE sessions, geolocation is optional (ignored)
+
+    // 3. Determine sessionAdmin
     // If creator is SessionAdmin, auto-assign them
     // If SuperAdmin provided a sessionAdmin ID, use that
     let assignedSessionAdmin: string | undefined;
@@ -41,7 +57,7 @@ export const createSession = async (req: Request, res: Response) => {
       assignedSessionAdmin = sessionAdmin; // SuperAdmin can assign any SessionAdmin
     }
 
-    // 3. Create the session
+    // 4. Create the session
     const session = new SessionCollection({
       name,
       description,
@@ -50,9 +66,12 @@ export const createSession = async (req: Request, res: Response) => {
       endDate: endDate || undefined,
       startTime,
       endTime,
-      locationType,
-      physicalLocation: locationType === 'Physical' || locationType === 'Hybrid' ? physicalLocation : undefined,
-      virtualLocation: locationType === 'Virtual' || locationType === 'Hybrid' ? virtualLocation : undefined,
+      locationType: locationType || (finalSessionType === 'PHYSICAL' ? 'Physical' : finalSessionType === 'REMOTE' ? 'Virtual' : 'Hybrid'), // Map sessionType to locationType for backward compatibility
+      sessionType: finalSessionType,
+      physicalLocation: finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID' ? physicalLocation : undefined,
+      virtualLocation: finalSessionType === 'REMOTE' || finalSessionType === 'HYBRID' ? virtualLocation : undefined,
+      geolocation: (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') && geolocation ? geolocation : undefined,
+      radius: (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') && radius ? radius : undefined,
       assignedUsers: assignedUsers || [],
       weeklyDays: frequency === 'Weekly' ? weeklyDays : undefined,
       sessionAdmin: assignedSessionAdmin,
@@ -142,6 +161,7 @@ export const updateSession = async (req: Request, res: Response) => {
     startTime,
     endTime,
     locationType,
+    sessionType, // New field: PHYSICAL, REMOTE, or HYBRID
     physicalLocation,
     virtualLocation,
     assignedUsers,
@@ -172,7 +192,18 @@ export const updateSession = async (req: Request, res: Response) => {
       updatedSessionAdmin = sessionAdmin || undefined;
     }
 
-    // 5. Update the session
+    // 5. Validate location requirements based on sessionType (if updating)
+    const finalSessionType = sessionType || session.sessionType;
+    if (sessionType && (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID')) {
+      // For PHYSICAL or HYBRID sessions, geolocation is required
+      if (!geolocation || !geolocation.latitude || !geolocation.longitude) {
+        return res.status(400).json({ 
+          msg: 'Geolocation (latitude and longitude) is required for Physical or Hybrid sessions.' 
+        });
+      }
+    }
+
+    // 6. Update the session
     if (name) session.name = name;
     if (description !== undefined) session.description = description;
     if (frequency) session.frequency = frequency;
@@ -181,21 +212,32 @@ export const updateSession = async (req: Request, res: Response) => {
     if (startTime) session.startTime = startTime;
     if (endTime) session.endTime = endTime;
     if (locationType) session.locationType = locationType;
+    if (sessionType) session.sessionType = sessionType;
     if (physicalLocation !== undefined) {
-      session.physicalLocation = (locationType === 'Physical' || locationType === 'Hybrid') ? physicalLocation : undefined;
+      session.physicalLocation = (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') ? physicalLocation : undefined;
     }
     if (virtualLocation !== undefined) {
-      session.virtualLocation = (locationType === 'Virtual' || locationType === 'Hybrid') ? virtualLocation : undefined;
+      session.virtualLocation = (finalSessionType === 'REMOTE' || finalSessionType === 'HYBRID') ? virtualLocation : undefined;
     }
     if (assignedUsers !== undefined) session.assignedUsers = assignedUsers;
     if (weeklyDays !== undefined) {
       session.weeklyDays = frequency === 'Weekly' ? weeklyDays : undefined;
     }
-    if (geolocation) {
-      session.geolocation = geolocation;
+    if (geolocation !== undefined) {
+      // Only set geolocation for PHYSICAL or HYBRID sessions
+      if (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') {
+        session.geolocation = geolocation;
+      } else {
+        session.geolocation = undefined;
+      }
     }
     if (radius !== undefined) {
-      session.radius = radius;
+      // Only set radius for PHYSICAL or HYBRID sessions
+      if (finalSessionType === 'PHYSICAL' || finalSessionType === 'HYBRID') {
+        session.radius = radius;
+      } else {
+        session.radius = undefined;
+      }
     }
     session.sessionAdmin = updatedSessionAdmin;
 

@@ -141,28 +141,59 @@ export const markAttendance = async (req: Request, res: Response) => {
       });
     }
 
-    // 6. *** GEOLOCATION CHECK (MOVED FIRST) ***
-    // Only check geolocation if session has geolocation data
+    // 6. *** SMART GEOLOCATION CHECK BASED ON USER MODE ***
+    // Find the user's specific assignment for this session
+    const assignment = session.assignedUsers.find(
+      (u: any) => u.userId.toString() === userId.toString()
+    );
+
+    if (!assignment) {
+      return res.status(403).json({ msg: 'You are not assigned to this session.' });
+    }
+
+    // Determine if we need to check location based on sessionType and user mode
+    let shouldCheckLocation = false;
     let locationVerified = false;
-    if (session.geolocation && session.geolocation.latitude && session.geolocation.longitude) {
-      const sessionLocation = {
-        latitude: session.geolocation.latitude,
-        longitude: session.geolocation.longitude,
-      };
-      
-      const distance = getDistance(userLocation, sessionLocation);
-      const radius = session.radius || 100; // Default to 100 meters if not set
-      
-      if (distance <= radius) {
-        locationVerified = true;
+
+    if (session.sessionType === 'PHYSICAL') {
+      // All users in PHYSICAL sessions must be at location
+      shouldCheckLocation = true;
+    } else if (session.sessionType === 'HYBRID') {
+      // For HYBRID sessions, check the specific user's mode
+      if (assignment.mode === 'PHYSICAL') {
+        shouldCheckLocation = true;
+      }
+      // If assignment.mode === 'REMOTE', shouldCheckLocation remains false
+    }
+    // If sessionType === 'REMOTE', shouldCheckLocation remains false
+
+    // Perform location check (if needed)
+    if (shouldCheckLocation) {
+      if (session.geolocation && session.geolocation.latitude && session.geolocation.longitude) {
+        const sessionLocation = {
+          latitude: session.geolocation.latitude,
+          longitude: session.geolocation.longitude,
+        };
+        
+        const distance = getDistance(userLocation, sessionLocation);
+        const radius = session.radius || 100; // Default to 100 meters if not set
+        
+        if (distance <= radius) {
+          locationVerified = true;
+        } else {
+          // Send Geolocation error first (priority)
+          return res.status(403).json({
+            msg: `You are not at the correct location. You are ${distance}m away; please verify you are at the correct place as per the session.`,
+          });
+        }
       } else {
-        // Send Geolocation error first (priority)
-        return res.status(403).json({
-          msg: `You are not at the correct location. You are ${distance}m away; please verify you are at the correct place as per the session.`,
+        // This should not happen for PHYSICAL/HYBRID sessions, but handle gracefully
+        return res.status(400).json({
+          msg: 'Session location is not configured. Please contact the administrator.',
         });
       }
     } else {
-      // If no geolocation is set, mark as verified (for virtual sessions)
+      // For REMOTE users or REMOTE sessions, skip location check
       locationVerified = true;
     }
 

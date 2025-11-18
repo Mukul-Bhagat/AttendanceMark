@@ -9,7 +9,8 @@ export interface ISession extends Document {
   endDate?: Date;
   startTime: string; // HH:mm format
   endTime: string; // HH:mm format
-  locationType: 'Physical' | 'Virtual' | 'Hybrid';
+  locationType: 'Physical' | 'Virtual' | 'Hybrid'; // Legacy field, kept for backward compatibility
+  sessionType: 'PHYSICAL' | 'REMOTE' | 'HYBRID'; // New field: Physical, Remote, or Hybrid
   physicalLocation?: string;
   virtualLocation?: string; // URL for virtual meetings
   geolocation?: {
@@ -22,6 +23,7 @@ export interface ISession extends Document {
     email: string;
     firstName: string;
     lastName: string;
+    mode: 'PHYSICAL' | 'REMOTE'; // Specific mode for this user (Physical or Remote)
   }>;
   weeklyDays?: string[]; // For Weekly frequency: ['Monday', 'Tuesday', etc.]
   sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
@@ -65,6 +67,12 @@ const SessionSchema: Schema = new Schema({
     enum: ['Physical', 'Virtual', 'Hybrid'],
     required: true,
   },
+  sessionType: {
+    type: String,
+    enum: ['PHYSICAL', 'REMOTE', 'HYBRID'],
+    required: true,
+    default: 'PHYSICAL',
+  },
   physicalLocation: {
     type: String,
   },
@@ -94,6 +102,11 @@ const SessionSchema: Schema = new Schema({
     },
     lastName: {
       type: String,
+      required: true,
+    },
+    mode: {
+      type: String,
+      enum: ['PHYSICAL', 'REMOTE'],
       required: true,
     },
   }],

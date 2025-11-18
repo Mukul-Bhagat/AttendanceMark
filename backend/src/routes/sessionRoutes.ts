@@ -18,6 +18,7 @@ router.post(
     check('startTime', 'Start time is required').matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/),
     check('endTime', 'End time is required').matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/),
     check('locationType', 'Location type is required').isIn(['Physical', 'Virtual', 'Hybrid']),
+    check('sessionType', 'Session type is required').optional().isIn(['PHYSICAL', 'REMOTE', 'HYBRID']),
   ],
   createSession
 );

@@ -26,16 +26,22 @@ const CreateSession: React.FC = () => {
     endDate: '',
     startTime: '',
     endTime: '',
-    locationType: 'Physical' as 'Physical' | 'Virtual' | 'Hybrid',
+    locationType: 'Physical' as 'Physical' | 'Virtual' | 'Hybrid', // Legacy field
+    sessionType: 'PHYSICAL' as 'PHYSICAL' | 'REMOTE' | 'HYBRID', // New field
     physicalLocation: '',
     virtualLocation: '',
+    geolocation: { latitude: 0, longitude: 0 },
+    radius: 100,
     weeklyDays: [] as string[],
     sessionAdmin: '', // Only for SuperAdmin
   });
 
-  const [assignedUsers, setAssignedUsers] = useState<IUser[]>([]);
+  const [assignedUsers, setAssignedUsers] = useState<IUser[]>([]); // Legacy: for Physical/Remote single mode
+  const [physicalUsers, setPhysicalUsers] = useState<IUser[]>([]); // For Hybrid: Physical attendees
+  const [remoteUsers, setRemoteUsers] = useState<IUser[]>([]); // For Hybrid: Remote attendees
   const [sessionAdmins, setSessionAdmins] = useState<IAuthUser[]>([]);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [userModalContext, setUserModalContext] = useState<'PHYSICAL' | 'REMOTE' | 'ALL'>('ALL');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -67,6 +73,18 @@ const CreateSession: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
+    
+    // When sessionType changes, clear user lists if switching to/from Hybrid
+    if (name === 'sessionType') {
+      if (value === 'HYBRID') {
+        // Switching to Hybrid: clear legacy assignedUsers
+        setAssignedUsers([]);
+      } else {
+        // Switching from Hybrid: clear physical/remote users
+        setPhysicalUsers([]);
+        setRemoteUsers([]);
+      }
+    }
   };
 
   const handleDayToggle = (day: string) => {
@@ -79,7 +97,20 @@ const CreateSession: React.FC = () => {
   };
 
   const handleSaveUsers = (users: IUser[]) => {
-    setAssignedUsers(users);
+    if (userModalContext === 'PHYSICAL') {
+      setPhysicalUsers(users);
+    } else if (userModalContext === 'REMOTE') {
+      setRemoteUsers(users);
+    } else {
+      // Legacy: for Physical or Remote single mode
+      setAssignedUsers(users);
+    }
+    setShowUserModal(false);
+  };
+
+  const openUserModal = (context: 'PHYSICAL' | 'REMOTE' | 'ALL') => {
+    setUserModalContext(context);
+    setShowUserModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,24 +135,72 @@ const CreateSession: React.FC = () => {
       return;
     }
     
+    // Validate geolocation for PHYSICAL or HYBRID sessions
+    if ((formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && 
+        (!formData.geolocation || !formData.geolocation.latitude || !formData.geolocation.longitude)) {
+      setError('Geolocation (latitude and longitude) is required for Physical or Hybrid sessions.');
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const sessionData = {
-        ...formData,
-        assignedUsers: assignedUsers.map(u => ({
+      // Combine users based on sessionType
+      let combinedAssignedUsers: Array<{
+        userId: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        mode: 'PHYSICAL' | 'REMOTE';
+      }> = [];
+
+      if (formData.sessionType === 'HYBRID') {
+        // For Hybrid: combine physicalUsers and remoteUsers with their modes
+        combinedAssignedUsers = [
+          ...physicalUsers.map(u => ({
+            userId: u._id,
+            email: u.email,
+            firstName: u.profile.firstName,
+            lastName: u.profile.lastName,
+            mode: 'PHYSICAL' as const,
+          })),
+          ...remoteUsers.map(u => ({
+            userId: u._id,
+            email: u.email,
+            firstName: u.profile.firstName,
+            lastName: u.profile.lastName,
+            mode: 'REMOTE' as const,
+          })),
+        ];
+      } else {
+        // For Physical or Remote: use assignedUsers with appropriate mode
+        const mode = formData.sessionType === 'PHYSICAL' ? 'PHYSICAL' : 'REMOTE';
+        combinedAssignedUsers = assignedUsers.map(u => ({
           userId: u._id,
           email: u.email,
           firstName: u.profile.firstName,
           lastName: u.profile.lastName,
-        })),
+          mode: mode as 'PHYSICAL' | 'REMOTE',
+        }));
+      }
+
+      const sessionData = {
+        ...formData,
+        assignedUsers: combinedAssignedUsers,
         endDate: formData.endDate || undefined,
         weeklyDays: formData.frequency === 'Weekly' ? formData.weeklyDays : undefined,
-        physicalLocation: formData.locationType === 'Physical' || formData.locationType === 'Hybrid' 
+        physicalLocation: formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID' 
           ? formData.physicalLocation 
           : undefined,
-        virtualLocation: formData.locationType === 'Virtual' || formData.locationType === 'Hybrid' 
+        virtualLocation: formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID' 
           ? formData.virtualLocation 
+          : undefined,
+        geolocation: (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && formData.geolocation
+          ? formData.geolocation
+          : undefined,
+        radius: (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && formData.radius
+          ? formData.radius
           : undefined,
         sessionAdmin: isSuperAdmin && formData.sessionAdmin ? formData.sessionAdmin : undefined,
       };
@@ -276,46 +355,93 @@ const CreateSession: React.FC = () => {
           )}
         </div>
 
-        {/* Location */}
+        {/* Session Type and Location */}
         <div className="form-card">
-          <h3>Location</h3>
+          <h3>Session Type & Location</h3>
           <div className="form-group">
-            <label>Location Type *</label>
+            <label>Session Type *</label>
             <select
-              name="locationType"
-              value={formData.locationType}
+              name="sessionType"
+              value={formData.sessionType}
               onChange={handleChange}
               required
             >
-              <option value="Physical">Physical</option>
-              <option value="Virtual">Virtual</option>
-              <option value="Hybrid">Hybrid</option>
+              <option value="PHYSICAL">Physical</option>
+              <option value="REMOTE">Remote</option>
+              <option value="HYBRID">Hybrid</option>
             </select>
+            <p className="field-hint">
+              Physical: All attendees must be at the location. Remote: All attendees can join from anywhere. Hybrid: Mix of physical and remote attendees.
+            </p>
           </div>
 
-          {(formData.locationType === 'Physical' || formData.locationType === 'Hybrid') && (
-            <div className="form-group">
-              <label>Physical Location *</label>
-              <input
-                type="text"
-                name="physicalLocation"
-                value={formData.physicalLocation}
-                onChange={handleChange}
-                required={formData.locationType === 'Physical'}
-                placeholder="Enter physical address or room number"
-              />
-            </div>
+          {(formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && (
+            <>
+              <div className="form-group">
+                <label>Physical Location *</label>
+                <input
+                  type="text"
+                  name="physicalLocation"
+                  value={formData.physicalLocation}
+                  onChange={handleChange}
+                  required
+                  placeholder="Enter physical address or room number"
+                />
+              </div>
+              <div className="form-group">
+                <label>Geolocation (Latitude) *</label>
+                <input
+                  type="number"
+                  step="any"
+                  name="geolocation.latitude"
+                  value={formData.geolocation.latitude}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    geolocation: { ...prev.geolocation, latitude: parseFloat(e.target.value) || 0 }
+                  }))}
+                  required
+                  placeholder="e.g., 28.6139"
+                />
+              </div>
+              <div className="form-group">
+                <label>Geolocation (Longitude) *</label>
+                <input
+                  type="number"
+                  step="any"
+                  name="geolocation.longitude"
+                  value={formData.geolocation.longitude}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    geolocation: { ...prev.geolocation, longitude: parseFloat(e.target.value) || 0 }
+                  }))}
+                  required
+                  placeholder="e.g., 77.2090"
+                />
+              </div>
+              <div className="form-group">
+                <label>Radius (meters)</label>
+                <input
+                  type="number"
+                  name="radius"
+                  value={formData.radius}
+                  onChange={handleChange}
+                  min="1"
+                  placeholder="Default: 100 meters"
+                />
+                <p className="field-hint">Distance in meters from the location where attendance can be marked.</p>
+              </div>
+            </>
           )}
 
-          {(formData.locationType === 'Virtual' || formData.locationType === 'Hybrid') && (
+          {(formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID') && (
             <div className="form-group">
-              <label>Virtual Location (URL) *</label>
+              <label>Virtual Location (URL) {formData.sessionType === 'REMOTE' && '*'}</label>
               <input
                 type="url"
                 name="virtualLocation"
                 value={formData.virtualLocation}
                 onChange={handleChange}
-                required={formData.locationType === 'Virtual'}
+                required={formData.sessionType === 'REMOTE'}
                 placeholder="https://meet.google.com/..."
               />
             </div>
@@ -350,31 +476,98 @@ const CreateSession: React.FC = () => {
         {/* Assigned Users */}
         <div className="form-card">
           <h3>Assigned Users</h3>
-          <div className="form-group">
-            <button
-              type="button"
-              onClick={() => setShowUserModal(true)}
-              className="btn-secondary"
-            >
-              {assignedUsers.length > 0 
-                ? `Edit Users (${assignedUsers.length} selected)` 
-                : 'Add Users'}
-            </button>
-            {assignedUsers.length > 0 && (
-              <div className="selected-users">
-                <p><strong>Selected Users ({assignedUsers.length}):</strong></p>
-                <div className="selected-users-list">
-                  {assignedUsers.map(user => (
-                    <div key={user._id} className="selected-user-item">
-                      <span className="user-name">{user.profile.firstName} {user.profile.lastName}</span>
-                      <span className="user-email">{user.email}</span>
-                      <span className="user-role">{user.role}</span>
+          
+          {formData.sessionType === 'HYBRID' ? (
+            <>
+              {/* Hybrid Mode: Two separate sections */}
+              <div className="form-group" style={{ marginBottom: '30px' }}>
+                <h4 style={{ marginBottom: '10px', color: '#374151' }}>Physical Attendees (Location Required)</h4>
+                <p style={{ marginBottom: '15px', color: '#6b7280', fontSize: '0.9rem' }}>
+                  These users must be at the location to scan.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openUserModal('PHYSICAL')}
+                  className="btn-secondary"
+                >
+                  {physicalUsers.length > 0 
+                    ? `Edit Physical Users (${physicalUsers.length} selected)` 
+                    : '+ Add Physical Users'}
+                </button>
+                {physicalUsers.length > 0 && (
+                  <div className="selected-users" style={{ marginTop: '15px' }}>
+                    <p><strong>Physical Users ({physicalUsers.length}):</strong></p>
+                    <div className="selected-users-list">
+                      {physicalUsers.map(user => (
+                        <div key={user._id} className="selected-user-item">
+                          <span className="user-name">{user.profile.firstName} {user.profile.lastName}</span>
+                          <span className="user-email">{user.email}</span>
+                          <span className="user-role">{user.role}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+
+              <div className="form-group">
+                <h4 style={{ marginBottom: '10px', color: '#374151' }}>Remote Attendees</h4>
+                <p style={{ marginBottom: '15px', color: '#6b7280', fontSize: '0.9rem' }}>
+                  These users can scan from anywhere.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openUserModal('REMOTE')}
+                  className="btn-secondary"
+                >
+                  {remoteUsers.length > 0 
+                    ? `Edit Remote Users (${remoteUsers.length} selected)` 
+                    : '+ Add Remote Users'}
+                </button>
+                {remoteUsers.length > 0 && (
+                  <div className="selected-users" style={{ marginTop: '15px' }}>
+                    <p><strong>Remote Users ({remoteUsers.length}):</strong></p>
+                    <div className="selected-users-list">
+                      {remoteUsers.map(user => (
+                        <div key={user._id} className="selected-user-item">
+                          <span className="user-name">{user.profile.firstName} {user.profile.lastName}</span>
+                          <span className="user-email">{user.email}</span>
+                          <span className="user-role">{user.role}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            /* Physical or Remote Mode: Single section */
+            <div className="form-group">
+              <button
+                type="button"
+                onClick={() => openUserModal('ALL')}
+                className="btn-secondary"
+              >
+                {assignedUsers.length > 0 
+                  ? `Edit Users (${assignedUsers.length} selected)` 
+                  : 'Add Users'}
+              </button>
+              {assignedUsers.length > 0 && (
+                <div className="selected-users">
+                  <p><strong>Selected Users ({assignedUsers.length}):</strong></p>
+                  <div className="selected-users-list">
+                    {assignedUsers.map(user => (
+                      <div key={user._id} className="selected-user-item">
+                        <span className="user-name">{user.profile.firstName} {user.profile.lastName}</span>
+                        <span className="user-email">{user.email}</span>
+                        <span className="user-role">{user.role}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="form-actions">
@@ -396,7 +589,20 @@ const CreateSession: React.FC = () => {
         <AddUsersModal
           onClose={() => setShowUserModal(false)}
           onSave={handleSaveUsers}
-          initialSelectedUsers={assignedUsers}
+          initialSelectedUsers={
+            userModalContext === 'PHYSICAL' 
+              ? physicalUsers 
+              : userModalContext === 'REMOTE' 
+                ? remoteUsers 
+                : assignedUsers
+          }
+          context={
+            userModalContext === 'PHYSICAL' 
+              ? 'Add Physical Attendees' 
+              : userModalContext === 'REMOTE' 
+                ? 'Add Remote Attendees' 
+                : 'Add Users to Session'
+          }
         />
       )}
     </div>

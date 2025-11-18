@@ -17,9 +17,10 @@ interface IProps {
   onClose: () => void;
   onSave: (users: IUser[]) => void;
   initialSelectedUsers: IUser[];
+  context?: string; // Optional: Context/title to show which group is being added (e.g., "Physical Attendees" or "Remote Attendees")
 }
 
-const AddUsersModal: React.FC<IProps> = ({ onClose, onSave, initialSelectedUsers }) => {
+const AddUsersModal: React.FC<IProps> = ({ onClose, onSave, initialSelectedUsers, context }) => {
   const [allUsers, setAllUsers] = useState<IUser[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Map<string, IUser>>(
     new Map(initialSelectedUsers.map(u => [u._id, u]))
@@ -101,7 +102,7 @@ const AddUsersModal: React.FC<IProps> = ({ onClose, onSave, initialSelectedUsers
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <h2>Add Users to Session</h2>
+        <h2>{context || 'Add Users to Session'}</h2>
         
         <input
           ref={searchInputRef}
