@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 import ProfileMenu from './ProfileMenu';
@@ -7,8 +7,7 @@ import attendMarkLogo from '../assets/attendmarklogo.png';
 import aiAllyLogo from '../assets/image01.png';
 
 const Layout: React.FC = () => {
-  const { user, logout, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser, isLoading } = useAuth();
-  const navigate = useNavigate();
+  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser, isLoading } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -28,11 +27,6 @@ const Layout: React.FC = () => {
     if (path === '/manage-staff') return 'Manage Staff';
     if (path.startsWith('/manage-users')) return 'Manage Users';
     return 'Dashboard';
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
   };
 
   // Get user initials for avatar
