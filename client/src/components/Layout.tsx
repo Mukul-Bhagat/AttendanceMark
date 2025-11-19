@@ -145,7 +145,7 @@ const Layout: React.FC = () => {
           </ul>
         </nav>
 
-        <div className="p-6 border-t border-border-light dark:border-border-dark mt-auto">
+        <div className="p-6 border-t border-border-light dark:border-border-dark">
           <div className="flex items-center space-x-3 mb-4">
             <div className="flex-shrink-0 size-10 rounded-full bg-primary flex items-center justify-center text-white text-lg font-bold">
               {getUserInitials()}
@@ -155,27 +155,20 @@ const Layout: React.FC = () => {
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center w-full py-2 px-4 text-sm font-medium text-red-600 border border-red-600 rounded hover:bg-red-50 dark:hover:bg-red-600/10 transition-colors duration-200 justify-center mb-4"
-          >
-            <span className="material-symbols-outlined mr-2 text-base">logout</span>
-            Logout
-          </button>
-          
-          {/* Powered By AI ALLY Logo */}
-          <div className="flex items-center justify-center gap-2 pt-4 border-t border-border-light dark:border-border-dark">
-            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
-            <img 
-              src={aiAllyLogo} 
-              alt="AI ALLY Logo" 
-              style={{ 
-                height: '20px', 
-                width: 'auto',
-                objectFit: 'contain'
-              }}
-            />
-          </div>
+        </div>
+        
+        {/* Powered By AI ALLY Logo */}
+        <div className="flex items-center justify-center gap-2 pb-6 mt-auto">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
+          <img 
+            src={aiAllyLogo} 
+            alt="AI ALLY Logo" 
+            style={{ 
+              height: '20px', 
+              width: 'auto',
+              objectFit: 'contain'
+            }}
+          />
         </div>
       </aside>
 
@@ -265,7 +258,7 @@ const Layout: React.FC = () => {
           </ul>
         </nav>
 
-        <div className="p-6 border-t border-border-light dark:border-border-dark mt-auto">
+        <div className="p-6 border-t border-border-light dark:border-border-dark">
           <div className="flex items-center space-x-3 mb-4">
             <div className="flex-shrink-0 size-10 rounded-full bg-primary flex items-center justify-center text-white text-lg font-bold">
               {getUserInitials()}
@@ -275,27 +268,20 @@ const Layout: React.FC = () => {
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center w-full py-2 px-4 text-sm font-medium text-red-600 border border-red-600 rounded hover:bg-red-50 dark:hover:bg-red-600/10 transition-colors duration-200 justify-center mb-4"
-          >
-            <span className="material-symbols-outlined mr-2 text-base">logout</span>
-            Logout
-          </button>
-          
-          {/* Powered By AI ALLY Logo */}
-          <div className="flex items-center justify-center gap-2 pt-4 border-t border-border-light dark:border-border-dark">
-            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
-            <img 
-              src={aiAllyLogo} 
-              alt="AI ALLY Logo" 
-              style={{ 
-                height: '20px', 
-                width: 'auto',
-                objectFit: 'contain'
-              }}
-            />
-          </div>
+        </div>
+        
+        {/* Powered By AI ALLY Logo */}
+        <div className="flex items-center justify-center gap-2 pb-6 mt-auto">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
+          <img 
+            src={aiAllyLogo} 
+            alt="AI ALLY Logo" 
+            style={{ 
+              height: '20px', 
+              width: 'auto',
+              objectFit: 'contain'
+            }}
+          />
         </div>
       </aside>
 
