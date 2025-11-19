@@ -67,6 +67,7 @@ const Layout: React.FC = () => {
     <div className="flex h-screen bg-background-light dark:bg-background-dark">
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col h-screen w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark shadow-sm overflow-y-auto">
+        {/* Logo Header */}
         <div className="p-6 border-b border-border-light dark:border-border-dark flex items-center justify-center">
           <img 
             src={attendMarkLogo} 
@@ -79,7 +80,8 @@ const Layout: React.FC = () => {
           />
         </div>
 
-        <nav className="flex-grow mt-6">
+        {/* Navigation Links - Takes available space */}
+        <nav className="flex-1 mt-6 overflow-y-auto">
           <ul className="space-y-1">
             <li>
               <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
@@ -139,37 +141,41 @@ const Layout: React.FC = () => {
           </ul>
         </nav>
 
-        <div className="p-6 border-t border-border-light dark:border-border-dark">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="flex-shrink-0 size-10 rounded-full bg-primary flex items-center justify-center text-white text-lg font-bold">
-              {getUserInitials()}
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{getUserName()}</p>
-              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
+        {/* Bottom Section: User Card + Footer */}
+        <div className="mt-auto border-t border-border-light dark:border-border-dark">
+          {/* User Profile Card */}
+          <div className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0 size-10 rounded-full bg-primary flex items-center justify-center text-white text-lg font-bold">
+                {getUserInitials()}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{getUserName()}</p>
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
+              </div>
             </div>
           </div>
-        </div>
-        
-        {/* Powered By AI ALLY Logo */}
-        <div className="flex items-center justify-center gap-2 pb-6 mt-auto">
-          <a 
-            href="https://aially.in" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
-            <img 
-              src={aiAllyLogo} 
-              alt="AI ALLY Logo" 
-              style={{ 
-                height: '20px', 
-                width: 'auto',
-                objectFit: 'contain'
-              }}
-            />
-          </a>
+          
+          {/* Powered By AI ALLY Logo - Close to User Card */}
+          <div className="px-6 pb-6">
+            <a 
+              href="https://aially.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
+              <img 
+                src={aiAllyLogo} 
+                alt="AI ALLY Logo" 
+                style={{ 
+                  height: '20px', 
+                  width: 'auto',
+                  objectFit: 'contain'
+                }}
+              />
+            </a>
+          </div>
         </div>
       </aside>
 
@@ -207,7 +213,8 @@ const Layout: React.FC = () => {
           </button>
         </div>
 
-        <nav className="flex-grow mt-6 overflow-y-auto">
+        {/* Navigation Links - Takes available space */}
+        <nav className="flex-1 mt-6 overflow-y-auto">
           <ul className="space-y-1">
             <li>
               <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
@@ -259,37 +266,41 @@ const Layout: React.FC = () => {
           </ul>
         </nav>
 
-        <div className="p-6 border-t border-border-light dark:border-border-dark">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="flex-shrink-0 size-10 rounded-full bg-primary flex items-center justify-center text-white text-lg font-bold">
-              {getUserInitials()}
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{getUserName()}</p>
-              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
+        {/* Bottom Section: User Card + Footer */}
+        <div className="mt-auto border-t border-border-light dark:border-border-dark">
+          {/* User Profile Card */}
+          <div className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0 size-10 rounded-full bg-primary flex items-center justify-center text-white text-lg font-bold">
+                {getUserInitials()}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{getUserName()}</p>
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
+              </div>
             </div>
           </div>
-        </div>
-        
-        {/* Powered By AI ALLY Logo */}
-        <div className="flex items-center justify-center gap-2 pb-6 mt-auto">
-          <a 
-            href="https://aially.in" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
-            <img 
-              src={aiAllyLogo} 
-              alt="AI ALLY Logo" 
-              style={{ 
-                height: '20px', 
-                width: 'auto',
-                objectFit: 'contain'
-              }}
-            />
-          </a>
+          
+          {/* Powered By AI ALLY Logo - Close to User Card */}
+          <div className="px-6 pb-6">
+            <a 
+              href="https://aially.in" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
+              <img 
+                src={aiAllyLogo} 
+                alt="AI ALLY Logo" 
+                style={{ 
+                  height: '20px', 
+                  width: 'auto',
+                  objectFit: 'contain'
+                }}
+              />
+            </a>
+          </div>
         </div>
       </aside>
 
