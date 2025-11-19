@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import attendMarkLogo from '../assets/attendmarklogo.png';
+import aiAllyLogo from '../assets/image01.png';
 
 // Helper functions for sessionStorage (moved outside component to avoid recreation)
 const getStoredError = (): string => {
@@ -160,7 +162,21 @@ const LoginPage: React.FC = () => {
             {/* Form Container */}
             <div className="flex w-full flex-col items-center justify-center bg-background-light p-6 lg:w-1/2 lg:p-10">
               <div className="layout-content-container flex w-full max-w-md flex-col">
-                <h1 className="text-slate-900 tracking-light text-[32px] font-bold leading-tight pb-3 pt-6">Welcome back</h1>
+                {/* Main AttendMark Logo */}
+                <div className="flex justify-center mb-6 pt-6">
+                  <img 
+                    src={attendMarkLogo} 
+                    alt="AttendMark Logo" 
+                    style={{ 
+                      width: '200px', 
+                      maxWidth: '60%', 
+                      height: 'auto',
+                      objectFit: 'contain'
+                    }}
+                  />
+                </div>
+                
+                <h1 className="text-slate-900 tracking-light text-[32px] font-bold leading-tight pb-3">Welcome back</h1>
                 <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4 py-3">
                   <label className="flex flex-col flex-1">
                     <p className="text-slate-900 text-base font-medium leading-normal pb-2">Organization Name</p>
@@ -250,6 +266,20 @@ const LoginPage: React.FC = () => {
                     <p className="text-sm font-medium text-red-500">{errorText}</p>
                   </div>
                 )}
+
+                {/* Powered By AI ALLY Logo */}
+                <div className="flex items-center justify-center mt-8 pt-6 border-t border-slate-200 dark:border-slate-700" style={{ gap: '8px' }}>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Powered By</p>
+                  <img 
+                    src={aiAllyLogo} 
+                    alt="AI ALLY Logo" 
+                    style={{ 
+                      height: '24px', 
+                      width: 'auto',
+                      objectFit: 'contain'
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
