@@ -269,16 +269,24 @@ const LoginPage: React.FC = () => {
 
                 {/* Powered By AI ALLY Logo */}
                 <div className="flex items-center justify-center mt-8 pt-6 border-t border-slate-200 dark:border-slate-700" style={{ gap: '8px' }}>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Powered By</p>
-                  <img 
-                    src={aiAllyLogo} 
-                    alt="AI ALLY Logo" 
-                    style={{ 
-                      height: '24px', 
-                      width: 'auto',
-                      objectFit: 'contain'
-                    }}
-                  />
+                  <a 
+                    href="https://aially.in" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ gap: '8px' }}
+                  >
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Powered By</p>
+                    <img 
+                      src={aiAllyLogo} 
+                      alt="AI ALLY Logo" 
+                      style={{ 
+                        height: '24px', 
+                        width: 'auto',
+                        objectFit: 'contain'
+                      }}
+                    />
+                  </a>
                 </div>
               </div>
             </div>

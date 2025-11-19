@@ -66,7 +66,7 @@ const Layout: React.FC = () => {
   return (
     <div className="flex h-screen bg-background-light dark:bg-background-dark">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark shadow-sm overflow-y-auto">
+      <aside className="hidden md:flex flex-col h-screen w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark shadow-sm overflow-y-auto">
         <div className="p-6 border-b border-border-light dark:border-border-dark flex items-center justify-center">
           <img 
             src={attendMarkLogo} 
@@ -153,16 +153,23 @@ const Layout: React.FC = () => {
         
         {/* Powered By AI ALLY Logo */}
         <div className="flex items-center justify-center gap-2 pb-6 mt-auto">
-          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
-          <img 
-            src={aiAllyLogo} 
-            alt="AI ALLY Logo" 
-            style={{ 
-              height: '20px', 
-              width: 'auto',
-              objectFit: 'contain'
-            }}
-          />
+          <a 
+            href="https://aially.in" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
+            <img 
+              src={aiAllyLogo} 
+              alt="AI ALLY Logo" 
+              style={{ 
+                height: '20px', 
+                width: 'auto',
+                objectFit: 'contain'
+              }}
+            />
+          </a>
         </div>
       </aside>
 
@@ -176,7 +183,7 @@ const Layout: React.FC = () => {
 
       {/* Mobile Sidebar Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark shadow-lg transform transition-transform duration-300 ease-in-out md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark shadow-lg transform transition-transform duration-300 ease-in-out md:hidden flex flex-col h-screen ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -266,16 +273,23 @@ const Layout: React.FC = () => {
         
         {/* Powered By AI ALLY Logo */}
         <div className="flex items-center justify-center gap-2 pb-6 mt-auto">
-          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
-          <img 
-            src={aiAllyLogo} 
-            alt="AI ALLY Logo" 
-            style={{ 
-              height: '20px', 
-              width: 'auto',
-              objectFit: 'contain'
-            }}
-          />
+          <a 
+            href="https://aially.in" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
+            <img 
+              src={aiAllyLogo} 
+              alt="AI ALLY Logo" 
+              style={{ 
+                height: '20px', 
+                width: 'auto',
+                objectFit: 'contain'
+              }}
+            />
+          </a>
         </div>
       </aside>
 
