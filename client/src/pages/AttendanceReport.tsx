@@ -277,12 +277,6 @@ const AttendanceReport: React.FC = () => {
     pdf.setFontSize(9);
     
     sessionReport.forEach((record, index) => {
-      // Check if we need a new page
-      if (yPos > pageHeight - 20) {
-        pdf.addPage();
-        yPos = startY;
-      }
-      
       const userName = record.userId 
         ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
         : 'User (deleted)';
@@ -290,21 +284,43 @@ const AttendanceReport: React.FC = () => {
       const checkInTime = formatDateTime(record.checkInTime);
       const status = record.locationVerified ? 'Verified' : 'Not Verified';
       
-      xPos = margin;
       const rowData = [userName, email, checkInTime, status];
       
-      rowData.forEach((cell, cellIndex) => {
-        const cellText = pdf.splitTextToSize(String(cell), colWidths[cellIndex] - 2);
-        pdf.text(cellText, xPos, yPos);
+      // Split all cells and find max lines
+      const splitCells = rowData.map((cell, cellIndex) => 
+        pdf.splitTextToSize(String(cell), colWidths[cellIndex] - 2)
+      );
+      const maxLines = Math.max(...splitCells.map(cell => cell.length));
+      const lineHeight = 6;
+      
+      // Check if we need a new page before drawing this row
+      if (yPos + (maxLines * lineHeight) > pageHeight - 20) {
+        pdf.addPage();
+        yPos = startY;
+      }
+      
+      // Draw each cell, handling multi-line text
+      xPos = margin;
+      splitCells.forEach((cellText, cellIndex) => {
+        const cellYStart = yPos;
+        if (Array.isArray(cellText)) {
+          cellText.forEach((line, lineIndex) => {
+            pdf.text(line, xPos, cellYStart + (lineIndex * lineHeight));
+          });
+        } else {
+          pdf.text(cellText, xPos, cellYStart);
+        }
         xPos += colWidths[cellIndex];
       });
       
-      yPos += 8;
+      // Move yPos down by the height of the tallest cell
+      yPos += (maxLines * lineHeight) + 2;
       
       // Draw line between rows
       if (index < sessionReport.length - 1) {
         pdf.setLineWidth(0.1);
         pdf.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
+        yPos += 2;
       }
     });
     
@@ -372,32 +388,48 @@ const AttendanceReport: React.FC = () => {
     pdf.setFontSize(9);
     
     userReport.forEach((record, index) => {
-      // Check if we need a new page
-      if (yPos > pageHeight - 20) {
-        pdf.addPage();
-        yPos = startY;
-      }
-      
       const sessionName = record.sessionId ? record.sessionId.name : 'Session (deleted)';
       const sessionStart = formatSessionDateTime(record.sessionId);
       const checkInTime = formatDateTime(record.checkInTime);
       const status = record.locationVerified ? 'Verified' : 'Not Verified';
       
-      xPos = margin;
       const rowData = [sessionName, sessionStart, checkInTime, status];
       
-      rowData.forEach((cell, cellIndex) => {
-        const cellText = pdf.splitTextToSize(String(cell), colWidths[cellIndex] - 2);
-        pdf.text(cellText, xPos, yPos);
+      // Split all cells and find max lines
+      const splitCells = rowData.map((cell, cellIndex) => 
+        pdf.splitTextToSize(String(cell), colWidths[cellIndex] - 2)
+      );
+      const maxLines = Math.max(...splitCells.map(cell => cell.length));
+      const lineHeight = 6;
+      
+      // Check if we need a new page before drawing this row
+      if (yPos + (maxLines * lineHeight) > pageHeight - 20) {
+        pdf.addPage();
+        yPos = startY;
+      }
+      
+      // Draw each cell, handling multi-line text
+      xPos = margin;
+      splitCells.forEach((cellText, cellIndex) => {
+        const cellYStart = yPos;
+        if (Array.isArray(cellText)) {
+          cellText.forEach((line, lineIndex) => {
+            pdf.text(line, xPos, cellYStart + (lineIndex * lineHeight));
+          });
+        } else {
+          pdf.text(cellText, xPos, cellYStart);
+        }
         xPos += colWidths[cellIndex];
       });
       
-      yPos += 8;
+      // Move yPos down by the height of the tallest cell
+      yPos += (maxLines * lineHeight) + 2;
       
       // Draw line between rows
       if (index < userReport.length - 1) {
         pdf.setLineWidth(0.1);
         pdf.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
+        yPos += 2;
       }
     });
     
