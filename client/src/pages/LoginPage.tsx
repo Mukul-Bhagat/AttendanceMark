@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import attendMarkLogo from '../assets/attendmarklogo.png';
-import aiAllyLogo from '../assets/image01.png';
 
 // Helper functions for sessionStorage (moved outside component to avoid recreation)
 const getStoredError = (): string => {
@@ -165,7 +163,7 @@ const LoginPage: React.FC = () => {
                 {/* Main AttendMark Logo */}
                 <div className="flex justify-center mb-6 pt-6">
                   <img 
-                    src={attendMarkLogo} 
+                    src="/assets/attendmarklogo.png" 
                     alt="AttendMark Logo" 
                     style={{ 
                       width: '200px', 
@@ -278,7 +276,7 @@ const LoginPage: React.FC = () => {
                   >
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Powered By</p>
                     <img 
-                      src={aiAllyLogo} 
+                      src="/assets/image01.png" 
                       alt="AI ALLY Logo" 
                       style={{ 
                         height: '24px', 

@@ -3,8 +3,6 @@ import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 import ProfileMenu from './ProfileMenu';
-import attendMarkLogo from '../assets/attendmarklogo.png';
-import aiAllyLogo from '../assets/image01.png';
 
 const Layout: React.FC = () => {
   const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser, isLoading } = useAuth();
@@ -70,7 +68,7 @@ const Layout: React.FC = () => {
         {/* Logo Header */}
         <div className="p-6 border-b border-border-light dark:border-border-dark flex items-center justify-center">
           <img 
-            src={attendMarkLogo} 
+            src="/assets/attendmarklogo.png" 
             alt="AttendMark Logo" 
             style={{ 
               width: '140px', 
@@ -166,7 +164,7 @@ const Layout: React.FC = () => {
             >
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
               <img 
-                src={aiAllyLogo} 
+                src="/assets/image01.png" 
                 alt="AI ALLY Logo" 
                 style={{ 
                   height: '20px', 
@@ -196,7 +194,7 @@ const Layout: React.FC = () => {
         <div className="p-6 border-b border-border-light dark:border-border-dark flex items-center justify-between">
           <div className="flex items-center justify-center flex-1">
             <img 
-              src={attendMarkLogo} 
+              src="/assets/attendmarklogo.png" 
               alt="AttendMark Logo" 
               style={{ 
                 width: '140px', 
@@ -291,7 +289,7 @@ const Layout: React.FC = () => {
             >
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark font-medium">Powered By</p>
               <img 
-                src={aiAllyLogo} 
+                src="/assets/image01.png" 
                 alt="AI ALLY Logo" 
                 style={{ 
                   height: '20px', 
@@ -315,7 +313,7 @@ const Layout: React.FC = () => {
           </button>
           <div className="flex items-center justify-center flex-1">
             <img 
-              src={attendMarkLogo} 
+              src="/assets/attendmarklogo.png" 
               alt="AttendMark Logo" 
               style={{ 
                 width: '120px', 
