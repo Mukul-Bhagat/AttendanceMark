@@ -16,17 +16,49 @@ connectDB();
 const app = express();
 
 // Middleware
-// CORS configuration - explicitly allow all origins for maximum compatibility
+// CORS configuration - explicitly allow frontend origin
 // This ensures the frontend at attendmark.onrender.com can access the backend
-app.use(
-  cors({
-    origin: true, // Allow all origins - this echoes back the request origin
-    credentials: true, // Allow cookies/auth headers
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['Authorization'],
-  })
-);
+const allowedOrigins = [
+  'https://attendmark.onrender.com',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // In development, allow all localhost origins
+    if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    // For production, only allow specific origins
+    if (process.env.NODE_ENV === 'production') {
+      console.log(`CORS blocked origin: ${origin}`);
+      return callback(new Error('Not allowed by CORS'));
+    }
+    
+    // In development, allow all origins
+    return callback(null, true);
+  },
+  credentials: true, // Allow cookies/auth headers
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Define Routes
