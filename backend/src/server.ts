@@ -9,6 +9,7 @@ import sessionRoutes from './routes/sessionRoutes';
 import attendanceRoutes from './routes/attendanceRoutes';
 import classBatchRoutes from './routes/classBatchRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
+import reportRoutes from './routes/reportRoutes';
 
 // Load env vars
 dotenv.config();
@@ -73,6 +74,7 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/classes', classBatchRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.get('/', (req, res) => res.send('API Running'));
 

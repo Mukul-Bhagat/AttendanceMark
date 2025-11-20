@@ -1,12 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
-import { ISession, IMyAttendanceRecord } from '../types';
-import { IUser } from '../contexts/AuthContext';
-import { FileText, Download } from 'lucide-react';
+import { IClassBatch } from '../types';
+import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 
-// Define a new type for the session report (with populated user)
-interface ISessionAttendanceRecord {
+interface AnalyticsData {
+  timeline: Array<{ date: string; percentage: number }>;
+  summary: { present: number; absent: number };
+  topPerformers: Array<{ name: string; email: string; percentage: number; verified: number; assigned: number }>;
+  defaulters: Array<{ name: string; email: string; percentage: number; verified: number; assigned: number }>;
+}
+
+interface SessionLog {
+  _id: string;
+  name: string;
+  date: string;
+  totalUsers: number;
+  presentCount: number;
+  absentCount: number;
+  status: string;
+}
+
+interface SessionAttendanceRecord {
   _id: string;
   checkInTime: string;
   locationVerified: boolean;
@@ -21,77 +36,91 @@ interface ISessionAttendanceRecord {
 }
 
 const AttendanceReport: React.FC = () => {
-  const [filterType, setFilterType] = useState<'session' | 'user'>('session');
-  
-  // Data for dropdowns
-  const [allSessions, setAllSessions] = useState<ISession[]>([]);
-  const [allUsers, setAllUsers] = useState<IUser[]>([]);
-  
-  // Selected filter
-  const [selectedSession, setSelectedSession] = useState('');
-  const [selectedUser, setSelectedUser] = useState('');
-  
-  // Report data
-  const [sessionReport, setSessionReport] = useState<ISessionAttendanceRecord[]>([]);
-  const [userReport, setUserReport] = useState<IMyAttendanceRecord[]>([]);
-  
+  const [classes, setClasses] = useState<IClassBatch[]>([]);
+  const [selectedClass, setSelectedClass] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'logs'>('analytics');
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([]);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [sessionAttendanceDetails, setSessionAttendanceDetails] = useState<{ [key: string]: SessionAttendanceRecord[] }>({});
+  const [isLoadingDetails, setIsLoadingDetails] = useState<{ [key: string]: boolean }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const [error, setError] = useState('');
 
-  // 1. Fetch data for both dropdowns on page load
+  // Fetch classes on mount
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchClasses = async () => {
       setIsLoadingFilters(true);
       setError('');
       try {
-        // Fetch sessions and users in parallel
-        const [sessionRes, userRes] = await Promise.all([
-          api.get('/api/sessions'),
-          api.get('/api/users/my-organization')
-        ]);
-        setAllSessions(sessionRes.data || []);
-        setAllUsers(userRes.data || []);
+        const { data } = await api.get('/api/classes');
+        setClasses(data || []);
       } catch (err: any) {
         if (err.response?.status === 401) {
           setError('You are not authorized. Please log in again.');
         } else {
-          setError('Failed to load filter data. Please try again.');
+          setError('Failed to load classes. Please try again.');
         }
         console.error(err);
       } finally {
         setIsLoadingFilters(false);
       }
     };
-    fetchData();
+    fetchClasses();
   }, []);
 
-  // 2. Fetch report when the "View Report" button is clicked
+  // Set default date range (last 30 days)
+  useEffect(() => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    setEndDate(today.toISOString().split('T')[0]);
+    setStartDate(thirtyDaysAgo.toISOString().split('T')[0]);
+  }, []);
+
+  // Fetch analytics when "View Report" is clicked
   const handleViewReport = async () => {
+    if (!selectedClass || !startDate || !endDate) {
+      setError('Please select a class and date range.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
-    setSessionReport([]);
-    setUserReport([]);
+    setAnalyticsData(null);
+    setSessionLogs([]);
 
     try {
-      if (filterType === 'session' && selectedSession) {
-        const { data } = await api.get(`/api/attendance/session/${selectedSession}`);
-        setSessionReport(data || []);
-      } else if (filterType === 'user' && selectedUser) {
-        const { data } = await api.get(`/api/attendance/user/${selectedUser}`);
-        setUserReport(data || []);
-      } else {
-        setError('Please select a class/batch or user.');
-        setIsLoading(false);
-        return;
+      if (activeTab === 'analytics') {
+        const { data } = await api.get('/api/reports/analytics', {
+          params: {
+            classBatchId: selectedClass,
+            startDate,
+            endDate,
+          },
+        });
+        setAnalyticsData(data);
+      } else if (activeTab === 'logs') {
+        const { data } = await api.get('/api/reports/logs', {
+          params: {
+            classBatchId: selectedClass,
+            startDate,
+            endDate,
+          },
+        });
+        setSessionLogs(data || []);
       }
     } catch (err: any) {
       if (err.response?.status === 403) {
-        setError('You are not authorized to view attendance reports.');
-      } else if (err.response?.status === 404) {
-        setError(err.response.data.msg || 'Class/Batch or user not found.');
+        setError('You are not authorized to view reports.');
+      } else if (err.response?.status === 400) {
+        setError(err.response.data.msg || 'Invalid request. Please check your selections.');
       } else {
-        setError(err.response?.data?.msg || 'Failed to fetch report. Please try again.');
+        setError(err.response?.data?.msg || 'Failed to fetch data. Please try again.');
       }
       console.error(err);
     } finally {
@@ -99,6 +128,189 @@ const AttendanceReport: React.FC = () => {
     }
   };
 
+  // Fetch attendance details for a specific session
+  const fetchSessionAttendanceDetails = async (sessionId: string) => {
+    if (sessionAttendanceDetails[sessionId]) {
+      // Already loaded, just toggle
+      setExpandedSessionId(expandedSessionId === sessionId ? null : sessionId);
+      return;
+    }
+
+    setIsLoadingDetails({ ...isLoadingDetails, [sessionId]: true });
+    try {
+      const { data } = await api.get(`/api/attendance/session/${sessionId}`);
+      setSessionAttendanceDetails({ ...sessionAttendanceDetails, [sessionId]: data || [] });
+      setExpandedSessionId(sessionId);
+    } catch (err: any) {
+      console.error('Failed to fetch session attendance details:', err);
+      setError('Failed to load attendance details for this session.');
+    } finally {
+      setIsLoadingDetails({ ...isLoadingDetails, [sessionId]: false });
+    }
+  };
+
+  // Download CSV for a specific session
+  const downloadSessionCSV = async (sessionId: string, sessionName: string) => {
+    try {
+      const { data } = await api.get(`/api/attendance/session/${sessionId}`);
+      const records: SessionAttendanceRecord[] = data || [];
+
+      if (records.length === 0) {
+        alert('No attendance records found for this session.');
+        return;
+      }
+
+      // CSV Headers
+      const headers = ['User Name', 'Email', 'Check-in Time', 'Location Status'];
+
+      // CSV Rows
+      const rows = records.map(record => [
+        record.userId
+          ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
+          : 'User (deleted)',
+        record.userId ? record.userId.email : 'N/A',
+        formatDateTime(record.checkInTime),
+        record.locationVerified ? 'Verified' : 'Not Verified',
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${sessionName.replace(/[^a-z0-9]/gi, '_')}_Attendance_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      console.error('Failed to download CSV:', err);
+      setError('Failed to download CSV. Please try again.');
+    }
+  };
+
+  // Download PDF for a specific session
+  const downloadSessionPDF = async (sessionId: string, sessionName: string) => {
+    try {
+      const { data } = await api.get(`/api/attendance/session/${sessionId}`);
+      const records: SessionAttendanceRecord[] = data || [];
+
+      if (records.length === 0) {
+        alert('No attendance records found for this session.');
+        return;
+      }
+
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const startY = 20;
+      let yPos = startY;
+
+      // Title
+      pdf.setFontSize(18);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(sessionName, margin, yPos);
+      yPos += 10;
+
+      // Subtitle
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Attendance Report - Generated on ${new Date().toLocaleDateString()}`, margin, yPos);
+      yPos += 10;
+
+      // Summary
+      const verifiedCount = records.filter(r => r.locationVerified).length;
+      const notVerifiedCount = records.filter(r => !r.locationVerified).length;
+      pdf.setFontSize(10);
+      pdf.text(`Total Records: ${records.length} | Verified: ${verifiedCount} | Not Verified: ${notVerifiedCount}`, margin, yPos);
+      yPos += 15;
+
+      // Table Headers
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      const colWidths = [60, 60, 50, 30];
+      const headers = ['User Name', 'Email', 'Check-in Time', 'Status'];
+      let xPos = margin;
+
+      headers.forEach((header, index) => {
+        pdf.text(header, xPos, yPos);
+        xPos += colWidths[index];
+      });
+      yPos += 8;
+
+      // Draw line under headers
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, yPos - 3, pageWidth - margin, yPos - 3);
+      yPos += 5;
+
+      // Table Rows
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+
+      records.forEach((record, index) => {
+        const userName = record.userId
+          ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
+          : 'User (deleted)';
+        const email = record.userId ? record.userId.email : 'N/A';
+        const checkInTime = formatDateTime(record.checkInTime);
+        const status = record.locationVerified ? 'Verified' : 'Not Verified';
+
+        const rowData = [userName, email, checkInTime, status];
+
+        // Split all cells and find max lines
+        const splitCells = rowData.map((cell, cellIndex) =>
+          pdf.splitTextToSize(String(cell), colWidths[cellIndex] - 2),
+        );
+        const maxLines = Math.max(...splitCells.map(cell => cell.length));
+        const lineHeight = 6;
+
+        // Check if we need a new page before drawing this row
+        if (yPos + maxLines * lineHeight > pageHeight - 20) {
+          pdf.addPage();
+          yPos = startY;
+        }
+
+        // Draw each cell, handling multi-line text
+        xPos = margin;
+        splitCells.forEach((cellText, cellIndex) => {
+          const cellYStart = yPos;
+          if (Array.isArray(cellText)) {
+            cellText.forEach((line, lineIndex) => {
+              pdf.text(line, xPos, cellYStart + lineIndex * lineHeight);
+            });
+          } else {
+            pdf.text(cellText, xPos, cellYStart);
+          }
+          xPos += colWidths[cellIndex];
+        });
+
+        // Move yPos down by the height of the tallest cell
+        yPos += maxLines * lineHeight + 2;
+
+        // Draw line between rows
+        if (index < records.length - 1) {
+          pdf.setLineWidth(0.1);
+          pdf.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
+          yPos += 2;
+        }
+      });
+
+      // Save PDF
+      pdf.save(`${sessionName.replace(/[^a-z0-9]/gi, '_')}_Attendance_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err: any) {
+      console.error('Failed to download PDF:', err);
+      setError('Failed to download PDF. Please try again.');
+    }
+  };
+
+  // Format date/time helper
   const formatDateTime = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -117,339 +329,44 @@ const AttendanceReport: React.FC = () => {
     }
   };
 
-  const formatSessionDateTime = (session: any) => {
-    if (!session || !session.startDate || !session.startTime) {
-      return 'N/A';
-    }
-    
+  // Format date helper
+  const formatDate = (dateString: string) => {
     try {
-      const [hour, minute] = session.startTime.split(':').map(Number);
-      const sessionDate = new Date(session.startDate);
-      sessionDate.setHours(hour, minute, 0, 0);
-      
-      if (isNaN(sessionDate.getTime())) {
-        return 'N/A';
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString;
       }
-      
-      return sessionDate.toLocaleString('en-US', {
+      return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
       });
     } catch {
-      return 'N/A';
+      return dateString;
     }
   };
 
-  // CSV Download Functions
-  const downloadSessionCSV = () => {
-    if (sessionReport.length === 0) return;
-
-    const selectedSessionData = allSessions.find(s => s._id === selectedSession);
-    const sessionName = selectedSessionData?.name || 'Session Report';
-    
-    // CSV Headers
-    const headers = ['User Name', 'Email', 'Check-in Time', 'Location Status'];
-    
-    // CSV Rows
-    const rows = sessionReport.map(record => [
-      record.userId 
-        ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
-        : 'User (deleted)',
-      record.userId ? record.userId.email : 'N/A',
-      formatDateTime(record.checkInTime),
-      record.locationVerified ? 'Verified' : 'Not Verified'
-    ]);
-    
-    // Combine headers and rows
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-    
-    // Create blob and download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${sessionName.replace(/[^a-z0-9]/gi, '_')}_Attendance_Report_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const downloadUserCSV = () => {
-    if (userReport.length === 0) return;
-
-    const selectedUserData = allUsers.find(u => {
-      const userId = (u as any)._id || u.id;
-      return userId === selectedUser;
-    });
-    const userName = selectedUserData 
-      ? `${selectedUserData.profile.firstName} ${selectedUserData.profile.lastName}`
-      : 'User Report';
-    
-    // CSV Headers
-    const headers = ['Class/Batch Name', 'Start Time', 'Check-in Time', 'Location Status'];
-    
-    // CSV Rows
-    const rows = userReport.map(record => [
-      record.sessionId ? record.sessionId.name : 'Session (deleted)',
-      formatSessionDateTime(record.sessionId),
-      formatDateTime(record.checkInTime),
-      record.locationVerified ? 'Verified' : 'Not Verified'
-    ]);
-    
-    // Combine headers and rows
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
-    
-    // Create blob and download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${userName.replace(/[^a-z0-9]/gi, '_')}_Attendance_Report_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // PDF Download Functions
-  const downloadSessionPDF = () => {
-    if (sessionReport.length === 0) return;
-
-    const selectedSessionData = allSessions.find(s => s._id === selectedSession);
-    const sessionName = selectedSessionData?.name || 'Session Report';
-    
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 15;
-    const startY = 20;
-    let yPos = startY;
-    
-    // Title
-    pdf.setFontSize(18);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(sessionName, margin, yPos);
-    yPos += 10;
-    
-    // Subtitle
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Attendance Report - Generated on ${new Date().toLocaleDateString()}`, margin, yPos);
-    yPos += 10;
-    
-    // Summary
-    const verifiedCount = sessionReport.filter(r => r.locationVerified).length;
-    const notVerifiedCount = sessionReport.filter(r => !r.locationVerified).length;
-    pdf.setFontSize(10);
-    pdf.text(`Total Records: ${sessionReport.length} | Verified: ${verifiedCount} | Not Verified: ${notVerifiedCount}`, margin, yPos);
-    yPos += 15;
-    
-    // Table Headers
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'bold');
-    const colWidths = [60, 60, 50, 30];
-    const headers = ['User Name', 'Email', 'Check-in Time', 'Status'];
-    let xPos = margin;
-    
-    headers.forEach((header, index) => {
-      pdf.text(header, xPos, yPos);
-      xPos += colWidths[index];
-    });
-    yPos += 8;
-    
-    // Draw line under headers
-    pdf.setLineWidth(0.5);
-    pdf.line(margin, yPos - 3, pageWidth - margin, yPos - 3);
-    yPos += 5;
-    
-    // Table Rows
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    
-    sessionReport.forEach((record, index) => {
-      const userName = record.userId 
-        ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
-        : 'User (deleted)';
-      const email = record.userId ? record.userId.email : 'N/A';
-      const checkInTime = formatDateTime(record.checkInTime);
-      const status = record.locationVerified ? 'Verified' : 'Not Verified';
-      
-      const rowData = [userName, email, checkInTime, status];
-      
-      // Split all cells and find max lines
-      const splitCells = rowData.map((cell, cellIndex) => 
-        pdf.splitTextToSize(String(cell), colWidths[cellIndex] - 2)
-      );
-      const maxLines = Math.max(...splitCells.map(cell => cell.length));
-      const lineHeight = 6;
-      
-      // Check if we need a new page before drawing this row
-      if (yPos + (maxLines * lineHeight) > pageHeight - 20) {
-        pdf.addPage();
-        yPos = startY;
-      }
-      
-      // Draw each cell, handling multi-line text
-      xPos = margin;
-      splitCells.forEach((cellText, cellIndex) => {
-        const cellYStart = yPos;
-        if (Array.isArray(cellText)) {
-          cellText.forEach((line, lineIndex) => {
-            pdf.text(line, xPos, cellYStart + (lineIndex * lineHeight));
-          });
-        } else {
-          pdf.text(cellText, xPos, cellYStart);
-        }
-        xPos += colWidths[cellIndex];
-      });
-      
-      // Move yPos down by the height of the tallest cell
-      yPos += (maxLines * lineHeight) + 2;
-      
-      // Draw line between rows
-      if (index < sessionReport.length - 1) {
-        pdf.setLineWidth(0.1);
-        pdf.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
-        yPos += 2;
-      }
-    });
-    
-    // Save PDF
-    pdf.save(`${sessionName.replace(/[^a-z0-9]/gi, '_')}_Attendance_Report_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
-
-  const downloadUserPDF = () => {
-    if (userReport.length === 0) return;
-
-    const selectedUserData = allUsers.find(u => {
-      const userId = (u as any)._id || u.id;
-      return userId === selectedUser;
-    });
-    const userName = selectedUserData 
-      ? `${selectedUserData.profile.firstName} ${selectedUserData.profile.lastName}`
-      : 'User Report';
-    
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 15;
-    const startY = 20;
-    let yPos = startY;
-    
-    // Title
-    pdf.setFontSize(18);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(`${userName} - Attendance Report`, margin, yPos);
-    yPos += 10;
-    
-    // Subtitle
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Generated on ${new Date().toLocaleDateString()}`, margin, yPos);
-    yPos += 10;
-    
-    // Summary
-    const verifiedCount = userReport.filter(r => r.locationVerified).length;
-    const notVerifiedCount = userReport.filter(r => !r.locationVerified).length;
-    pdf.setFontSize(10);
-    pdf.text(`Total Records: ${userReport.length} | Verified: ${verifiedCount} | Not Verified: ${notVerifiedCount}`, margin, yPos);
-    yPos += 15;
-    
-    // Table Headers
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'bold');
-    const colWidths = [50, 50, 50, 30];
-    const headers = ['Class/Batch Name', 'Start Time', 'Check-in Time', 'Status'];
-    let xPos = margin;
-    
-    headers.forEach((header, index) => {
-      pdf.text(header, xPos, yPos);
-      xPos += colWidths[index];
-    });
-    yPos += 8;
-    
-    // Draw line under headers
-    pdf.setLineWidth(0.5);
-    pdf.line(margin, yPos - 3, pageWidth - margin, yPos - 3);
-    yPos += 5;
-    
-    // Table Rows
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    
-    userReport.forEach((record, index) => {
-      const sessionName = record.sessionId ? record.sessionId.name : 'Session (deleted)';
-      const sessionStart = formatSessionDateTime(record.sessionId);
-      const checkInTime = formatDateTime(record.checkInTime);
-      const status = record.locationVerified ? 'Verified' : 'Not Verified';
-      
-      const rowData = [sessionName, sessionStart, checkInTime, status];
-      
-      // Split all cells and find max lines
-      const splitCells = rowData.map((cell, cellIndex) => 
-        pdf.splitTextToSize(String(cell), colWidths[cellIndex] - 2)
-      );
-      const maxLines = Math.max(...splitCells.map(cell => cell.length));
-      const lineHeight = 6;
-      
-      // Check if we need a new page before drawing this row
-      if (yPos + (maxLines * lineHeight) > pageHeight - 20) {
-        pdf.addPage();
-        yPos = startY;
-      }
-      
-      // Draw each cell, handling multi-line text
-      xPos = margin;
-      splitCells.forEach((cellText, cellIndex) => {
-        const cellYStart = yPos;
-        if (Array.isArray(cellText)) {
-          cellText.forEach((line, lineIndex) => {
-            pdf.text(line, xPos, cellYStart + (lineIndex * lineHeight));
-          });
-        } else {
-          pdf.text(cellText, xPos, cellYStart);
-        }
-        xPos += colWidths[cellIndex];
-      });
-      
-      // Move yPos down by the height of the tallest cell
-      yPos += (maxLines * lineHeight) + 2;
-      
-      // Draw line between rows
-      if (index < userReport.length - 1) {
-        pdf.setLineWidth(0.1);
-        pdf.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
-        yPos += 2;
-      }
-    });
-    
-    // Save PDF
-    pdf.save(`${userName.replace(/[^a-z0-9]/gi, '_')}_Attendance_Report_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
+  // Prepare pie chart data
+  const pieData = analyticsData
+    ? [
+        { name: 'Present', value: analyticsData.summary.present, color: '#22c55e' },
+        { name: 'Absent', value: analyticsData.summary.absent, color: '#ef4444' },
+      ]
+    : [];
 
   if (isLoadingFilters) {
     return (
       <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
         <div className="layout-container flex h-full grow flex-col">
-          <div className="px-4 sm:px-8 md:px-16 lg:px-24 xl:px-40 flex flex-1 justify-center py-5 sm:py-10">
-            <div className="layout-content-container flex flex-col max-w-5xl flex-1 gap-8">
+          <div className="px-4 sm:px-6 lg:px-8 py-8 lg:py-12 flex flex-1 justify-center">
+            <div className="layout-content-container flex flex-col w-full max-w-7xl flex-1">
               <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center">
                   <svg className="animate-spin h-8 w-8 text-[#f04129] mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                   </svg>
-                  <p className="text-[#8a7b60] dark:text-gray-400">Loading filters...</p>
+                  <p className="text-[#8a7b60] dark:text-gray-400">Loading classes...</p>
                 </div>
               </div>
             </div>
@@ -459,326 +376,511 @@ const AttendanceReport: React.FC = () => {
     );
   }
 
-
   return (
     <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
       <div className="layout-container flex h-full grow flex-col">
-        <div className="px-4 sm:px-8 md:px-16 lg:px-24 xl:px-40 flex flex-1 justify-center py-5 sm:py-10">
-          <div className="layout-content-container flex flex-col max-w-5xl flex-1 gap-8">
-            <div className="flex flex-wrap justify-between gap-3 p-4">
-              <p className="text-[#181511] dark:text-background-light text-4xl font-black leading-tight tracking-[-0.033em] min-w-72">Attendance Report</p>
+        <div className="px-4 sm:px-6 lg:px-8 py-8 lg:py-12 flex flex-1 justify-center">
+          <div className="layout-content-container flex flex-col w-full max-w-7xl flex-1">
+            {/* Page Header */}
+            <div className="flex min-w-72 flex-col gap-3 mb-8">
+              <p className="text-[#181511] dark:text-white text-3xl sm:text-4xl font-black leading-tight tracking-[-0.033em]">
+                Attendance Report
+              </p>
+              <p className="text-[#8a7b60] dark:text-gray-400 text-base font-normal leading-normal">
+                View class-wise attendance analytics, statistics, and detailed session logs.
+              </p>
             </div>
 
             {/* Error Alert */}
-            {error && !isLoading && (
-              <div className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-center">
-                <span className="material-symbols-outlined mr-2">cancel</span>
+            {error && (
+              <div className="mb-6 bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20 p-4 rounded-xl flex items-center">
+                <span className="material-symbols-outlined mr-2">error</span>
                 {error}
               </div>
             )}
 
             {/* Filter Section */}
-            <div className="bg-white dark:bg-background-dark/50 border border-[#e6e2db] dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8">
-              <h2 className="text-[#181511] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em] pb-5 flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#f04129]">description</span>
-                Generate Report
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6 sm:p-8 mb-8">
+              <h2 className="text-[#181511] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em] mb-5 flex items-center">
+                <span className="material-symbols-outlined text-[#f04129] mr-2">filter_alt</span>
+                Select Class & Date Range
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-                <label className="flex flex-col min-w-40 flex-1">
-                  <p className="text-[#181511] dark:text-white/80 text-base font-medium leading-normal pb-2">View By</p>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <label className="flex flex-col flex-1">
+                  <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Class/Batch</p>
                   <div className="relative">
                     <select
-                      className="form-select appearance-none flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 h-14 p-[15px] text-base font-normal leading-normal"
-                      value={filterType}
+                      className="form-select appearance-none flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal"
+                      value={selectedClass}
                       onChange={(e) => {
-                        setFilterType(e.target.value as 'session' | 'user');
-                        setSelectedSession('');
-                        setSelectedUser('');
-                        setSessionReport([]);
-                        setUserReport([]);
+                        setSelectedClass(e.target.value);
+                        setAnalyticsData(null);
+                        setSessionLogs([]);
                         setError('');
                       }}
                       disabled={isLoading}
                     >
-                      <option value="session">Class/Batch</option>
-                      <option value="user">User</option>
+                      <option value="">-- Select Class --</option>
+                      {classes.map((classBatch) => (
+                        <option key={classBatch._id} value={classBatch._id}>
+                          {classBatch.name}
+                        </option>
+                      ))}
                     </select>
-                    <span className="material-symbols-outlined pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#8a7b60] dark:text-white/60">unfold_more</span>
+                    <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#8a7b60] dark:text-gray-400">
+                      unfold_more
+                    </span>
                   </div>
                 </label>
 
-                {filterType === 'session' ? (
-                  <label className="flex flex-col min-w-40 flex-1">
-                    <p className="text-[#181511] dark:text-white/80 text-base font-medium leading-normal pb-2">Select Class/Batch</p>
-                    <div className="relative">
-                      <select
-                        className="form-select appearance-none flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 h-14 p-[15px] text-base font-normal leading-normal"
-                        value={selectedSession}
-                        onChange={(e) => {
-                          setSelectedSession(e.target.value);
-                          setSessionReport([]);
-                          setError('');
-                        }}
-                        disabled={isLoading}
-                      >
-                        <option value="">-- Select Class/Batch --</option>
-                        {allSessions.map((session) => (
-                          <option key={session._id} value={session._id}>
-                            {session.name} ({new Date(session.startDate).toLocaleDateString()})
-                          </option>
-                        ))}
-                      </select>
-                      <span className="material-symbols-outlined pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#8a7b60] dark:text-white/60">unfold_more</span>
-                    </div>
-                  </label>
-                ) : (
-                  <label className="flex flex-col min-w-40 flex-1">
-                    <p className="text-[#181511] dark:text-white/80 text-base font-medium leading-normal pb-2">Select User</p>
-                    <div className="relative">
-                      <select
-                        className="form-select appearance-none flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 h-14 p-[15px] text-base font-normal leading-normal"
-                        value={selectedUser}
-                        onChange={(e) => {
-                          setSelectedUser(e.target.value);
-                          setUserReport([]);
-                          setError('');
-                        }}
-                        disabled={isLoading}
-                      >
-                        <option value="">-- Select User --</option>
-                        {allUsers.map((user) => {
-                          const userId = (user as any)._id || user.id;
-                          return (
-                            <option key={userId} value={userId}>
-                              {user.profile.firstName} {user.profile.lastName} ({user.email})
-                            </option>
-                          );
-                        })}
-                      </select>
-                      <span className="material-symbols-outlined pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#8a7b60] dark:text-white/60">unfold_more</span>
-                    </div>
-                  </label>
-                )}
+                <label className="flex flex-col flex-1">
+                  <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Start Date</p>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setAnalyticsData(null);
+                      setSessionLogs([]);
+                      setError('');
+                    }}
+                    className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal"
+                    disabled={isLoading}
+                  />
+                </label>
 
-                <div className="w-full">
-                  <button
-                    className={`flex w-full min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-14 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all disabled:opacity-70 disabled:cursor-not-allowed`}
-                    onClick={handleViewReport}
-                    disabled={isLoading || (filterType === 'session' && !selectedSession) || (filterType === 'user' && !selectedUser)}
-                  >
-                    {isLoading ? (
-                      <>
-                        <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-                        </svg>
-                        <span className="truncate">Loading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-white">filter_alt</span>
-                        <span className="truncate">View Report</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                <label className="flex flex-col flex-1">
+                  <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">End Date</p>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setAnalyticsData(null);
+                      setSessionLogs([]);
+                      setError('');
+                    }}
+                    className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal"
+                    disabled={isLoading}
+                  />
+                </label>
+
+                <button
+                  className="flex w-full min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                  onClick={handleViewReport}
+                  disabled={isLoading || !selectedClass || !startDate || !endDate}
+                >
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                      </svg>
+                      <span className="truncate">Loading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-white">analytics</span>
+                      <span className="truncate">View Report</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
+
+            {/* Tab Switcher */}
+            {(analyticsData || sessionLogs.length > 0) && (
+              <div className="mb-6 flex gap-2 border-b border-[#e6e2db] dark:border-slate-700">
+                <button
+                  onClick={() => {
+                    setActiveTab('analytics');
+                    if (selectedClass && startDate && endDate) {
+                      handleViewReport();
+                    }
+                  }}
+                  className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                    activeTab === 'analytics'
+                      ? 'bg-white dark:bg-slate-800 text-[#f04129] border-b-2 border-[#f04129]'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-[#181511] dark:hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined align-middle mr-2">analytics</span>
+                  Analytics
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('logs');
+                    if (selectedClass && startDate && endDate) {
+                      handleViewReport();
+                    }
+                  }}
+                  className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                    activeTab === 'logs'
+                      ? 'bg-white dark:bg-slate-800 text-[#f04129] border-b-2 border-[#f04129]'
+                      : 'text-gray-500 dark:text-gray-400 hover:text-[#181511] dark:hover:text-white'
+                  }`}
+                >
+                  <span className="material-symbols-outlined align-middle mr-2">description</span>
+                  Attendance Logs
+                </button>
+              </div>
+            )}
 
             {/* Loading State */}
             {isLoading && (
               <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center">
-                  <svg className="animate-spin h-8 w-8 text-[#f04129] mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="animate-spin h-8 w-8 text-[#f04129] mb-4" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                   </svg>
-                  <p className="text-[#8a7b60] dark:text-gray-400">Loading report...</p>
+                  <p className="text-[#8a7b60] dark:text-gray-400">Loading {activeTab === 'analytics' ? 'analytics' : 'logs'}...</p>
                 </div>
               </div>
             )}
 
-            {/* Report Results Section - Session Report */}
-            {!isLoading && sessionReport.length > 0 && (
-              <div className="bg-white dark:bg-background-dark/50 border border-[#e6e2db] dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8">
-                <div className="flex flex-wrap items-center justify-between gap-4 pb-5">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <h2 className="text-[#181511] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em]">Report Results</h2>
-                    <span className="px-3 py-1 bg-red-100 text-[#f04129] dark:bg-[#f04129]/20 dark:text-[#f04129] rounded-full text-sm font-medium">
-                      Total Records: {sessionReport.length}
-                    </span>
-                    <span className="px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded-full text-sm font-medium">
-                      Verified: {sessionReport.filter(r => r.locationVerified).length}
-                    </span>
-                    <span className="px-3 py-1 bg-red-100 text-[#f04129] dark:bg-red-900/50 dark:text-red-300 rounded-full text-sm font-medium">
-                      Not Verified: {sessionReport.filter(r => !r.locationVerified).length}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={downloadSessionCSV}
-                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-gradient-to-r from-orange-500 to-[#f04129] text-white border-0 gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
-                    >
-                      <FileText className="w-4 h-4 text-white" />
-                      <span className="truncate">CSV</span>
-                    </button>
-                    <button 
-                      onClick={downloadSessionPDF}
-                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-gradient-to-r from-orange-500 to-[#f04129] text-white gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
-                    >
-                      <Download className="w-4 h-4 text-white" />
-                      <span className="truncate">PDF</span>
-                    </button>
-                  </div>
+            {/* TAB 1: Analytics View */}
+            {!isLoading && activeTab === 'analytics' && analyticsData && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Section 1: Trends & Stats (Top Row) */}
+                
+                {/* Left: Line Chart - Attendance Trend */}
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6">
+                  <h3 className="text-[#181511] dark:text-white text-lg font-bold mb-4 flex items-center">
+                    <span className="material-symbols-outlined text-[#f04129] mr-2">trending_up</span>
+                    Attendance Trend
+                  </h3>
+                  {analyticsData.timeline.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={256}>
+                      <LineChart data={analyticsData.timeline}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e6e2db" className="dark:stroke-slate-700" />
+                        <XAxis 
+                          dataKey="date" 
+                          stroke="#8a7b60"
+                          className="dark:stroke-gray-400"
+                          tick={{ fill: '#8a7b60', className: 'dark:fill-gray-400' }}
+                          style={{ fontSize: '12px' }}
+                        />
+                        <YAxis 
+                          stroke="#8a7b60"
+                          className="dark:stroke-gray-400"
+                          tick={{ fill: '#8a7b60', className: 'dark:fill-gray-400' }}
+                          style={{ fontSize: '12px' }}
+                          domain={[0, 100]}
+                          label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft', fill: '#8a7b60', className: 'dark:fill-gray-400' }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'white', 
+                            border: '1px solid #e6e2db',
+                            borderRadius: '8px',
+                            color: '#181511'
+                          }}
+                          labelStyle={{ color: '#181511' }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="percentage" 
+                          stroke="#f04129" 
+                          strokeWidth={2}
+                          dot={{ fill: '#f04129', r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-[#8a7b60] dark:text-gray-400">
+                      No data available for the selected date range
+                    </div>
+                  )}
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-full divide-y divide-[#e6e2db] dark:divide-white/10">
-                    <thead className="bg-background-light dark:bg-white/5">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">User Name</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Email</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Time</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-background-dark/50 divide-y divide-[#e6e2db] dark:divide-white/10">
-                      {sessionReport.map(record => (
-                        <tr key={record._id} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#181511] dark:text-white">
-                            {record.userId ? (
-                              `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
-                            ) : (
-                              <span className="text-[#8a7b60] dark:text-gray-400">User (deleted)</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8a7b60] dark:text-white/70">
-                            {record.userId ? record.userId.email : 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8a7b60] dark:text-white/70">
-                            {formatDateTime(record.checkInTime)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {record.locationVerified ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
-                                Verified
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300">
-                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>cancel</span>
-                                Failed
-                              </span>
-                            )}
-                          </td>
-                        </tr>
+
+                {/* Right: Pie Chart - Overall Status */}
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6">
+                  <h3 className="text-[#181511] dark:text-white text-lg font-bold mb-4 flex items-center">
+                    <span className="material-symbols-outlined text-[#f04129] mr-2">pie_chart</span>
+                    Overall Status
+                  </h3>
+                  {pieData.length > 0 && pieData.some(d => d.value > 0) ? (
+                    <ResponsiveContainer width="100%" height={256}>
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'white', 
+                            border: '1px solid #e6e2db',
+                            borderRadius: '8px',
+                            color: '#181511'
+                          }}
+                        />
+                        <Legend 
+                          wrapperStyle={{ fontSize: '14px', color: '#8a7b60' }}
+                          className="dark:text-gray-400"
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-[#8a7b60] dark:text-gray-400">
+                      No attendance data available
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 2: Leaderboards (Bottom Row) */}
+                
+                {/* Left: Top 5 Performers */}
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6">
+                  <h3 className="text-[#181511] dark:text-white text-lg font-bold mb-4 flex items-center">
+                    <span className="material-symbols-outlined text-[#f04129] mr-2">emoji_events</span>
+                    Top 5 Performers
+                  </h3>
+                  {analyticsData.topPerformers.length > 0 ? (
+                    <div className="space-y-3">
+                      {analyticsData.topPerformers.map((performer, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <span className="text-lg font-bold text-green-700 dark:text-green-400 min-w-[24px]">
+                              #{index + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-[#181511] dark:text-white truncate">
+                                {performer.name}
+                              </p>
+                              <p className="text-xs text-[#8a7b60] dark:text-gray-400 truncate">
+                                {performer.email}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded-full text-sm font-semibold whitespace-nowrap">
+                            {performer.percentage.toFixed(1)}%
+                          </span>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-[#8a7b60] dark:text-gray-400">
+                      No performers data available
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Top 5 Defaulters */}
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6">
+                  <h3 className="text-[#181511] dark:text-white text-lg font-bold mb-4 flex items-center">
+                    <span className="material-symbols-outlined text-[#f04129] mr-2">warning</span>
+                    Top 5 Defaulters
+                  </h3>
+                  {analyticsData.defaulters.length > 0 ? (
+                    <div className="space-y-3">
+                      {analyticsData.defaulters.map((defaulter, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <span className="text-lg font-bold text-red-700 dark:text-red-400 min-w-[24px]">
+                              #{index + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-[#181511] dark:text-white truncate">
+                                {defaulter.name}
+                              </p>
+                              <p className="text-xs text-[#8a7b60] dark:text-gray-400 truncate">
+                                {defaulter.email}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="px-3 py-1 bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 rounded-full text-sm font-semibold whitespace-nowrap">
+                            {defaulter.percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-[#8a7b60] dark:text-gray-400">
+                      No defaulters data available
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Report Results Section - User Report */}
-            {!isLoading && userReport.length > 0 && (
-              <div className="bg-white dark:bg-background-dark/50 border border-[#e6e2db] dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8">
-                <div className="flex flex-wrap items-center justify-between gap-4 pb-5">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <h2 className="text-[#181511] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em]">Report Results</h2>
-                    <span className="px-3 py-1 bg-red-100 text-[#f04129] dark:bg-[#f04129]/20 dark:text-[#f04129] rounded-full text-sm font-medium">
-                      Total Records: {userReport.length}
-                    </span>
-                    <span className="px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded-full text-sm font-medium">
-                      Verified: {userReport.filter(r => r.locationVerified).length}
-                    </span>
-                    <span className="px-3 py-1 bg-red-100 text-[#f04129] dark:bg-red-900/50 dark:text-red-300 rounded-full text-sm font-medium">
-                      Not Verified: {userReport.filter(r => !r.locationVerified).length}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={downloadUserCSV}
-                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-gradient-to-r from-orange-500 to-[#f04129] text-white border-0 gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
-                    >
-                      <FileText className="w-4 h-4 text-white" />
-                      <span className="truncate">CSV</span>
-                    </button>
-                    <button 
-                      onClick={downloadUserPDF}
-                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-gradient-to-r from-orange-500 to-[#f04129] text-white gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
-                    >
-                      <Download className="w-4 h-4 text-white" />
-                      <span className="truncate">PDF</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-full divide-y divide-[#e6e2db] dark:divide-white/10">
-                    <thead className="bg-background-light dark:bg-white/5">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Class/Batch Name</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Start Time</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Check-in Time</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-background-dark/50 divide-y divide-[#e6e2db] dark:divide-white/10">
-                      {userReport.map(record => (
-                        <tr key={record._id} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#181511] dark:text-white">
-                            {record.sessionId ? (
-                              <div>
-                                <div>{record.sessionId.name}</div>
-                                {record.sessionId.description && (
-                                  <p className="text-xs text-[#8a7b60] dark:text-gray-400 mt-1">{record.sessionId.description}</p>
+            {/* TAB 2: Logs View */}
+            {!isLoading && activeTab === 'logs' && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6 sm:p-8">
+                <h2 className="text-[#181511] dark:text-white text-xl font-bold mb-6 flex items-center">
+                  <span className="material-symbols-outlined text-[#f04129] mr-2">description</span>
+                  Session Attendance Logs
+                </h2>
+                {sessionLogs.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-full divide-y divide-[#e6e2db] dark:divide-slate-700">
+                      <thead className="bg-[#f9fafb] dark:bg-slate-900/50">
+                        <tr>
+                          <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Date</th>
+                          <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Session Name</th>
+                          <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Attendance</th>
+                          <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Status</th>
+                          <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-slate-800 divide-y divide-[#e6e2db] dark:divide-slate-700">
+                        {sessionLogs.map((log) => (
+                          <React.Fragment key={log._id}>
+                            <tr className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[#181511] dark:text-white">
+                                {formatDate(log.date)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#181511] dark:text-white">
+                                {log.name}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-[#181511] dark:text-white">
+                                <span className="font-semibold">{log.presentCount}</span>
+                                <span className="text-[#8a7b60] dark:text-gray-400">/{log.totalUsers}</span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                {log.status === 'Completed' ? (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                                    Completed
+                                  </span>
+                                ) : log.status === 'Today' ? (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                    Today
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                    Upcoming
+                                  </span>
                                 )}
-                              </div>
-                            ) : (
-                              <span className="text-[#8a7b60] dark:text-gray-400">Session (deleted)</span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => fetchSessionAttendanceDetails(log._id)}
+                                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-[#f04129] hover:text-[#d63a25] dark:text-[#f04129] dark:hover:text-[#ff6b5a] transition-colors"
+                                    title="View attendance list"
+                                  >
+                                    <span className="material-symbols-outlined text-base mr-1">visibility</span>
+                                    View
+                                  </button>
+                                  <button
+                                    onClick={() => downloadSessionPDF(log._id, log.name)}
+                                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-[#f04129] hover:text-[#d63a25] dark:text-[#f04129] dark:hover:text-[#ff6b5a] transition-colors"
+                                    title="Download PDF"
+                                  >
+                                    <span className="material-symbols-outlined text-base mr-1">picture_as_pdf</span>
+                                    PDF
+                                  </button>
+                                  <button
+                                    onClick={() => downloadSessionCSV(log._id, log.name)}
+                                    className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-[#f04129] hover:text-[#d63a25] dark:text-[#f04129] dark:hover:text-[#ff6b5a] transition-colors"
+                                    title="Download CSV"
+                                  >
+                                    <span className="material-symbols-outlined text-base mr-1">file_download</span>
+                                    CSV
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                            {/* Expanded Row - Attendance Details */}
+                            {expandedSessionId === log._id && (
+                              <tr>
+                                <td colSpan={5} className="px-6 py-4 bg-gray-50 dark:bg-slate-900/50">
+                                  {isLoadingDetails[log._id] ? (
+                                    <div className="flex items-center justify-center py-4">
+                                      <svg className="animate-spin h-5 w-5 text-[#f04129]" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                                      </svg>
+                                    </div>
+                                  ) : sessionAttendanceDetails[log._id] && sessionAttendanceDetails[log._id].length > 0 ? (
+                                    <div className="space-y-2">
+                                      <h4 className="text-sm font-semibold text-[#181511] dark:text-white mb-3">Attendance List:</h4>
+                                      <div className="overflow-x-auto">
+                                        <table className="min-w-full text-sm">
+                                          <thead>
+                                            <tr className="border-b border-[#e6e2db] dark:border-slate-700">
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400">User Name</th>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400">Email</th>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400">Check-in Time</th>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400">Status</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-[#e6e2db] dark:divide-slate-700">
+                                            {sessionAttendanceDetails[log._id].map((record) => (
+                                              <tr key={record._id}>
+                                                <td className="px-4 py-2 text-[#181511] dark:text-white">
+                                                  {record.userId
+                                                    ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
+                                                    : 'User (deleted)'}
+                                                </td>
+                                                <td className="px-4 py-2 text-[#8a7b60] dark:text-gray-400">
+                                                  {record.userId ? record.userId.email : 'N/A'}
+                                                </td>
+                                                <td className="px-4 py-2 text-[#8a7b60] dark:text-gray-400">
+                                                  {formatDateTime(record.checkInTime)}
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                  {record.locationVerified ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                                                      Verified
+                                                    </span>
+                                                  ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300">
+                                                      Not Verified
+                                                    </span>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-[#8a7b60] dark:text-gray-400">No attendance records found for this session.</p>
+                                  )}
+                                </td>
+                              </tr>
                             )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8a7b60] dark:text-white/70">
-                            {formatSessionDateTime(record.sessionId)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8a7b60] dark:text-white/70">
-                            {formatDateTime(record.checkInTime)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            {record.locationVerified ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
-                                Verified
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300">
-                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>cancel</span>
-                                Failed
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-[#8a7b60] dark:text-gray-400 text-base mb-2">No session logs found.</p>
+                    <p className="text-[#8a7b60] dark:text-gray-400 text-sm">
+                      Select a class and date range, then click "View Report" to see session logs.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Empty State - Initial */}
-            {!isLoading && sessionReport.length === 0 && userReport.length === 0 && !error && selectedSession === '' && selectedUser === '' && (
-              <div className="bg-white dark:bg-background-dark/50 border border-[#e6e2db] dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8 text-center py-12">
-                <p className="text-[#181511] dark:text-white text-xl font-semibold mb-2">📊 Ready to Generate Report</p>
-                <p className="text-[#8a7b60] dark:text-gray-400">Select a class/batch or user above and click "View Report" to generate a report.</p>
-              </div>
-            )}
-
-            {/* Empty State - After Selection */}
-            {!isLoading && sessionReport.length === 0 && userReport.length === 0 && !error && (selectedSession !== '' || selectedUser !== '') && (
-              <div className="bg-white dark:bg-background-dark/50 border border-[#e6e2db] dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8 text-center py-12">
-                <p className="text-[#181511] dark:text-white text-xl font-semibold mb-2">📭 No Attendance Records Found</p>
+            {!isLoading && !analyticsData && sessionLogs.length === 0 && !error && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6 sm:p-8 text-center py-12">
+                <p className="text-[#181511] dark:text-white text-xl font-semibold mb-2">📊 Ready to View Report</p>
                 <p className="text-[#8a7b60] dark:text-gray-400">
-                  {filterType === 'session'
-                    ? 'No users have marked attendance for this class/batch yet.'
-                    : 'This user has not marked attendance for any classes/batches yet.'}
+                  Select a class and date range above, then click "View Report" to generate analytics or view logs.
                 </p>
               </div>
             )}
@@ -790,4 +892,3 @@ const AttendanceReport: React.FC = () => {
 };
 
 export default AttendanceReport;
-

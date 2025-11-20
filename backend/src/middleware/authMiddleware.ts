@@ -58,3 +58,18 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
+// Authorize routes - check if user has required role
+export const authorize = (...roles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ msg: 'Not authorized, no user' });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ msg: 'Not authorized to access this resource' });
+    }
+
+    next();
+  };
+};
+
