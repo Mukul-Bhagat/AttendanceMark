@@ -29,6 +29,7 @@ export const createSession = async (req: Request, res: Response) => {
     assignedUsers,
     weeklyDays,
     sessionAdmin, // Optional: ID of SessionAdmin to assign (only SuperAdmin can set this)
+    classBatchId, // Optional: Reference to ClassBatch
   } = req.body;
 
   try {
@@ -97,6 +98,7 @@ export const createSession = async (req: Request, res: Response) => {
       sessionAdmin: assignedSessionAdmin,
       createdBy: userId,
       organizationPrefix: collectionPrefix,
+      classBatchId: classBatchId || undefined,
     });
 
     await session.save();
@@ -190,6 +192,9 @@ export const updateSession = async (req: Request, res: Response) => {
     geolocation, // Legacy field
     radius,
     sessionAdmin, // Optional: Only SuperAdmin can change this
+    classBatchId, // Optional: Reference to ClassBatch
+    isCancelled, // Optional: Cancel/uncancel session
+    cancellationReason, // Optional: Reason for cancellation
   } = req.body;
 
   try {
@@ -288,12 +293,64 @@ export const updateSession = async (req: Request, res: Response) => {
       }
     }
     session.sessionAdmin = updatedSessionAdmin;
+    if (classBatchId !== undefined) session.classBatchId = classBatchId || undefined;
+    
+    // Handle cancellation
+    if (isCancelled !== undefined) {
+      session.isCancelled = isCancelled;
+      if (isCancelled) {
+        session.cancellationReason = cancellationReason || undefined;
+      } else {
+        // If uncancelling, clear the reason
+        session.cancellationReason = undefined;
+      }
+    } else if (cancellationReason !== undefined && session.isCancelled) {
+      // Allow updating cancellation reason if session is already cancelled
+      session.cancellationReason = cancellationReason;
+    }
 
     await session.save();
 
     res.json({
       msg: 'Session updated successfully',
       session,
+    });
+  } catch (err: any) {
+    console.error(err.message);
+    if (err.kind === 'ObjectId') {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   DELETE /api/sessions/:id
+// @desc    Delete a session (only SuperAdmin or assigned SessionAdmin can delete)
+// @access  Private
+export const deleteSession = async (req: Request, res: Response) => {
+  try {
+    const { collectionPrefix, id: userId, role: userRole } = req.user!;
+    const { id } = req.params;
+
+    // Get the organization-specific Session model
+    const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
+
+    // Find the session
+    const session = await SessionCollection.findById(id);
+    if (!session) {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+
+    // Security check: Only SuperAdmin or assigned SessionAdmin can delete
+    if (userRole !== 'SuperAdmin' && session.sessionAdmin?.toString() !== userId) {
+      return res.status(403).json({ msg: 'Not authorized to delete this session' });
+    }
+
+    // Delete the session
+    await SessionCollection.findByIdAndDelete(id);
+
+    res.json({
+      msg: 'Session deleted successfully',
     });
   } catch (err: any) {
     console.error(err.message);

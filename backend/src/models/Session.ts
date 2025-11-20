@@ -37,6 +37,9 @@ export interface ISession extends Document {
   sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
   createdBy: string; // User ID who created the session
   organizationPrefix: string; // To identify which organization this belongs to
+  classBatchId?: string; // Reference to ClassBatch (optional for backward compatibility)
+  isCancelled?: boolean; // Whether the session has been cancelled
+  cancellationReason?: string; // Reason for cancellation
 }
 
 // Session schema
@@ -144,7 +147,21 @@ const SessionSchema: Schema = new Schema({
     type: String,
     required: true,
   },
+  classBatchId: {
+    type: String, // Reference to ClassBatch _id (optional for backward compatibility)
+    index: true, // Index for fast lookups
+  },
+  isCancelled: {
+    type: Boolean,
+    default: false,
+  },
+  cancellationReason: {
+    type: String,
+  },
 }, { timestamps: true });
+
+// Index for faster lookups by classBatchId
+SessionSchema.index({ classBatchId: 1 });
 
 // Factory function to create Session model for a specific organization
 const createSessionModel = (collectionName: string): Model<ISession> => {

@@ -1,3 +1,35 @@
+// ClassBatch interface (Parent container for Sessions)
+export interface IClassBatch {
+  _id: string;
+  name: string;
+  description?: string;
+  createdBy: string;
+  defaultTime?: string; // HH:mm format
+  defaultLocation?: string;
+  organizationPrefix: string;
+  createdAt: string;
+  updatedAt: string;
+  firstSession?: {
+    _id: string;
+    startDate: string;
+    endDate?: string;
+    startTime: string;
+    endTime: string;
+    locationType: string;
+    physicalLocation?: string;
+    virtualLocation?: string;
+    location?: {
+      type: 'LINK' | 'COORDS';
+      link?: string;
+      geolocation?: {
+        latitude: number;
+        longitude: number;
+      };
+    };
+    frequency: 'OneTime' | 'Daily' | 'Weekly' | 'Monthly';
+  };
+}
+
 // Session interface matching the backend model
 export interface ISession {
   _id: string;
@@ -36,6 +68,9 @@ export interface ISession {
   sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
   createdBy: string;
   organizationPrefix: string;
+  classBatchId?: string; // Reference to ClassBatch (optional for backward compatibility)
+  isCancelled?: boolean; // Whether the session has been cancelled
+  cancellationReason?: string; // Reason for cancellation
   createdAt: string;
   updatedAt: string;
 }

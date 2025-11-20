@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
-import { ISession } from '../types';
+import { ISession, IClassBatch } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { Eye, Edit } from 'lucide-react';
+import { Eye, Edit, ArrowLeft } from 'lucide-react';
 
 const Sessions: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin } = useAuth();
+  const { classId } = useParams<{ classId?: string }>();
+  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser } = useAuth();
   const [sessions, setSessions] = useState<ISession[]>([]);
+  const [classBatch, setClassBatch] = useState<IClassBatch | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showPastSessions, setShowPastSessions] = useState(false);
   
   // SuperAdmin, CompanyAdmin, Manager, and SessionAdmin can create sessions
   const canCreateSession = isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin;
@@ -24,9 +27,18 @@ const Sessions: React.FC = () => {
 
   useEffect(() => {
     const fetchSessions = async () => {
+      setIsLoading(true);
       try {
-        const { data } = await api.get('/api/sessions');
-        setSessions(data || []);
+        if (classId) {
+          // Fetch sessions for a specific class
+          const { data } = await api.get(`/api/classes/${classId}/sessions`);
+          setSessions(data.sessions || []);
+          setClassBatch(data.classBatch || null);
+        } else {
+          // Fetch all sessions (backward compatibility)
+          const { data } = await api.get('/api/sessions');
+          setSessions(data || []);
+        }
       } catch (err: any) {
         if (err.response?.status === 401) {
           setError('You are not authorized. Please log in again.');
@@ -40,7 +52,28 @@ const Sessions: React.FC = () => {
     };
 
     fetchSessions();
-  }, []);
+  }, [classId]);
+
+  // Refresh data when component comes into focus (e.g., navigating back from edit)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (classId) {
+        const fetchSessions = async () => {
+          try {
+            const { data } = await api.get(`/api/classes/${classId}/sessions`);
+            setSessions(data.sessions || []);
+            setClassBatch(data.classBatch || null);
+          } catch (err) {
+            console.error('Error refreshing sessions:', err);
+          }
+        };
+        fetchSessions();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [classId]);
 
   const formatDate = (dateString: string) => {
     try {
@@ -79,6 +112,57 @@ const Sessions: React.FC = () => {
       return timeString;
     }
   };
+
+  // Filter sessions: only show upcoming sessions (endDate >= today) by default
+  const isSessionUpcoming = (session: ISession): boolean => {
+    try {
+      // Use endDate if available, otherwise use startDate
+      const sessionDate = session.endDate ? new Date(session.endDate) : new Date(session.startDate);
+      
+      // If session has endTime, combine it with the date for accurate comparison
+      if (session.endTime) {
+        const [hours, minutes] = session.endTime.split(':');
+        sessionDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+      } else {
+        // Set to end of day if no endTime
+        sessionDate.setHours(23, 59, 59, 999);
+      }
+      
+      // Get today's date at start of day for comparison
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Session is upcoming if its end date/time is >= today
+      return sessionDate >= today;
+    } catch {
+      // If date parsing fails, include the session to be safe
+      return true;
+    }
+  };
+
+  // Check if a session is scheduled for today
+  const isSessionToday = (session: ISession): boolean => {
+    try {
+      if (!session.startDate) return false;
+      
+      const sessionDate = new Date(session.startDate);
+      sessionDate.setHours(0, 0, 0, 0);
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      return sessionDate.getTime() === today.getTime() && !session.isCancelled;
+    } catch {
+      return false;
+    }
+  };
+
+  // Separate sessions into upcoming and past
+  const upcomingSessions = sessions.filter(isSessionUpcoming);
+  const pastSessions = sessions.filter(session => !isSessionUpcoming(session));
+  
+  // Determine which sessions to display
+  const displayedSessions = showPastSessions ? sessions : upcomingSessions;
 
   if (isLoading) {
     return (
@@ -143,110 +227,233 @@ const Sessions: React.FC = () => {
     <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden bg-background-light dark:bg-background-dark">
       <div className="layout-container flex h-full grow flex-col">
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#f04129] text-4xl">calendar_month</span>
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">Sessions</h1>
-            </div>
-            {canCreateSession && (
+          <header className="mb-8">
+            {classId && (
               <Link
-                to="/sessions/create"
-                className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
+                to="/classes"
+                className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#f5f3f0] dark:bg-slate-800 text-[#181511] dark:text-gray-200 gap-2 text-sm font-bold leading-normal tracking-[0.015em] border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors mb-4"
               >
-                <span className="material-symbols-outlined text-xl">add</span>
-                <span className="truncate">Create New Session</span>
+                <ArrowLeft className="w-4 h-4" />
+                <span className="truncate">Back to Classes</span>
               </Link>
             )}
-          </header>
-
-          {sessions.length === 0 ? (
-            <div className="mt-12 md:col-span-2 lg:col-span-3">
-              <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-[#e6e2db] dark:border-slate-800 px-6 py-14">
-                <div className="flex max-w-[480px] flex-col items-center gap-2 text-center">
-                  <p className="text-[#181511] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">No Classes/Batches Available</p>
-                  <p className="text-[#181511] dark:text-slate-300 text-sm font-normal leading-normal">There are currently no classes/batches scheduled. Get started by creating a new one.</p>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-[#f04129] text-4xl">calendar_month</span>
+                <div>
+                  <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">
+                    {classBatch ? classBatch.name : 'Sessions'}
+                  </h1>
+                  {classBatch && classBatch.description && (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{classBatch.description}</p>
+                  )}
                 </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {pastSessions.length > 0 && (
+                  <button
+                    onClick={() => setShowPastSessions(!showPastSessions)}
+                    className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium leading-normal tracking-[0.015em] hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-lg">{showPastSessions ? 'visibility_off' : 'history'}</span>
+                    <span className="truncate">{showPastSessions ? 'Hide Past' : `Show Past (${pastSessions.length})`}</span>
+                  </button>
+                )}
                 {canCreateSession && (
                   <Link
-                    to="/sessions/create"
+                    to={classId ? `/sessions/create?classId=${classId}` : "/sessions/create"}
                     className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
                   >
                     <span className="material-symbols-outlined text-xl">add</span>
-                    <span className="truncate">Create New Class</span>
+                    <span className="truncate">Create New Session</span>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </header>
+
+          {displayedSessions.length === 0 ? (
+            <div className="mt-12 md:col-span-2 lg:col-span-3">
+              <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-[#e6e2db] dark:border-slate-800 px-6 py-14">
+                <div className="flex max-w-[480px] flex-col items-center gap-2 text-center">
+                  <p className="text-[#181511] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">
+                    {classId ? 'No Sessions Available' : 'No Sessions Available'}
+                  </p>
+                  <p className="text-[#181511] dark:text-slate-300 text-sm font-normal leading-normal">
+                    {classId 
+                      ? 'This class does not have any sessions yet. Create a new session to get started.'
+                      : 'There are currently no sessions scheduled. Get started by creating a new one.'}
+                  </p>
+                </div>
+                {canCreateSession && (
+                  <Link
+                    to={classId ? `/sessions/create?classId=${classId}` : "/sessions/create"}
+                    className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
+                  >
+                    <span className="material-symbols-outlined text-xl">add</span>
+                    <span className="truncate">Create New Session</span>
                   </Link>
                 )}
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sessions.map((session) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 p-4 md:p-0">
+              {displayedSessions.map((session) => {
+                const isPast = !isSessionUpcoming(session);
+                const isToday = isSessionToday(session);
+                const showScanButton = isEndUser && isToday;
+                
+                return (
                 <div
                   key={session._id}
-                  className="flex flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-6 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => navigate(`/sessions/${session._id}`)}
+                  className={`flex flex-col w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 md:p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden ${
+                    isPast ? 'opacity-60 grayscale' : ''
+                  }`}
+                  onClick={() => {
+                    // Don't navigate if session is cancelled
+                    if (session.isCancelled) return;
+                    // End Users should not navigate to details page
+                    if (!isEndUser) {
+                      navigate(`/sessions/${session._id}`);
+                    }
+                  }}
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white pr-4">{session.name}</h2>
-                    <span className="whitespace-nowrap rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
-                      {formatFrequency(session.frequency)}
-                    </span>
+                  {/* Cancellation Overlay */}
+                  {session.isCancelled && (
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 text-center backdrop-blur-sm bg-white/60 dark:bg-slate-900/60 rounded-xl">
+                      <div className="bg-red-50 dark:bg-red-900/30 rounded-lg p-4 border-2 border-red-300 dark:border-red-700 max-w-sm">
+                        <span className="material-symbols-outlined text-5xl text-red-600 dark:text-red-400 mb-3">warning</span>
+                        <h3 className="text-xl font-bold text-red-700 dark:text-red-400 mb-2">
+                          ⚠️ Session Cancelled
+                        </h3>
+                        {session.cancellationReason && (
+                          <p className="text-base font-semibold text-red-800 dark:text-red-300 mt-2 leading-relaxed">
+                            {session.cancellationReason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start justify-between mb-4 gap-2">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white break-words flex-1">{session.name}</h2>
+                    <div className="flex flex-col gap-2 items-end">
+                      {session.isCancelled && (
+                        <span className="whitespace-nowrap rounded-full bg-orange-100 dark:bg-orange-900/30 px-3 py-1 text-xs font-medium text-orange-600 dark:text-orange-400 border border-orange-300 dark:border-orange-800">
+                          ⚠️ Cancelled
+                        </span>
+                      )}
+                      {isEndUser && (
+                        <>
+                          {isPast && (
+                            <span className="whitespace-nowrap rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700">
+                              Past
+                            </span>
+                          )}
+                          {isToday && (
+                            <span className="whitespace-nowrap rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1 text-xs font-medium text-green-600 dark:text-green-400 border border-green-300 dark:border-green-800">
+                              Today
+                            </span>
+                          )}
+                          {!isPast && !isToday && (
+                            <span className="whitespace-nowrap rounded-full bg-blue-100 dark:bg-blue-900/30 px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-800">
+                              Upcoming
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {!isEndUser && isPast && (
+                        <span className="whitespace-nowrap rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700">
+                          Past Session
+                        </span>
+                      )}
+                      <span className="whitespace-nowrap rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                        {formatFrequency(session.frequency)}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex-grow space-y-3 text-slate-700 dark:text-slate-300 mb-4">
                     {session.endDate ? (
                       <div className="flex items-center text-sm">
-                        <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg">date_range</span>
-                        <span>{formatDate(session.startDate)} - {formatDate(session.endDate)}</span>
+                        <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg flex-shrink-0">date_range</span>
+                        <span className="break-words whitespace-normal">{formatDate(session.startDate)} - {formatDate(session.endDate)}</span>
                       </div>
                     ) : (
                       <div className="flex items-center text-sm">
-                        <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg">calendar_today</span>
-                        <span>{formatDate(session.startDate)}</span>
+                        <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg flex-shrink-0">calendar_today</span>
+                        <span className="break-words whitespace-normal">{formatDate(session.startDate)}</span>
                       </div>
                     )}
                     <div className="flex items-center text-sm">
-                      <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg">schedule</span>
-                      <span>{formatTime(session.startTime)} - {formatTime(session.endTime)}</span>
+                      <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg flex-shrink-0">schedule</span>
+                      <span className="break-words whitespace-normal">{formatTime(session.startTime)} - {formatTime(session.endTime)}</span>
                     </div>
                     <div className="flex items-center text-sm">
-                      <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg">location_on</span>
-                      <span>{session.locationType}</span>
+                      <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg flex-shrink-0">location_on</span>
+                      <span className="break-words whitespace-normal">{session.locationType}</span>
                     </div>
                     {session.assignedUsers && Array.isArray(session.assignedUsers) && session.assignedUsers.length > 0 && (
                       <div className="flex items-center text-sm">
-                        <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg">group</span>
-                        <span>{session.assignedUsers.length} Assigned Users</span>
+                        <span className="material-symbols-outlined mr-2 text-slate-500 dark:text-slate-400 text-lg flex-shrink-0">group</span>
+                        <span className="break-words whitespace-normal">{session.assignedUsers.length} Assigned Users</span>
                       </div>
                     )}
                     {session.description && (
-                      <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 pt-1">{session.description}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 pt-1 break-words whitespace-normal">{session.description}</p>
                     )}
                   </div>
-                  <div className="mt-auto flex flex-col gap-2 sm:flex-row sm:gap-2">
-                    <button
-                      className="flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/sessions/${session._id}`);
-                      }}
-                    >
-                      <Eye className="w-5 h-5" />
-                      <span className="truncate">View Details</span>
-                    </button>
+                  <div className="mt-auto flex flex-row items-center justify-between gap-3">
+                    {showScanButton ? (
+                      <button
+                        className="flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-3 md:px-4 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold hover:from-orange-600 hover:to-[#d63a25] transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/scan?sessionId=${session._id}`);
+                        }}
+                      >
+                        <span className="material-symbols-outlined text-lg">qr_code_scanner</span>
+                        <span className="truncate whitespace-normal">Scan Attendance</span>
+                      </button>
+                    ) : (
+                      <>
+                        {isEndUser ? (
+                          <button
+                            className="flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-3 md:px-4 border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-sm font-medium bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
+                            disabled
+                          >
+                            <span className="truncate whitespace-normal">
+                              {isPast ? 'Past Session' : 'Upcoming'}
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            className="flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-3 md:px-4 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/sessions/${session._id}`);
+                            }}
+                          >
+                            <Eye className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                            <span className="truncate whitespace-normal">View Details</span>
+                          </button>
+                        )}
+                      </>
+                    )}
                     {canEditSession(session) && (
                       <button
-                        className="flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 border border-[#f04129] text-[#f04129] text-sm font-bold hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors"
+                        className="flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-3 md:px-4 border border-[#f04129] text-[#f04129] text-sm font-bold hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/sessions/edit/${session._id}`);
                         }}
                       >
-                        <Edit className="w-5 h-5" />
-                        <span className="truncate">Edit</span>
+                        <Edit className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                        <span className="truncate whitespace-normal">Edit</span>
                       </button>
                     )}
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </main>

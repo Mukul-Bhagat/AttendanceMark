@@ -4,8 +4,10 @@ import LoginPage from './pages/LoginPage';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
+import Classes from './pages/Classes';
 import Sessions from './pages/Sessions';
 import CreateSession from './pages/CreateSession';
+import EditClass from './pages/EditClass';
 import SessionDetails from './pages/SessionDetails';
 import ScanQR from './pages/ScanQR';
 import MyAttendance from './pages/MyAttendance';
@@ -25,6 +27,7 @@ const PublicNav = () => {
   const location = useLocation();
   const isProtectedRoute = location.pathname.startsWith('/dashboard') || 
                           location.pathname.startsWith('/sessions') || 
+                          location.pathname.startsWith('/classes') ||
                           location.pathname.startsWith('/manage-users') ||
                           location.pathname.startsWith('/scan') ||
                           location.pathname.startsWith('/my-attendance') ||
@@ -120,13 +123,36 @@ function App() {
           </Route>
         </Route>
         
-        {/* Sessions routes - Only for Admins (not EndUsers) */}
+        {/* Classes routes - Accessible to all authenticated users (including EndUsers) */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
+            <Route path="/classes" element={<Classes />} />
+            <Route path="/classes/:classId/sessions" element={<Sessions />} />
+          </Route>
+        </Route>
+        
+        {/* Classes edit route - Only for Admins */}
         <Route 
           element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin']} />}
         >
           <Route element={<Layout />}>
+            <Route path="/classes/edit/:id" element={<EditClass />} />
+          </Route>
+        </Route>
+        
+        {/* Sessions routes - Accessible to all authenticated users (including EndUsers) */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/sessions/:id" element={<SessionDetails />} />
+          </Route>
+        </Route>
+        
+        {/* Sessions edit route - Only for Admins */}
+        <Route 
+          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin']} />}
+        >
+          <Route element={<Layout />}>
             <Route path="/sessions/edit/:id" element={<EditSession />} />
           </Route>
         </Route>
@@ -145,6 +171,7 @@ function App() {
           element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin']} />}
         >
           <Route element={<Layout />}>
+            <Route path="/classes/create" element={<CreateSession />} />
             <Route path="/sessions/create" element={<CreateSession />} />
           </Route>
         </Route>

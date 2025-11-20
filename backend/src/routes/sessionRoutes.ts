@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { createSession, getSessions, getSessionById, updateSession } from '../controllers/sessionController';
+import { createSession, getSessions, getSessionById, updateSession, deleteSession } from '../controllers/sessionController';
 
 const router = Router();
 
@@ -49,6 +49,11 @@ router.put(
   ],
   updateSession
 );
+
+// @route   DELETE /api/sessions/:id
+// @desc    Delete a session (only SuperAdmin or assigned SessionAdmin)
+// @access  Private
+router.delete('/:id', protect, deleteSession);
 
 export default router;
 

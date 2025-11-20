@@ -18,7 +18,8 @@ const Layout: React.FC = () => {
   const getPageTitle = () => {
     const path = location.pathname;
     if (path === '/dashboard') return 'Dashboard';
-    if (path.startsWith('/sessions')) return 'Classes/Batches';
+    if (path.startsWith('/classes')) return 'Classes/Batches';
+    if (path.startsWith('/sessions')) return 'Sessions';
     if (path === '/scan') return 'Scan QR Code';
     if (path === '/my-attendance') return 'My Attendance';
     if (path === '/reports') return 'Attendance Report';
@@ -97,24 +98,15 @@ const Layout: React.FC = () => {
               <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
             </li>
 
-            {/* Classes/Batches - visible only to Admins (not EndUsers) */}
-            {!isEndUser && (
-              <li>
-                <NavLinkItem to="/sessions" icon="groups" end={true}>Classes/Batches</NavLinkItem>
-              </li>
-            )}
+            {/* Classes/Batches - visible to all authenticated users (including EndUsers) */}
+            <li>
+              <NavLinkItem to="/classes" icon="groups" end={true}>Classes/Batches</NavLinkItem>
+            </li>
 
             {/* Create Class/Batch - for SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
             {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin) && (
               <li>
-                <NavLinkItem to="/sessions/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
-              </li>
-            )}
-
-            {/* My Classes/Batches - visible only to EndUsers */}
-            {isEndUser && (
-              <li>
-                <NavLinkItem to="/my-sessions" icon="checklist">My Classes/Batches</NavLinkItem>
+                <NavLinkItem to="/classes/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
               </li>
             )}
 
@@ -252,21 +244,15 @@ const Layout: React.FC = () => {
               <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
             </li>
 
-            {!isEndUser && (
-              <li>
-                <NavLinkItem to="/sessions" icon="groups" end={true}>Classes/Batches</NavLinkItem>
-              </li>
-            )}
+            {/* Classes/Batches - visible to all authenticated users (including EndUsers) */}
+            <li>
+              <NavLinkItem to="/classes" icon="groups" end={true}>Classes/Batches</NavLinkItem>
+            </li>
 
+            {/* Create Class/Batch - for SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
             {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin) && (
               <li>
-                <NavLinkItem to="/sessions/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
-              </li>
-            )}
-
-            {isEndUser && (
-              <li>
-                <NavLinkItem to="/my-sessions" icon="checklist">My Classes/Batches</NavLinkItem>
+                <NavLinkItem to="/classes/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
               </li>
             )}
 

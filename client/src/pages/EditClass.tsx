@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth, IUser as IAuthUser } from '../contexts/AuthContext';
 import AddUsersModal from '../components/AddUsersModal';
-import { X } from 'lucide-react';
+import { X, ArrowLeft } from 'lucide-react';
+import { IClassBatch, ISession } from '../types';
 
 interface IUser {
   _id: string;
@@ -15,15 +16,13 @@ interface IUser {
   };
 }
 
-const CreateSession: React.FC = () => {
+const EditClass: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { id } = useParams<{ id: string }>();
   const { isSuperAdmin } = useAuth();
   
-  // Check if we're creating a class (from /classes/create) or adding to existing class
-  const isCreatingClass = location.pathname.includes('/classes/create');
-  const urlParams = new URLSearchParams(location.search);
-  const existingClassId = urlParams.get('classId');
+  const [classBatch, setClassBatch] = useState<IClassBatch | null>(null);
+  const [firstSession, setFirstSession] = useState<ISession | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -32,35 +31,172 @@ const CreateSession: React.FC = () => {
     endDate: '',
     startTime: '',
     endTime: '',
-    locationType: 'Physical' as 'Physical' | 'Virtual' | 'Hybrid', // Legacy field
-    sessionType: 'PHYSICAL' as 'PHYSICAL' | 'REMOTE' | 'HYBRID', // New field
+    locationType: 'Physical' as 'Physical' | 'Virtual' | 'Hybrid',
+    sessionType: 'PHYSICAL' as 'PHYSICAL' | 'REMOTE' | 'HYBRID',
     virtualLocation: '',
     geolocation: { latitude: 0, longitude: 0 },
     radius: 100,
     weeklyDays: [] as string[],
-    sessionAdmin: '', // Only for SuperAdmin
+    sessionAdmin: '',
   });
 
-  const [assignedUsers, setAssignedUsers] = useState<IUser[]>([]); // Legacy: for Physical/Remote single mode
-  const [physicalUsers, setPhysicalUsers] = useState<IUser[]>([]); // For Hybrid: Physical attendees
-  const [remoteUsers, setRemoteUsers] = useState<IUser[]>([]); // For Hybrid: Remote attendees
+  const [assignedUsers, setAssignedUsers] = useState<IUser[]>([]);
+  const [physicalUsers, setPhysicalUsers] = useState<IUser[]>([]);
+  const [remoteUsers, setRemoteUsers] = useState<IUser[]>([]);
   const [sessionAdmins, setSessionAdmins] = useState<IAuthUser[]>([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userModalContext, setUserModalContext] = useState<'PHYSICAL' | 'REMOTE' | 'ALL'>('ALL');
-  const [locationInputType, setLocationInputType] = useState<'LINK' | 'COORDS'>('LINK'); // Default to Link
+  const [locationInputType, setLocationInputType] = useState<'LINK' | 'COORDS'>('LINK');
   const [locationLink, setLocationLink] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+  // Fetch ClassBatch and first session
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) {
+        setError('Invalid class ID');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Fetch ClassBatch
+        const classRes = await api.get(`/api/classes/${id}`);
+        const classData = classRes.data;
+        setClassBatch(classData);
+
+        // Fetch sessions for this class
+        const sessionsRes = await api.get(`/api/classes/${id}/sessions`);
+        const sessions = sessionsRes.data.sessions || [];
+        
+        if (sessions.length > 0) {
+          const session = sessions[0];
+          setFirstSession(session);
+          
+          // Pre-fill form from first session
+          const sessionDate = new Date(session.startDate);
+          const endDate = session.endDate ? new Date(session.endDate) : null;
+          
+          setFormData({
+            name: classData.name || '',
+            description: classData.description || '',
+            frequency: session.frequency || 'OneTime',
+            startDate: sessionDate.toISOString().split('T')[0],
+            endDate: endDate ? endDate.toISOString().split('T')[0] : '',
+            startTime: session.startTime || '',
+            endTime: session.endTime || '',
+            locationType: session.locationType || 'Physical',
+            sessionType: session.sessionType || 'PHYSICAL',
+            virtualLocation: session.virtualLocation || '',
+            geolocation: session.geolocation || session.location?.geolocation || { latitude: 0, longitude: 0 },
+            radius: session.radius || 100,
+            weeklyDays: session.weeklyDays || [],
+            sessionAdmin: session.sessionAdmin || '',
+          });
+
+          // Set location input type and values
+          if (session.location) {
+            if (session.location.type === 'LINK') {
+              setLocationInputType('LINK');
+              setLocationLink(session.location.link || '');
+            } else if (session.location.type === 'COORDS') {
+              setLocationInputType('COORDS');
+              setLatitude(session.location.geolocation?.latitude?.toString() || '');
+              setLongitude(session.location.geolocation?.longitude?.toString() || '');
+            }
+          } else if (session.physicalLocation) {
+            setLocationInputType('LINK');
+            setLocationLink(session.physicalLocation);
+          }
+
+          // Pre-fill assigned users
+          if (session.assignedUsers && session.assignedUsers.length > 0) {
+            if (session.sessionType === 'HYBRID') {
+              const physical = session.assignedUsers.filter((u: any) => u.mode === 'PHYSICAL');
+              const remote = session.assignedUsers.filter((u: any) => u.mode === 'REMOTE');
+              
+              // Fetch full user objects for physical users
+              try {
+                const physicalUserIds = physical.map((u: any) => u.userId);
+                const { data: allUsers } = await api.get('/api/users/my-organization');
+                const physicalUserObjects = allUsers.filter((u: IUser) => physicalUserIds.includes(u._id));
+                setPhysicalUsers(physicalUserObjects);
+              } catch (err) {
+                console.error('Error fetching physical users:', err);
+              }
+              
+              // Fetch full user objects for remote users
+              try {
+                const remoteUserIds = remote.map((u: any) => u.userId);
+                const { data: allUsers } = await api.get('/api/users/my-organization');
+                const remoteUserObjects = allUsers.filter((u: IUser) => remoteUserIds.includes(u._id));
+                setRemoteUsers(remoteUserObjects);
+              } catch (err) {
+                console.error('Error fetching remote users:', err);
+              }
+            } else {
+              // Fetch full user objects
+              try {
+                const userIds = session.assignedUsers.map((u: any) => u.userId);
+                const { data: allUsers } = await api.get('/api/users/my-organization');
+                const userObjects = allUsers.filter((u: IUser) => userIds.includes(u._id));
+                setAssignedUsers(userObjects);
+              } catch (err) {
+                console.error('Error fetching users:', err);
+              }
+            }
+          }
+        } else {
+          // No sessions, just pre-fill from ClassBatch
+          setFormData({
+            name: classData.name || '',
+            description: classData.description || '',
+            frequency: 'OneTime',
+            startDate: '',
+            endDate: '',
+            startTime: classData.defaultTime || '',
+            endTime: '',
+            locationType: 'Physical',
+            sessionType: 'PHYSICAL',
+            virtualLocation: '',
+            geolocation: { latitude: 0, longitude: 0 },
+            radius: 100,
+            weeklyDays: [],
+            sessionAdmin: '',
+          });
+          if (classData.defaultLocation) {
+            setLocationInputType('LINK');
+            setLocationLink(classData.defaultLocation);
+          }
+        }
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          setError('Class not found');
+        } else {
+          setError('Failed to load class. Please try again.');
+        }
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id]);
+
   // Auto-focus first input on mount
   useEffect(() => {
-    nameInputRef.current?.focus();
-  }, []);
+    if (!isLoading) {
+      nameInputRef.current?.focus();
+    }
+  }, [isLoading]);
 
   // Fetch SessionAdmins if user is SuperAdmin
   useEffect(() => {
@@ -83,13 +219,10 @@ const CreateSession: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
     if (error) setError('');
     
-    // When sessionType changes, clear user lists if switching to/from Hybrid
     if (name === 'sessionType') {
       if (value === 'HYBRID') {
-        // Switching to Hybrid: clear legacy assignedUsers
         setAssignedUsers([]);
       } else {
-        // Switching from Hybrid: clear physical/remote users
         setPhysicalUsers([]);
         setRemoteUsers([]);
       }
@@ -111,7 +244,6 @@ const CreateSession: React.FC = () => {
     } else if (userModalContext === 'REMOTE') {
       setRemoteUsers(users);
     } else {
-      // Legacy: for Physical or Remote single mode
       setAssignedUsers(users);
     }
     setShowUserModal(false);
@@ -122,38 +254,42 @@ const CreateSession: React.FC = () => {
     setShowUserModal(true);
   };
 
+  const handleRemoveUser = (userId: string, listType: 'PHYSICAL' | 'REMOTE' | 'ALL') => {
+    if (listType === 'PHYSICAL') {
+      setPhysicalUsers(physicalUsers.filter(u => u._id !== userId));
+    } else if (listType === 'REMOTE') {
+      setRemoteUsers(remoteUsers.filter(u => u._id !== userId));
+    } else {
+      setAssignedUsers(assignedUsers.filter(u => u._id !== userId));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    // Validate weekly days
     if (formData.frequency === 'Weekly' && formData.weeklyDays.length === 0) {
       setError('Please select at least one day for weekly classes/batches');
       return;
     }
     
-    // Validate end date is after start date
     if (formData.endDate && formData.startDate && formData.endDate < formData.startDate) {
       setError('End date must be after start date');
       return;
     }
     
-    // Validate end time is after start time
     if (formData.startTime && formData.endTime && formData.startTime >= formData.endTime) {
       setError('End time must be after start time');
       return;
     }
     
-    // Validate location for PHYSICAL or HYBRID sessions
     if (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') {
       if (locationInputType === 'LINK' && !locationLink.trim()) {
         setError('Google Maps Link is required for Physical or Hybrid classes/batches.');
-        setIsSubmitting(false);
         return;
       }
       if (locationInputType === 'COORDS' && (!latitude.trim() || !longitude.trim())) {
         setError('Latitude and Longitude are required for Physical or Hybrid classes/batches.');
-        setIsSubmitting(false);
         return;
       }
     }
@@ -171,7 +307,6 @@ const CreateSession: React.FC = () => {
       }> = [];
 
       if (formData.sessionType === 'HYBRID') {
-        // For Hybrid: combine physicalUsers and remoteUsers with their modes
         combinedAssignedUsers = [
           ...physicalUsers.map(u => ({
             userId: u._id,
@@ -189,7 +324,6 @@ const CreateSession: React.FC = () => {
           })),
         ];
       } else {
-        // For Physical or Remote: use assignedUsers with appropriate mode
         const mode = formData.sessionType === 'PHYSICAL' ? 'PHYSICAL' : 'REMOTE';
         combinedAssignedUsers = assignedUsers.map(u => ({
           userId: u._id,
@@ -200,15 +334,15 @@ const CreateSession: React.FC = () => {
         }));
       }
 
-      // Build location object for PHYSICAL or HYBRID sessions
-      let locationObj = undefined;
+      // Build location object
+      let locationObj: any = undefined;
       if (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') {
         if (locationInputType === 'LINK') {
           locationObj = {
             type: 'LINK',
             link: locationLink.trim(),
           };
-        } else {
+        } else if (locationInputType === 'COORDS') {
           locationObj = {
             type: 'COORDS',
             geolocation: {
@@ -219,112 +353,159 @@ const CreateSession: React.FC = () => {
         }
       }
 
-      // If creating a new class, use ClassBatch API
-      if (isCreatingClass) {
-        const classBatchData = {
-          name: formData.name,
-          description: formData.description || undefined,
-          defaultTime: formData.startTime || undefined,
-          defaultLocation: locationInputType === 'LINK' ? locationLink : undefined,
-          generateSessions: true,
-          frequency: formData.frequency,
-          startDate: formData.startDate,
-          endDate: formData.endDate || undefined,
-          startTime: formData.startTime,
-          endTime: formData.endTime,
-          locationType: formData.locationType,
-          sessionType: formData.sessionType,
-          physicalLocation: formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID' ? locationLink : undefined,
-          virtualLocation: formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID' ? formData.virtualLocation : undefined,
-          location: locationObj,
-          geolocation: locationInputType === 'COORDS' ? {
+      // Build geolocation for legacy support
+      let geolocationObj: any = undefined;
+      if (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') {
+        if (locationInputType === 'COORDS') {
+          geolocationObj = {
             latitude: parseFloat(latitude) || 0,
             longitude: parseFloat(longitude) || 0,
-          } : undefined,
-          radius: (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && formData.radius
-            ? formData.radius
-            : undefined,
-          assignedUsers: combinedAssignedUsers,
-          weeklyDays: formData.frequency === 'Weekly' ? formData.weeklyDays : undefined,
-          sessionAdmin: isSuperAdmin && formData.sessionAdmin ? formData.sessionAdmin : undefined,
-        };
-
-        const { data } = await api.post('/api/classes', classBatchData);
-        
-        // Navigate based on number of sessions created
-        if (data.sessionsCreated === 1 && data.sessions && data.sessions.length > 0) {
-          navigate(`/sessions/${data.sessions[0]._id}`);
-        } else if (data.classBatch) {
-          navigate(`/classes/${data.classBatch._id}/sessions`);
-        } else {
-          navigate('/classes');
-        }
-      } else {
-        // Existing session creation flow (backward compatibility)
-        const sessionData = {
-          ...formData,
-          assignedUsers: combinedAssignedUsers,
-          endDate: formData.endDate || undefined,
-          weeklyDays: formData.frequency === 'Weekly' ? formData.weeklyDays : undefined,
-          virtualLocation: formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID' 
-            ? formData.virtualLocation 
-            : undefined,
-          location: locationObj,
-          radius: (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && formData.radius
-            ? formData.radius
-            : undefined,
-          sessionAdmin: isSuperAdmin && formData.sessionAdmin ? formData.sessionAdmin : undefined,
-          classBatchId: existingClassId || undefined, // Link to existing class if provided
-        };
-
-        await api.post('/api/sessions', sessionData);
-        
-        if (existingClassId) {
-          navigate(`/classes/${existingClassId}/sessions`);
-        } else {
-          navigate('/sessions');
+          };
         }
       }
+
+      const updateData: any = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        defaultTime: formData.startTime || undefined,
+        defaultLocation: locationInputType === 'LINK' ? locationLink.trim() : undefined,
+        // Session update fields for bulk update - ALWAYS include updateSessions flag
+        updateSessions: true,
+        // ALWAYS include these critical fields
+        frequency: formData.frequency,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+        startTime: formData.startTime || '',
+        endTime: formData.endTime || '',
+        locationType: formData.locationType,
+        sessionType: formData.sessionType,
+        // Always include location (even if undefined for REMOTE) so backend can clear it
+        location: locationObj,
+        geolocation: geolocationObj,
+        // Always include assignedUsers (even if empty array)
+        assignedUsers: combinedAssignedUsers,
+      };
+
+      // Conditionally add location-related fields
+      if (formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID') {
+        updateData.virtualLocation = formData.virtualLocation || undefined;
+      } else {
+        updateData.virtualLocation = undefined; // Explicitly clear for PHYSICAL
+      }
+      
+      if (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') {
+        updateData.radius = formData.radius || undefined;
+      } else {
+        updateData.radius = undefined; // Explicitly clear for REMOTE
+      }
+      
+      if (formData.frequency === 'Weekly') {
+        updateData.weeklyDays = formData.weeklyDays || undefined;
+      } else {
+        updateData.weeklyDays = undefined; // Explicitly clear for non-weekly
+      }
+      
+      if (isSuperAdmin) {
+        updateData.sessionAdmin = formData.sessionAdmin || undefined;
+      }
+
+      console.log('[DEBUG] EditClass - Sending update request:', {
+        classId: id,
+        updateSessions: updateData.updateSessions,
+        startTime: updateData.startTime,
+        endTime: updateData.endTime,
+        sessionType: updateData.sessionType,
+        location: updateData.location,
+        assignedUsersCount: updateData.assignedUsers?.length || 0,
+      });
+
+      const response = await api.put(`/api/classes/${id}`, updateData);
+      console.log('[DEBUG] EditClass - Update response:', response.data);
+      navigate('/classes');
     } catch (err: any) {
       if (err.response && err.response.data) {
         if (err.response.data.errors && Array.isArray(err.response.data.errors)) {
           const errorMessages = err.response.data.errors.map((e: any) => e.msg).join(', ');
           setError(errorMessages);
         } else {
-          setError(err.response.data.msg || 'Failed to create session');
+          setError(err.response.data.msg || 'Failed to update class');
         }
       } else {
-        setError('Failed to create session. Please try again.');
+        setError('Failed to update class. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleRemoveUser = (userId: string, listType: 'PHYSICAL' | 'REMOTE' | 'ALL') => {
-    if (listType === 'PHYSICAL') {
-      setPhysicalUsers(physicalUsers.filter(u => u._id !== userId));
-    } else if (listType === 'REMOTE') {
-      setRemoteUsers(remoteUsers.filter(u => u._id !== userId));
-    } else {
-      setAssignedUsers(assignedUsers.filter(u => u._id !== userId));
-    }
-  };
-
   const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  if (isLoading) {
+    return (
+      <div className="relative flex min-h-screen w-full flex-col p-4 sm:p-6 lg:p-8 bg-background-light dark:bg-background-dark font-display">
+        <div className="mx-auto flex w-full max-w-4xl flex-col">
+          <div className="mb-8">
+            <Link
+              to="/classes"
+              className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#f5f3f0] dark:bg-slate-800 text-[#181511] dark:text-gray-200 gap-2 text-sm font-bold leading-normal tracking-[0.015em] border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="truncate">Back to Classes</span>
+            </Link>
+            <p className="text-3xl font-black leading-tight tracking-[-0.033em] text-[#181511] dark:text-white sm:text-4xl">Edit Class</p>
+          </div>
+          <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center">
+              <svg className="animate-spin h-8 w-8 text-[#f04129] mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+              </svg>
+              <p className="text-[#8a7b60] dark:text-gray-400">Loading class...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !classBatch) {
+    return (
+      <div className="relative flex min-h-screen w-full flex-col p-4 sm:p-6 lg:p-8 bg-background-light dark:bg-background-dark font-display">
+        <div className="mx-auto flex w-full max-w-4xl flex-col">
+          <div className="mb-8">
+            <Link
+              to="/classes"
+              className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#f5f3f0] dark:bg-slate-800 text-[#181511] dark:text-gray-200 gap-2 text-sm font-bold leading-normal tracking-[0.015em] border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="truncate">Back to Classes</span>
+            </Link>
+            <p className="text-3xl font-black leading-tight tracking-[-0.033em] text-[#181511] dark:text-white sm:text-4xl">Edit Class</p>
+          </div>
+          <div className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-center">
+            <span className="material-symbols-outlined mr-2">error</span>
+            {error}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-screen w-full flex-col p-4 sm:p-6 lg:p-8 bg-background-light dark:bg-background-dark font-display">
       <div className="mx-auto flex w-full max-w-4xl flex-col">
         <div className="mb-8">
-          <p className="text-3xl font-black leading-tight tracking-[-0.033em] text-[#181511] dark:text-white sm:text-4xl">
-            {isCreatingClass ? 'Create New Class/Batch' : 'Create New Session'}
+          <Link
+            to="/classes"
+            className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#f5f3f0] dark:bg-slate-800 text-[#181511] dark:text-gray-200 gap-2 text-sm font-bold leading-normal tracking-[0.015em] border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="truncate">Back to Classes</span>
+          </Link>
+          <p className="text-3xl font-black leading-tight tracking-[-0.033em] text-[#181511] dark:text-white sm:text-4xl">Edit Class</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+            Changes will be applied to the class and all associated sessions
           </p>
-          {existingClassId && (
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-              Adding session to existing class
-            </p>
-          )}
         </div>
 
         {error && (
@@ -335,6 +516,7 @@ const CreateSession: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col space-y-6">
+          {/* Reuse CreateSession form sections - I'll include the key sections */}
           {/* Section 1: Basic Details */}
           <div className="flex flex-col gap-6 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
             <div className="flex items-center gap-3">
@@ -364,7 +546,7 @@ const CreateSession: React.FC = () => {
                   rows={3}
                   value={formData.description}
                   onChange={handleChange}
-                  placeholder="Enter a description for the session"
+                  placeholder="Enter a description for the class"
                 />
               </label>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -376,7 +558,6 @@ const CreateSession: React.FC = () => {
                     type="date"
                     value={formData.startDate}
                     onChange={handleChange}
-                    required
                   />
                 </label>
                 {formData.frequency !== 'OneTime' && (
@@ -463,7 +644,7 @@ const CreateSession: React.FC = () => {
             </div>
           </div>
 
-          {/* Section 2: Session Mode */}
+          {/* Section 2: Session Mode - Same as CreateSession */}
           <div className="flex flex-col gap-5 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-2xl text-[#f04129]">devices</span>
@@ -531,76 +712,9 @@ const CreateSession: React.FC = () => {
                 <p className="font-semibold text-[#181511] dark:text-white">Hybrid</p>
               </button>
             </div>
-
-            {/* Informational Messages based on Session Type */}
-            {formData.sessionType === 'PHYSICAL' && (
-              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 mt-0.5">info</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">
-                      Physical Session Information
-                    </p>
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
-                      The QR code will be scanned only in the area you specify through the Google Maps link. Users must be at the location to mark their attendance.
-                    </p>
-                    <a
-                      href="https://maps.google.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-sm">map</span>
-                      Open Google Maps
-                    </a>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {formData.sessionType === 'REMOTE' && (
-              <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined text-green-600 dark:text-green-400 mt-0.5">info</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-green-900 dark:text-green-200 mb-1">
-                      Remote Session Information
-                    </p>
-                    <p className="text-sm text-green-800 dark:text-green-300">
-                      This session doesn't require a location. Users can scan the QR code from any location and mark their attendance remotely.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {formData.sessionType === 'HYBRID' && (
-              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined text-red-600 dark:text-red-400 mt-0.5">info</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-red-900 dark:text-red-200 mb-1">
-                      Hybrid Session Information
-                    </p>
-                    <p className="text-sm text-red-800 dark:text-red-300 mb-2">
-                      Selected people assigned as "Physical" must come to the specified location to mark attendance. Users assigned as "Remote" can mark attendance from any location.
-                    </p>
-                    <a
-                      href="https://maps.google.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-sm">map</span>
-                      Open Google Maps
-                    </a>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Section 3: Location (Conditional) */}
+          {/* Section 3: Location (Conditional) - Same structure as CreateSession */}
           {(formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && (
             <div className="flex flex-col gap-6 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
               <div className="flex items-center justify-between">
@@ -702,7 +816,28 @@ const CreateSession: React.FC = () => {
             </div>
           )}
 
-          {/* Section 5: Attendees */}
+          {/* Section 4: Virtual Location (for REMOTE/HYBRID) */}
+          {(formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID') && (
+            <div className="flex flex-col gap-6 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-2xl text-[#f04129]">videocam</span>
+                <h2 className="text-xl font-bold leading-tight tracking-[-0.015em] text-[#181511] dark:text-white">Virtual Meeting Link</h2>
+              </div>
+              <label className="flex flex-col">
+                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Meeting URL</p>
+                <input
+                  className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:border-primary/80"
+                  name="virtualLocation"
+                  type="url"
+                  value={formData.virtualLocation}
+                  onChange={handleChange}
+                  placeholder="https://meet.google.com/..."
+                />
+              </label>
+            </div>
+          )}
+
+          {/* Section 5: Attendees - Same structure as CreateSession */}
           <div className="flex flex-col gap-5 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-2xl text-[#f04129]">group</span>
@@ -838,49 +973,58 @@ const CreateSession: React.FC = () => {
 
           {/* Footer Buttons */}
           <div className="flex justify-end space-x-4 pt-4">
-            <button
-              type="button"
-              onClick={() => navigate('/sessions')}
+            <Link
+              to="/classes"
               className="rounded-lg px-6 py-3 font-semibold text-[#5c5445] transition-colors duration-200 hover:bg-[#f5f3f0] dark:text-slate-300 dark:hover:bg-slate-700"
-              disabled={isSubmitting}
             >
               Cancel
-            </button>
+            </Link>
             <button
               type="submit"
               disabled={isSubmitting}
               className="flex items-center justify-center rounded-lg bg-gradient-to-r from-orange-500 to-[#f04129] px-8 py-3 font-semibold text-white transition-all duration-200 hover:from-orange-600 hover:to-[#d63a25] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <span className="material-symbols-outlined mr-2 text-xl">add_circle</span>
-              {isSubmitting ? 'Creating Session...' : 'Create Session'}
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                  </svg>
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined mr-2 text-xl">save</span>
+                  Update Class
+                </>
+              )}
             </button>
           </div>
         </form>
 
-          {showUserModal && (
-            <AddUsersModal
-              onClose={() => setShowUserModal(false)}
-              onSave={handleSaveUsers}
-              initialSelectedUsers={
-                userModalContext === 'PHYSICAL'
-                  ? physicalUsers
-                  : userModalContext === 'REMOTE'
-                    ? remoteUsers
-                    : assignedUsers
-              }
-              context={
-                userModalContext === 'PHYSICAL'
-                  ? 'Add Physical Attendees'
-                  : userModalContext === 'REMOTE'
-                    ? 'Add Remote Attendees'
-                    : 'Add Users to Session'
-              }
-            />
-          )}
-        </div>
+        {showUserModal && (
+          <AddUsersModal
+            onClose={() => setShowUserModal(false)}
+            onSave={handleSaveUsers}
+            initialSelectedUsers={
+              userModalContext === 'PHYSICAL'
+                ? physicalUsers
+                : userModalContext === 'REMOTE'
+                  ? remoteUsers
+                  : assignedUsers
+            }
+            context={
+              userModalContext === 'PHYSICAL'
+                ? 'Add Physical Attendees'
+                : userModalContext === 'REMOTE'
+                  ? 'Add Remote Attendees'
+                  : 'Add Users to Session'
+            }
+          />
+        )}
       </div>
+    </div>
   );
 };
 
-export default CreateSession;
-
+export default EditClass;
