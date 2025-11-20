@@ -70,7 +70,7 @@ const Profile: React.FC = () => {
       const formData = new FormData();
       formData.append('profilePicture', file);
 
-      const { data } = await api.post('/api/users/profile-picture', formData, {
+      await api.post('/api/users/profile-picture', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -130,7 +130,7 @@ const Profile: React.FC = () => {
     setMessage(null);
 
     try {
-      const { data } = await api.put('/api/users/profile', {
+      await api.put('/api/users/profile', {
         firstName: personalForm.firstName,
         lastName: personalForm.lastName,
         phone: personalForm.phone,
