@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api';
 import { ISession, IClassBatch } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, Edit, ArrowLeft } from 'lucide-react';
+import SessionCalendar from '../components/SessionCalendar';
 
 const Sessions: React.FC = () => {
   const navigate = useNavigate();
@@ -14,6 +15,9 @@ const Sessions: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showPastSessions, setShowPastSessions] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
   
   // SuperAdmin, CompanyAdmin, Manager, and SessionAdmin can create sessions
   const canCreateSession = isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin;
@@ -157,12 +161,53 @@ const Sessions: React.FC = () => {
     }
   };
 
-  // Separate sessions into upcoming and past
+  // Filter sessions based on selected date or default logic
+  const getFilteredSessions = (): ISession[] => {
+    if (selectedDate) {
+      // Scenario A: Date selected - show ALL sessions for that specific date (past and future)
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      return sessions.filter(session => {
+        if (!session.startDate) return false;
+        const sessionDate = new Date(session.startDate);
+        sessionDate.setHours(0, 0, 0, 0);
+        const sessionDateStr = sessionDate.toISOString().split('T')[0];
+        return sessionDateStr === dateStr;
+      });
+    } else {
+      // Scenario B: No date selected - show only Future/Active sessions (respect showPastSessions toggle)
+      if (showPastSessions) {
+        return sessions; // Show all if toggle is on
+      }
+      return sessions.filter(isSessionUpcoming); // Show only upcoming if toggle is off
+    }
+  };
+
+  const filteredSessions = getFilteredSessions();
+  
+  // Separate sessions into upcoming and past (for past sessions toggle)
   const upcomingSessions = sessions.filter(isSessionUpcoming);
   const pastSessions = sessions.filter(session => !isSessionUpcoming(session));
   
-  // Determine which sessions to display
-  const displayedSessions = showPastSessions ? sessions : upcomingSessions;
+  // Determine which sessions to display (with limit if no date selected)
+  const SESSION_LIMIT = 7;
+  let displayedSessions: ISession[];
+  let remainingCount = 0;
+
+  if (selectedDate) {
+    // If date selected, show all sessions for that date (no limit)
+    displayedSessions = filteredSessions;
+  } else {
+    // If no date selected, limit to 7 sessions
+    displayedSessions = filteredSessions.slice(0, SESSION_LIMIT);
+    remainingCount = filteredSessions.length - SESSION_LIMIT;
+  }
+
+  // Scroll to calendar function
+  const scrollToCalendar = () => {
+    if (calendarRef.current) {
+      calendarRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -226,8 +271,8 @@ const Sessions: React.FC = () => {
   return (
     <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden bg-background-light dark:bg-background-dark">
       <div className="layout-container flex h-full grow flex-col">
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <header className="mb-8">
+        <main className="flex-1 p-4 md:p-6 lg:p-8">
+          <header className="mb-4 md:mb-8">
             {classId && (
               <Link
                 to="/classes"
@@ -238,25 +283,34 @@ const Sessions: React.FC = () => {
               </Link>
             )}
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-[#f04129] text-4xl">calendar_month</span>
+              <div className="flex items-center gap-2 md:gap-3">
+                <span className="material-symbols-outlined text-[#f04129] text-2xl md:text-4xl">calendar_month</span>
                 <div>
-                  <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">
                     {classBatch ? classBatch.name : 'Sessions'}
                   </h1>
                   {classBatch && classBatch.description && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{classBatch.description}</p>
+                    <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">{classBatch.description}</p>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                {pastSessions.length > 0 && (
+                {!selectedDate && pastSessions.length > 0 && (
                   <button
                     onClick={() => setShowPastSessions(!showPastSessions)}
                     className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium leading-normal tracking-[0.015em] hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
                   >
                     <span className="material-symbols-outlined text-lg">{showPastSessions ? 'visibility_off' : 'history'}</span>
                     <span className="truncate">{showPastSessions ? 'Hide Past' : `Show Past (${pastSessions.length})`}</span>
+                  </button>
+                )}
+                {selectedDate && (
+                  <button
+                    onClick={() => setSelectedDate(null)}
+                    className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium leading-normal tracking-[0.015em] hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-lg">clear</span>
+                    <span className="truncate">Clear Filter</span>
                   </button>
                 )}
                 {canCreateSession && (
@@ -272,33 +326,85 @@ const Sessions: React.FC = () => {
             </div>
           </header>
 
-          {displayedSessions.length === 0 ? (
-            <div className="mt-12 md:col-span-2 lg:col-span-3">
-              <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-[#e6e2db] dark:border-slate-800 px-6 py-14">
-                <div className="flex max-w-[480px] flex-col items-center gap-2 text-center">
-                  <p className="text-[#181511] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">
-                    {classId ? 'No Sessions Available' : 'No Sessions Available'}
-                  </p>
-                  <p className="text-[#181511] dark:text-slate-300 text-sm font-normal leading-normal">
-                    {classId 
-                      ? 'This class does not have any sessions yet. Create a new session to get started.'
-                      : 'There are currently no sessions scheduled. Get started by creating a new one.'}
-                  </p>
-                </div>
-                {canCreateSession && (
-                  <Link
-                    to={classId ? `/sessions/create?classId=${classId}` : "/sessions/create"}
-                    className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
-                  >
-                    <span className="material-symbols-outlined text-xl">add</span>
-                    <span className="truncate">Create New Session</span>
-                  </Link>
+          {/* Responsive Layout: Mobile = Flex Column, Desktop = Grid */}
+          <div className="flex flex-col md:grid md:grid-cols-12 gap-4 md:gap-8 items-start">
+            {/* Calendar Widget - Mobile: Collapsible at top, Desktop: Right Column (sticky) */}
+            <div className="w-full md:col-span-4 md:order-2" ref={calendarRef}>
+              {/* Mobile: Collapsible Accordion */}
+              <div className="md:hidden">
+                <button
+                  onClick={() => setIsCalendarExpanded(!isCalendarExpanded)}
+                  className="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <span className="flex items-center gap-2 text-slate-700 dark:text-slate-200 font-medium">
+                    <span className="material-symbols-outlined">calendar_month</span>
+                    Filter by Date
+                  </span>
+                  <span className={`material-symbols-outlined transition-transform ${isCalendarExpanded ? 'rotate-180' : ''}`}>
+                    expand_more
+                  </span>
+                </button>
+                {isCalendarExpanded && (
+                  <div className="mt-2">
+                    <SessionCalendar
+                      sessions={sessions}
+                      selectedDate={selectedDate}
+                      onDateSelect={(date) => {
+                        setSelectedDate(date);
+                        setIsCalendarExpanded(false); // Auto-collapse after selection
+                      }}
+                    />
+                  </div>
                 )}
               </div>
+              {/* Desktop: Always visible, sticky */}
+              <div className="hidden md:block">
+                <div className="sticky top-6">
+                  <SessionCalendar
+                    sessions={sessions}
+                    selectedDate={selectedDate}
+                    onDateSelect={setSelectedDate}
+                  />
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 p-4 md:p-0">
-              {displayedSessions.map((session) => {
+
+            {/* Session List - Mobile: Full width, Desktop: Left Column (8/12 width) */}
+            <div className="w-full md:col-span-8 md:order-1">
+              {displayedSessions.length === 0 ? (
+                <div className="mt-12">
+                  <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-[#e6e2db] dark:border-slate-800 px-6 py-14">
+                    <div className="flex max-w-[480px] flex-col items-center gap-2 text-center">
+                      <p className="text-[#181511] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">
+                        {selectedDate 
+                          ? 'No Sessions on Selected Date'
+                          : classId 
+                          ? 'No Sessions Available' 
+                          : 'No Sessions Available'}
+                      </p>
+                      <p className="text-[#181511] dark:text-slate-300 text-sm font-normal leading-normal">
+                        {selectedDate
+                          ? 'There are no sessions scheduled for this date. Try selecting a different date from the calendar.'
+                          : classId 
+                          ? 'This class does not have any sessions yet. Create a new session to get started.'
+                          : 'There are currently no sessions scheduled. Get started by creating a new one.'}
+                      </p>
+                    </div>
+                    {canCreateSession && !selectedDate && (
+                      <Link
+                        to={classId ? `/sessions/create?classId=${classId}` : "/sessions/create"}
+                        className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
+                      >
+                        <span className="material-symbols-outlined text-xl">add</span>
+                        <span className="truncate">Create New Session</span>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full">
+                    {displayedSessions.map((session) => {
                 const isPast = !isSessionUpcoming(session);
                 const isToday = isSessionToday(session);
                 const showScanButton = isEndUser && isToday;
@@ -454,8 +560,30 @@ const Sessions: React.FC = () => {
                 </div>
               );
               })}
+                  </div>
+
+                  {/* Summary Card - Show if more than 7 sessions and no date selected */}
+                  {!selectedDate && remainingCount > 0 && (
+                    <div
+                      className="mt-4 flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
+                      onClick={scrollToCalendar}
+                    >
+                      <p className="text-slate-700 dark:text-slate-300 text-base font-semibold">
+                        And {remainingCount} more session{remainingCount !== 1 ? 's' : ''}...
+                      </p>
+                      <p className="text-slate-500 dark:text-slate-400 text-sm">
+                        Check the Calendar to view details.
+                      </p>
+                      <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors">
+                        <span className="material-symbols-outlined text-lg">calendar_month</span>
+                        View Calendar
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          )}
+          </div>
         </main>
       </div>
     </div>
