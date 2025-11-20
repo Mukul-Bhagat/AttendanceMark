@@ -22,7 +22,6 @@ const EditClass: React.FC = () => {
   const { isSuperAdmin } = useAuth();
   
   const [classBatch, setClassBatch] = useState<IClassBatch | null>(null);
-  const [firstSession, setFirstSession] = useState<ISession | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -78,7 +77,6 @@ const EditClass: React.FC = () => {
         
         if (sessions.length > 0) {
           const session = sessions[0];
-          setFirstSession(session);
           
           // Pre-fill form from first session
           const sessionDate = new Date(session.startDate);

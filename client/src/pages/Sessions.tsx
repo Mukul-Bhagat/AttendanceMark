@@ -184,8 +184,7 @@ const Sessions: React.FC = () => {
 
   const filteredSessions = getFilteredSessions();
   
-  // Separate sessions into upcoming and past (for past sessions toggle)
-  const upcomingSessions = sessions.filter(isSessionUpcoming);
+  // Separate sessions into past (for past sessions toggle)
   const pastSessions = sessions.filter(session => !isSessionUpcoming(session));
   
   // Determine which sessions to display (with limit if no date selected)

@@ -7,12 +7,11 @@ import { Eye, Calendar, Users, Edit, Trash2 } from 'lucide-react';
 
 const Classes: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser } = useAuth();
+  const { isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser } = useAuth();
   const [classes, setClasses] = useState<IClassBatch[]>([]);
   const [sessionCounts, setSessionCounts] = useState<{ [key: string]: number }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [loadingClassId, setLoadingClassId] = useState<string | null>(null);
   const [deleteConfirmClass, setDeleteConfirmClass] = useState<IClassBatch | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPastClasses, setShowPastClasses] = useState(false);

@@ -5,7 +5,7 @@ import LoadingSpinner from './LoadingSpinner';
 import ProfileMenu from './ProfileMenu';
 
 const Layout: React.FC = () => {
-  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser, isLoading } = useAuth();
+  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isLoading } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
