@@ -13,10 +13,10 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
   const [isOpen, setIsOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    // Check localStorage or system preference
+    // Check localStorage first, default to 'light' if not set
     const stored = localStorage.getItem('theme');
     if (stored === 'light' || stored === 'dark') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return 'light'; // Default to light mode
   });
   const [passwordData, setPasswordData] = useState({
     oldPassword: '',

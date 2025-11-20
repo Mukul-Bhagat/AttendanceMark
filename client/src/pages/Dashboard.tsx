@@ -7,9 +7,10 @@ import { ISession } from '../types';
 const Dashboard: React.FC = () => {
   const { user, isEndUser } = useAuth();
   const [stats, setStats] = useState({
-    activeSessions: 0,
+    orgName: '',
+    activeClasses: 0,
     totalUsers: 0,
-    todayAttendance: 0,
+    attendancePercentage: 0,
   });
   const [upcomingSessions, setUpcomingSessions] = useState<ISession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,16 +19,13 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // TODO: Replace with actual stats API endpoint when available
-        // For now, using placeholder - you may need to create /api/dashboard/stats endpoint
-        // const { data } = await api.get('/api/dashboard/stats');
-        // setStats(data);
-        
-        // Placeholder: Set to 0 for now until API endpoint is created
+        // Fetch dashboard stats from API
+        const { data } = await api.get('/api/dashboard/stats');
         setStats({
-          activeSessions: 0,
-          totalUsers: 0,
-          todayAttendance: 0,
+          orgName: data.orgName || '',
+          activeClasses: data.activeClasses || 0,
+          totalUsers: data.totalUsers || 0,
+          attendancePercentage: data.attendancePercentage || 0,
         });
 
         // Fetch sessions to get upcoming ones
@@ -57,20 +55,6 @@ const Dashboard: React.FC = () => {
             
             setUpcomingSessions(upcoming);
             
-            // Update activeSessions count
-            setStats(prev => ({
-              ...prev,
-              activeSessions: sessions.filter((s: ISession) => {
-                const startDate = new Date(s.startDate);
-                const [hours, minutes] = s.startTime.split(':');
-                startDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-                const endDate = s.endDate ? new Date(s.endDate) : startDate;
-                const [endHours, endMinutes] = s.endTime.split(':');
-                endDate.setHours(parseInt(endHours), parseInt(endMinutes), 0, 0);
-                const now = new Date();
-                return now >= startDate && now <= endDate;
-              }).length,
-            }));
           }
         } catch (sessionErr) {
           console.error('Failed to fetch sessions:', sessionErr);
@@ -165,21 +149,46 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+      {/* Stats Grid - 4 Cards */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        {/* Organization Name Card */}
         <div className="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
-          <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Active Classes/Batches</p>
-          <p className="tracking-light text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">{stats.activeSessions || 0}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-symbols-outlined text-[#f04129] text-xl">business</span>
+            <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Organization</p>
+          </div>
+          <p className="tracking-light text-2xl font-bold text-text-primary-light dark:text-text-primary-dark truncate" title={stats.orgName}>
+            {stats.orgName || 'N/A'}
+          </p>
         </div>
+
+        {/* Active Classes Card */}
+        <div className="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-symbols-outlined text-[#f04129] text-xl">groups</span>
+            <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Active Classes/Batches</p>
+          </div>
+          <p className="tracking-light text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">{stats.activeClasses || 0}</p>
+        </div>
+
+        {/* Total Users Card - Only show for non-EndUsers */}
         {!isEndUser && (
           <div className="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
-            <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Total Users</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="material-symbols-outlined text-[#f04129] text-xl">people</span>
+              <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Total Users</p>
+            </div>
             <p className="tracking-light text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">{stats.totalUsers || 0}</p>
           </div>
         )}
+
+        {/* This Month's Attendance Card */}
         <div className="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
-          <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">This Month's Attendance</p>
-          <p className="tracking-light text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">{stats.todayAttendance || 0}%</p>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-symbols-outlined text-[#f04129] text-xl">check_circle</span>
+            <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">This Month's Attendance</p>
+          </div>
+          <p className="tracking-light text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">{stats.attendancePercentage || 0}%</p>
         </div>
       </div>
 
