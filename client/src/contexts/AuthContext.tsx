@@ -10,7 +10,10 @@ export interface IUser {
     firstName: string;
     lastName: string;
     phone?: string;
+    bio?: string;
   };
+  profilePicture?: string;
+  createdAt?: string;
   mustResetPassword: boolean;
 }
 

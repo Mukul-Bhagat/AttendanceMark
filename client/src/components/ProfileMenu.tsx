@@ -7,9 +7,10 @@ interface ProfileMenuProps {
   userInitials: string;
   userName: string;
   userRole: string;
+  profilePicture?: string;
 }
 
-const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userRole }) => {
+const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userRole, profilePicture }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -116,9 +117,18 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <div className="size-9 rounded-full bg-[#fef2f2] border border-[#f04129] flex items-center justify-center text-[#991b1b] text-sm font-bold">
-            {userInitials}
-          </div>
+          {profilePicture && profilePicture.trim() !== '' ? (
+            <img
+              key={profilePicture} // Force re-render when profile picture changes
+              src={`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}${profilePicture}?t=${Date.now()}`}
+              alt="Profile"
+              className="size-9 rounded-full object-cover border-2 border-[#f04129]/20"
+            />
+          ) : (
+            <div className="size-9 rounded-full bg-[#fef2f2] border border-[#f04129] flex items-center justify-center text-[#991b1b] text-sm font-bold">
+              {userInitials}
+            </div>
+          )}
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100 hidden lg:inline">
             {userName}
           </span>
@@ -160,8 +170,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  // Navigate to dashboard which shows profile info, or could create a dedicated profile page
-                  navigate('/dashboard');
+                  navigate('/profile');
                 }}
                 className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >

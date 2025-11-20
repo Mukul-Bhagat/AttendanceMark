@@ -16,6 +16,7 @@ import AttendanceReport from './pages/AttendanceReport';
 import ManageStaff from './pages/ManageStaff';
 import ManageUsers from './pages/ManageUsers';
 import EditSession from './pages/EditSession';
+import Profile from './pages/Profile';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
@@ -117,6 +118,7 @@ function App() {
           <Route element={<Layout />}>
             {/* Routes accessible to all authenticated users */}
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/scan" element={<ScanQR />} />
             <Route path="/my-attendance" element={<MyAttendance />} />
             <Route path="/my-sessions" element={<MySessions />} />

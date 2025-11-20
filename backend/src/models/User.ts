@@ -11,11 +11,15 @@ export interface IUser extends Document {
     firstName: string;
     lastName: string;
     phone?: string;
+    bio?: string;
   };
+  profilePicture?: string;
   mustResetPassword: boolean;
   registeredDeviceId?: string; // Device ID for device-locking feature
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
   getResetPasswordToken(): string;
   matchPassword(enteredPassword: string): Promise<boolean>;
 }
@@ -43,6 +47,10 @@ const UserSchema: Schema = new Schema({
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     phone: { type: String },
+    bio: { type: String },
+  },
+  profilePicture: {
+    type: String,
   },
   mustResetPassword: {
     type: Boolean,

@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import path from 'path';
 import connectDB from './config/db';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
@@ -62,6 +63,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
+// Serve static files from public/uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // Define Routes
 app.use('/api/auth', authRoutes);

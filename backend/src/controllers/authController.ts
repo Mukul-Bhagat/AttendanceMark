@@ -132,6 +132,8 @@ export const login = async (req: Request, res: Response) => {
             email: user.email,
             role: user.role,
             profile: user.profile,
+            profilePicture: user.profilePicture,
+            createdAt: user.createdAt,
             mustResetPassword: user.mustResetPassword,
           },
         });
@@ -173,6 +175,8 @@ export const getMe = async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
         profile: user.profile,
+        profilePicture: user.profilePicture,
+        createdAt: user.createdAt,
         mustResetPassword: user.mustResetPassword,
         organization: org.name,
       },

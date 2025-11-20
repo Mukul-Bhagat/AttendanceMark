@@ -30,10 +30,22 @@ const Layout: React.FC = () => {
 
   // Get user initials for avatar
   const getUserInitials = () => {
+    if (user?.profile?.firstName?.[0] && user?.profile?.lastName?.[0]) {
+      return `${user.profile.firstName[0]}${user.profile.lastName[0]}`.toUpperCase();
+    }
     if (user?.profile?.firstName?.[0]) {
       return user.profile.firstName[0].toUpperCase();
     }
     return 'U';
+  };
+
+  // Get profile picture URL
+  const getProfilePictureUrl = () => {
+    if (user?.profilePicture) {
+      // Add cache-busting parameter to ensure fresh image loads
+      return `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}${user.profilePicture}?t=${Date.now()}`;
+    }
+    return null;
   };
 
   // Get full user name
@@ -148,9 +160,18 @@ const Layout: React.FC = () => {
           {/* User Profile Card */}
           <div className="p-6">
             <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 size-10 rounded-full bg-[#fef2f2] border border-[#f04129] flex items-center justify-center text-[#991b1b] text-lg font-bold">
-                {getUserInitials()}
-              </div>
+              {user?.profilePicture && user.profilePicture.trim() !== '' ? (
+                <img
+                  key={user.profilePicture} // Force re-render when profile picture changes
+                  src={getProfilePictureUrl()!}
+                  alt="Profile"
+                  className="flex-shrink-0 size-10 rounded-full object-cover border-2 border-[#f04129]/20"
+                />
+              ) : (
+                <div className="flex-shrink-0 size-10 rounded-full bg-[#fef2f2] border border-[#f04129] flex items-center justify-center text-[#991b1b] text-lg font-bold">
+                  {getUserInitials()}
+                </div>
+              )}
               <div>
                 <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{getUserName()}</p>
                 <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
@@ -289,9 +310,18 @@ const Layout: React.FC = () => {
           {/* User Profile Card */}
           <div className="p-6">
             <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 size-10 rounded-full bg-[#fef2f2] border border-[#f04129] flex items-center justify-center text-[#991b1b] text-lg font-bold">
-                {getUserInitials()}
-              </div>
+              {user?.profilePicture && user.profilePicture.trim() !== '' ? (
+                <img
+                  key={user.profilePicture} // Force re-render when profile picture changes
+                  src={getProfilePictureUrl()!}
+                  alt="Profile"
+                  className="flex-shrink-0 size-10 rounded-full object-cover border-2 border-[#f04129]/20"
+                />
+              ) : (
+                <div className="flex-shrink-0 size-10 rounded-full bg-[#fef2f2] border border-[#f04129] flex items-center justify-center text-[#991b1b] text-lg font-bold">
+                  {getUserInitials()}
+                </div>
+              )}
               <div>
                 <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{getUserName()}</p>
                 <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
@@ -360,6 +390,7 @@ const Layout: React.FC = () => {
               userInitials={getUserInitials()}
               userName={getUserName()}
               userRole={user?.role || 'Guest'}
+              profilePicture={user?.profilePicture}
             />
           </div>
         </header>
@@ -372,6 +403,7 @@ const Layout: React.FC = () => {
               userInitials={getUserInitials()}
               userName={getUserName()}
               userRole={user?.role || 'Guest'}
+              profilePicture={user?.profilePicture}
             />
           </div>
         </header>

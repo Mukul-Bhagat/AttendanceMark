@@ -1,9 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-// Extend Express Request to include user
+// Extend Express Request to include user and multer file
 declare global {
   namespace Express {
+    namespace Multer {
+      interface File {
+        fieldname: string;
+        originalname: string;
+        encoding: string;
+        mimetype: string;
+        size: number;
+        destination: string;
+        filename: string;
+        path: string;
+        buffer: Buffer;
+      }
+    }
     interface Request {
       user?: {
         id: string;
@@ -12,6 +25,7 @@ declare global {
         collectionPrefix: string;
         organizationName: string;
       };
+      file?: Multer.File;
     }
   }
 }

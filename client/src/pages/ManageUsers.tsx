@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
+import Papa from 'papaparse';
 
 type EndUser = {
   _id?: string;
@@ -35,6 +36,14 @@ const ManageUsers: React.FC = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Status');
+  
+  // Bulk import state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [temporaryPassword, setTemporaryPassword] = useState('');
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<any[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch existing EndUsers
   const fetchUsers = async () => {
@@ -145,6 +154,111 @@ const ManageUsers: React.FC = () => {
     }
   };
 
+  // Handle CSV file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      setError('Please select a CSV file');
+      return;
+    }
+
+    setCsvFile(file);
+    setError('');
+
+    // Parse CSV to preview
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const data = results.data as any[];
+        setCsvPreview(data.slice(0, 5)); // Show first 5 rows as preview
+      },
+      error: (error) => {
+        setError(`Error parsing CSV: ${error.message}`);
+        setCsvFile(null);
+      },
+    });
+  };
+
+  // Handle bulk import
+  const handleBulkImport = async () => {
+    if (!csvFile || !temporaryPassword || temporaryPassword.length < 6) {
+      setError('Please select a CSV file and enter a temporary password (min 6 characters)');
+      return;
+    }
+
+    setIsBulkImporting(true);
+    setError('');
+    setMessage('');
+
+    Papa.parse(csvFile, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const data = results.data as any[];
+
+        // Validate headers
+        const headers = Object.keys(data[0] || {});
+        const hasName = headers.some(h => h.toLowerCase() === 'name');
+        const hasEmail = headers.some(h => h.toLowerCase() === 'email');
+
+        if (!hasName || !hasEmail) {
+          setError('CSV must contain "Name" and "Email" columns');
+          setIsBulkImporting(false);
+          return;
+        }
+
+        // Transform data to match backend format
+        const users = data.map((row: any) => {
+          const nameKey = headers.find(h => h.toLowerCase() === 'name') || 'name';
+          const emailKey = headers.find(h => h.toLowerCase() === 'email') || 'email';
+          const phoneKey = headers.find(h => h.toLowerCase() === 'phone') || 'phone';
+
+          return {
+            name: row[nameKey]?.trim() || '',
+            email: row[emailKey]?.trim() || '',
+            phone: row[phoneKey]?.trim() || '',
+          };
+        }).filter(user => user.name && user.email); // Filter out empty rows
+
+        if (users.length === 0) {
+          setError('No valid users found in CSV file');
+          setIsBulkImporting(false);
+          return;
+        }
+
+        try {
+          const { data: response } = await api.post('/api/users/bulk', {
+            users,
+            temporaryPassword,
+          });
+
+          setMessage(response.msg || `Successfully imported ${response.successCount} users`);
+          setIsImportModalOpen(false);
+          setCsvFile(null);
+          setTemporaryPassword('');
+          setCsvPreview([]);
+          await fetchUsers();
+        } catch (err: any) {
+          if (err.response?.data?.errors) {
+            const errorMessages = err.response.data.errors.slice(0, 10).join(', ');
+            setError(`${err.response.data.msg || 'Bulk import failed'}. Errors: ${errorMessages}${err.response.data.errors.length > 10 ? '...' : ''}`);
+          } else {
+            setError(err.response?.data?.msg || 'Failed to import users. Please try again.');
+          }
+        } finally {
+          setIsBulkImporting(false);
+        }
+      },
+      error: (error) => {
+        setError(`Error parsing CSV: ${error.message}`);
+        setIsBulkImporting(false);
+      },
+    });
+  };
+
   // Handle user deletion (SuperAdmin only)
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (!window.confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) {
@@ -233,10 +347,20 @@ const ManageUsers: React.FC = () => {
                 {/* Create User Form */}
                 <div className="lg:col-span-1 lg:sticky lg:top-8 lg:self-start">
                   <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6 sm:p-8">
-                    <h2 className="text-[#181511] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em] mb-5 flex items-center">
-                      <span className="material-symbols-outlined text-[#f04129] mr-2">person_add</span>
-                      Add New User
-                    </h2>
+                    <div className="flex items-center justify-between mb-5">
+                      <h2 className="text-[#181511] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em] flex items-center">
+                        <span className="material-symbols-outlined text-[#f04129] mr-2">person_add</span>
+                        Add New User
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#f04129] border border-[#f04129] rounded-lg hover:bg-[#f04129]/10 dark:hover:bg-[#f04129]/20 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-lg">upload_file</span>
+                        Import CSV
+                      </button>
+                    </div>
                     <form onSubmit={handleSubmit} className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <label className="flex flex-col flex-1">
@@ -509,6 +633,221 @@ const ManageUsers: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Bulk Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-[#e6e2db] dark:border-slate-700 w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-[#e6e2db] dark:border-slate-700 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-[#181511] dark:text-white flex items-center">
+                <span className="material-symbols-outlined text-[#f04129] mr-2">upload_file</span>
+                Bulk Import Users via CSV
+              </h3>
+              <button
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setCsvFile(null);
+                  setTemporaryPassword('');
+                  setCsvPreview([]);
+                  setError('');
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="text-[#8a7b60] dark:text-gray-400 hover:text-[#181511] dark:hover:text-white"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* Modal Content - Split View */}
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Side - File Upload */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-[#181511] dark:text-white">CSV File</h4>
+                
+                <div
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    csvFile
+                      ? 'border-[#f04129] bg-[#f04129]/5 dark:bg-[#f04129]/10'
+                      : 'border-[#e6e2db] dark:border-slate-700 hover:border-[#f04129] dark:hover:border-[#f04129]'
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.name.endsWith('.csv')) {
+                      setCsvFile(file);
+                      Papa.parse(file, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (results) => {
+                          const data = results.data as any[];
+                          setCsvPreview(data.slice(0, 5));
+                        },
+                        error: (error) => {
+                          setError(`Error parsing CSV: ${error.message}`);
+                          setCsvFile(null);
+                        },
+                      });
+                    } else {
+                      setError('Please drop a CSV file');
+                    }
+                  }}
+                >
+                  {csvFile ? (
+                    <div className="space-y-2">
+                      <span className="material-symbols-outlined text-4xl text-[#f04129]">description</span>
+                      <p className="text-sm font-medium text-[#181511] dark:text-white">{csvFile.name}</p>
+                      <p className="text-xs text-[#8a7b60] dark:text-gray-400">{(csvFile.size / 1024).toFixed(2)} KB</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCsvFile(null);
+                          setCsvPreview([]);
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }}
+                        className="text-xs text-red-600 dark:text-red-400 hover:underline"
+                      >
+                        Remove file
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <span className="material-symbols-outlined text-4xl text-[#8a7b60] dark:text-gray-400">cloud_upload</span>
+                      <p className="text-sm text-[#181511] dark:text-white">Drag & drop CSV file here</p>
+                      <p className="text-xs text-[#8a7b60] dark:text-gray-400">or</p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 text-sm font-medium text-[#f04129] border border-[#f04129] rounded-lg hover:bg-[#f04129]/10 dark:hover:bg-[#f04129]/20 transition-colors"
+                      >
+                        Choose File
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2">CSV Format Requirements:</p>
+                  <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1 list-disc list-inside">
+                    <li>Headers: <strong>Name</strong>, <strong>Email</strong>, <strong>Phone</strong> (optional)</li>
+                    <li>Name column will be split into First Name and Last Name</li>
+                    <li>Email must be unique</li>
+                  </ul>
+                </div>
+
+                {/* CSV Preview */}
+                {csvPreview.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium text-[#181511] dark:text-white mb-2">Preview (first 5 rows):</p>
+                    <div className="overflow-x-auto border border-[#e6e2db] dark:border-slate-700 rounded-lg">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-[#f04129]/10">
+                          <tr>
+                            {Object.keys(csvPreview[0] || {}).map((key) => (
+                              <th key={key} className="px-2 py-1 text-left font-medium text-[#181511] dark:text-white">
+                                {key}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#e6e2db] dark:divide-slate-700">
+                          {csvPreview.map((row, idx) => (
+                            <tr key={idx}>
+                              {Object.values(row).map((val: any, i) => (
+                                <td key={i} className="px-2 py-1 text-[#8a7b60] dark:text-gray-400">
+                                  {String(val || '').slice(0, 30)}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Side - Credentials */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-semibold text-[#181511] dark:text-white">Credentials</h4>
+                
+                <label className="flex flex-col">
+                  <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">
+                    Temporary Password for All Users
+                  </p>
+                  <input
+                    type="password"
+                    value={temporaryPassword}
+                    onChange={(e) => {
+                      setTemporaryPassword(e.target.value);
+                      if (error) setError('');
+                    }}
+                    className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                    placeholder="Min 6 characters"
+                    minLength={6}
+                    required
+                  />
+                  <p className="text-xs text-[#8a7b60] dark:text-gray-500 mt-1.5">
+                    This password will be applied to every account in the uploaded file. Users will be required to change it on first login.
+                  </p>
+                </label>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white dark:bg-slate-800 border-t border-[#e6e2db] dark:border-slate-700 px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setCsvFile(null);
+                  setTemporaryPassword('');
+                  setCsvPreview([]);
+                  setError('');
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                disabled={isBulkImporting}
+                className="px-4 py-2 text-sm font-medium text-[#8a7b60] dark:text-gray-400 hover:text-[#181511] dark:hover:text-white transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkImport}
+                disabled={!csvFile || !temporaryPassword || temporaryPassword.length < 6 || isBulkImporting}
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 to-[#f04129] text-white rounded-lg font-semibold transition-all duration-200 hover:from-orange-600 hover:to-[#d63a25] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isBulkImporting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                    </svg>
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined">upload_file</span>
+                    Upload & Create Users
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
