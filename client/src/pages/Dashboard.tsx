@@ -168,7 +168,7 @@ const Dashboard: React.FC = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-6">
         <div className="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
-          <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Active Sessions</p>
+          <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Active Classes/Batches</p>
           <p className="tracking-light text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">{stats.activeSessions || 0}</p>
         </div>
         {!isEndUser && (
@@ -188,18 +188,18 @@ const Dashboard: React.FC = () => {
         {/* Left Column: Upcoming Sessions */}
         <div className="lg:col-span-2">
           <div className="w-full rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
-            <h2 className="text-xl font-bold mb-4 text-text-primary-light dark:text-text-primary-dark">Upcoming Sessions</h2>
+            <h2 className="text-xl font-bold mb-4 text-text-primary-light dark:text-text-primary-dark">Upcoming Classes/Batches</h2>
             <div className="flex flex-col gap-4">
               {upcomingSessions.length > 0 ? (
                 upcomingSessions.map((session) => (
                   <Link
                     key={session._id}
                     to={`/sessions/${session._id}`}
-                    className="flex items-center justify-between p-4 rounded-lg hover:bg-primary/10 transition-colors"
+                    className="flex items-center justify-between p-4 rounded-lg hover:bg-[#f04129]/10 transition-colors"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/20 text-primary">
-                        <span className="material-symbols-outlined">event</span>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#f04129]/20 text-[#f04129]">
+                        <span className="material-symbols-outlined text-[#f04129]">event</span>
                       </div>
                       <div>
                         <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">{session.name}</p>
@@ -212,7 +212,7 @@ const Dashboard: React.FC = () => {
                   </Link>
                 ))
               ) : (
-                <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm py-4">No upcoming sessions scheduled.</p>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm py-4">No upcoming classes/batches scheduled.</p>
               )}
             </div>
           </div>
@@ -230,8 +230,8 @@ const Dashboard: React.FC = () => {
                     style={{ backgroundImage: `url(${getUserAvatar()})` }}
                   />
                 ) : (
-                  <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center">
-                    <span className="text-primary text-xl font-bold">{getUserInitials()}</span>
+                  <div className="w-16 h-16 bg-[#f04129]/20 rounded-full flex items-center justify-center">
+                    <span className="text-[#f04129] text-xl font-bold">{getUserInitials()}</span>
                   </div>
                 )}
                 <div className="flex flex-col">
@@ -253,12 +253,12 @@ const Dashboard: React.FC = () => {
 
               {/* Alert/Banner - Show if mustResetPassword */}
               {user.mustResetPassword && (
-                <div className="flex items-start gap-3 rounded-lg bg-primary/20 p-4">
-                  <span className="material-symbols-outlined text-primary mt-1">warning</span>
+                <div className="flex items-start gap-3 rounded-lg bg-[#f04129]/20 p-4">
+                  <span className="material-symbols-outlined text-[#f04129] mt-1">warning</span>
                   <div className="flex flex-col">
-                    <p className="font-semibold text-primary">Password Reset Required</p>
+                    <p className="font-semibold text-[#f04129]">Password Reset Required</p>
                     <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      Your password must be reset. <Link to="/force-reset-password" className="font-bold underline text-primary">Reset now.</Link>
+                      Your password must be reset. <Link to="/force-reset-password" className="font-bold underline text-[#f04129]">Reset now.</Link>
                     </p>
                   </div>
                 </div>

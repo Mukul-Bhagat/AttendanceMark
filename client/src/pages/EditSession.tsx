@@ -238,7 +238,7 @@ const EditSession: React.FC = () => {
     
     // Validate weekly days
     if (formData.frequency === 'Weekly' && formData.weeklyDays.length === 0) {
-      setError('Please select at least one day for weekly sessions');
+      setError('Please select at least one day for weekly classes/batches');
       return;
     }
     
@@ -257,12 +257,12 @@ const EditSession: React.FC = () => {
     // Validate location for PHYSICAL or HYBRID sessions
     if (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') {
       if (locationInputType === 'LINK' && !locationLink.trim()) {
-        setError('Google Maps Link is required for Physical or Hybrid sessions.');
+        setError('Google Maps Link is required for Physical or Hybrid classes/batches.');
         setIsSubmitting(false);
         return;
       }
       if (locationInputType === 'COORDS' && (!latitude.trim() || !longitude.trim())) {
-        setError('Latitude and Longitude are required for Physical or Hybrid sessions.');
+        setError('Latitude and Longitude are required for Physical or Hybrid classes/batches.');
         setIsSubmitting(false);
         return;
       }
@@ -435,7 +435,7 @@ const EditSession: React.FC = () => {
                 <h2 className="text-xl font-bold tracking-tight mb-6 dark:text-white">Basic Details</h2>
                 <div className="grid grid-cols-1 gap-6">
                   <label className="flex flex-col w-full">
-                    <p className="text-sm font-medium leading-normal pb-2 dark:text-gray-300">Session Name</p>
+                    <p className="text-sm font-medium leading-normal pb-2 dark:text-gray-300">Class/Batch Name</p>
                     <input
                       ref={nameInputRef}
                       className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 focus:border-primary h-12 placeholder:text-gray-400 dark:placeholder:text-gray-500 p-3 text-base font-normal leading-normal"
@@ -544,7 +544,7 @@ const EditSession: React.FC = () => {
                         })}
                       </div>
                       {formData.weeklyDays.length === 0 && (
-                        <p className="text-xs text-red-500 dark:text-red-400 mt-2">Please select at least one day for weekly sessions</p>
+                        <p className="text-xs text-red-500 dark:text-red-400 mt-2">Please select at least one day for weekly classes/batches</p>
                       )}
                     </div>
                   )}
@@ -855,7 +855,7 @@ const EditSession: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex w-full sm:w-auto min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal tracking-wide shadow-sm hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex w-full sm:w-auto min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-primary text-white text-base font-bold leading-normal tracking-wide shadow-sm hover:bg-[#d63a25] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="truncate">{isSubmitting ? 'Saving Changes...' : 'Save Changes'}</span>
                 </button>

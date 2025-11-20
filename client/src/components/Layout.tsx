@@ -18,7 +18,7 @@ const Layout: React.FC = () => {
   const getPageTitle = () => {
     const path = location.pathname;
     if (path === '/dashboard') return 'Dashboard';
-    if (path.startsWith('/sessions')) return 'Sessions';
+    if (path.startsWith('/sessions')) return 'Classes/Batches';
     if (path === '/scan') return 'Scan QR Code';
     if (path === '/my-attendance') return 'My Attendance';
     if (path === '/reports') return 'Attendance Report';
@@ -44,13 +44,14 @@ const Layout: React.FC = () => {
   };
 
   // Navigation link component with active state styling
-  const NavLinkItem = ({ to, icon, children }: { to: string; icon: string; children: React.ReactNode }) => (
+  const NavLinkItem = ({ to, icon, children, end }: { to: string; icon: string; children: React.ReactNode; end?: boolean }) => (
     <NavLink
       to={to}
+      end={end}
       className={({ isActive }) =>
         `flex items-center py-2 px-6 text-sm font-medium border-l-4 transition-colors duration-200 ${
           isActive
-            ? 'bg-primary/10 text-text-primary-light dark:text-text-primary-dark border-primary'
+            ? 'bg-red-50 dark:bg-[#f04129]/10 text-[#f04129] dark:text-[#f04129] border-[#f04129] [&_.material-symbols-outlined]:text-[#f04129]'
             : 'text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 hover:text-text-primary-light dark:hover:text-text-primary-dark border-transparent'
         }`
       }
@@ -70,6 +71,17 @@ const Layout: React.FC = () => {
           <img 
             src="/assets/attendmarklogo.png" 
             alt="AttendMark Logo" 
+            className="block dark:hidden"
+            style={{ 
+              width: '140px', 
+              height: 'auto',
+              objectFit: 'contain'
+            }}
+          />
+          <img 
+            src="/assets/atendmarkwhitelogo.png" 
+            alt="AttendMark Logo" 
+            className="hidden dark:block"
             style={{ 
               width: '140px', 
               height: 'auto',
@@ -85,24 +97,24 @@ const Layout: React.FC = () => {
               <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
             </li>
 
-            {/* Sessions - visible only to Admins (not EndUsers) */}
+            {/* Classes/Batches - visible only to Admins (not EndUsers) */}
             {!isEndUser && (
               <li>
-                <NavLinkItem to="/sessions" icon="groups">Sessions</NavLinkItem>
+                <NavLinkItem to="/sessions" icon="groups" end={true}>Classes/Batches</NavLinkItem>
               </li>
             )}
 
-            {/* Create Session - for SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
+            {/* Create Class/Batch - for SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
             {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin) && (
               <li>
-                <NavLinkItem to="/sessions/create" icon="calendar_add_on">Create Session</NavLinkItem>
+                <NavLinkItem to="/sessions/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
               </li>
             )}
 
-            {/* My Sessions - visible only to EndUsers */}
+            {/* My Classes/Batches - visible only to EndUsers */}
             {isEndUser && (
               <li>
-                <NavLinkItem to="/my-sessions" icon="checklist">My Sessions</NavLinkItem>
+                <NavLinkItem to="/my-sessions" icon="checklist">My Classes/Batches</NavLinkItem>
               </li>
             )}
 
@@ -144,7 +156,7 @@ const Layout: React.FC = () => {
           {/* User Profile Card */}
           <div className="p-6">
             <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 size-10 rounded-full bg-primary flex items-center justify-center text-white text-lg font-bold">
+              <div className="flex-shrink-0 size-10 rounded-full bg-[#fef2f2] border border-[#f04129] flex items-center justify-center text-[#991b1b] text-lg font-bold">
                 {getUserInitials()}
               </div>
               <div>
@@ -166,6 +178,17 @@ const Layout: React.FC = () => {
               <img 
                 src="/assets/image01.png" 
                 alt="AI ALLY Logo" 
+                className="block dark:hidden"
+                style={{ 
+                  height: '20px', 
+                  width: 'auto',
+                  objectFit: 'contain'
+                }}
+              />
+              <img 
+                src="/assets/aiallywhite.png" 
+                alt="AI ALLY Logo" 
+                className="hidden dark:block"
                 style={{ 
                   height: '20px', 
                   width: 'auto',
@@ -196,6 +219,17 @@ const Layout: React.FC = () => {
             <img 
               src="/assets/attendmarklogo.png" 
               alt="AttendMark Logo" 
+              className="block dark:hidden"
+              style={{ 
+                width: '140px', 
+                height: 'auto',
+                objectFit: 'contain'
+              }}
+            />
+            <img 
+              src="/assets/atendmarkwhitelogo.png" 
+              alt="AttendMark Logo" 
+              className="hidden dark:block"
               style={{ 
                 width: '140px', 
                 height: 'auto',
@@ -220,19 +254,19 @@ const Layout: React.FC = () => {
 
             {!isEndUser && (
               <li>
-                <NavLinkItem to="/sessions" icon="groups">Sessions</NavLinkItem>
+                <NavLinkItem to="/sessions" icon="groups" end={true}>Classes/Batches</NavLinkItem>
               </li>
             )}
 
             {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin) && (
               <li>
-                <NavLinkItem to="/sessions/create" icon="calendar_add_on">Create Session</NavLinkItem>
+                <NavLinkItem to="/sessions/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
               </li>
             )}
 
             {isEndUser && (
               <li>
-                <NavLinkItem to="/my-sessions" icon="checklist">My Sessions</NavLinkItem>
+                <NavLinkItem to="/my-sessions" icon="checklist">My Classes/Batches</NavLinkItem>
               </li>
             )}
 
@@ -269,7 +303,7 @@ const Layout: React.FC = () => {
           {/* User Profile Card */}
           <div className="p-6">
             <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0 size-10 rounded-full bg-primary flex items-center justify-center text-white text-lg font-bold">
+              <div className="flex-shrink-0 size-10 rounded-full bg-[#fef2f2] border border-[#f04129] flex items-center justify-center text-[#991b1b] text-lg font-bold">
                 {getUserInitials()}
               </div>
               <div>
@@ -291,6 +325,17 @@ const Layout: React.FC = () => {
               <img 
                 src="/assets/image01.png" 
                 alt="AI ALLY Logo" 
+                className="block dark:hidden"
+                style={{ 
+                  height: '20px', 
+                  width: 'auto',
+                  objectFit: 'contain'
+                }}
+              />
+              <img 
+                src="/assets/aiallywhite.png" 
+                alt="AI ALLY Logo" 
+                className="hidden dark:block"
                 style={{ 
                   height: '20px', 
                   width: 'auto',
@@ -304,29 +349,33 @@ const Layout: React.FC = () => {
 
       <div className="flex-1 flex flex-col">
         {/* Mobile Header */}
-        <header className="md:hidden bg-surface-light dark:bg-surface-dark p-4 border-b border-border-light dark:border-border-dark flex items-center justify-between shadow-sm sticky top-0 z-40">
+        <header className="md:hidden bg-surface-light dark:bg-surface-dark px-4 py-3 border-b border-border-light dark:border-border-dark flex items-center justify-between shadow-sm sticky top-0 z-40 relative">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="text-text-primary-light dark:text-text-primary-dark"
+            className="text-text-primary-light dark:text-text-primary-dark flex items-center justify-center flex-shrink-0"
           >
-            <span className="material-symbols-outlined">menu</span>
+            <span className="material-symbols-outlined text-2xl">menu</span>
           </button>
-          <div className="flex items-center justify-center flex-1">
+          {/* Logo - Absolutely Centered */}
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
             <img 
               src="/assets/attendmarklogo.png" 
               alt="AttendMark Logo" 
-              style={{ 
-                width: '120px', 
-                height: 'auto',
-                objectFit: 'contain'
-              }}
+              className="h-10 w-auto object-contain block dark:hidden"
+            />
+            <img 
+              src="/assets/atendmarkwhitelogo.png" 
+              alt="AttendMark Logo" 
+              className="h-10 w-auto object-contain hidden dark:block"
             />
           </div>
-          <ProfileMenu
-            userInitials={getUserInitials()}
-            userName={getUserName()}
-            userRole={user?.role || 'Guest'}
-          />
+          <div className="flex-shrink-0">
+            <ProfileMenu
+              userInitials={getUserInitials()}
+              userName={getUserName()}
+              userRole={user?.role || 'Guest'}
+            />
+          </div>
         </header>
 
         {/* Top Header - Desktop */}

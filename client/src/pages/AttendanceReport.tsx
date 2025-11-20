@@ -81,7 +81,7 @@ const AttendanceReport: React.FC = () => {
         const { data } = await api.get(`/api/attendance/user/${selectedUser}`);
         setUserReport(data || []);
       } else {
-        setError('Please select a session or user.');
+        setError('Please select a class/batch or user.');
         setIsLoading(false);
         return;
       }
@@ -89,7 +89,7 @@ const AttendanceReport: React.FC = () => {
       if (err.response?.status === 403) {
         setError('You are not authorized to view attendance reports.');
       } else if (err.response?.status === 404) {
-        setError(err.response.data.msg || 'Session or user not found.');
+        setError(err.response.data.msg || 'Class/Batch or user not found.');
       } else {
         setError(err.response?.data?.msg || 'Failed to fetch report. Please try again.');
       }
@@ -193,7 +193,7 @@ const AttendanceReport: React.FC = () => {
       : 'User Report';
     
     // CSV Headers
-    const headers = ['Session Name', 'Session Start Time', 'Check-in Time', 'Location Status'];
+    const headers = ['Class/Batch Name', 'Start Time', 'Check-in Time', 'Location Status'];
     
     // CSV Rows
     const rows = userReport.map(record => [
@@ -369,7 +369,7 @@ const AttendanceReport: React.FC = () => {
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'bold');
     const colWidths = [50, 50, 50, 30];
-    const headers = ['Session Name', 'Session Start', 'Check-in Time', 'Status'];
+    const headers = ['Class/Batch Name', 'Start Time', 'Check-in Time', 'Status'];
     let xPos = margin;
     
     headers.forEach((header, index) => {
@@ -445,7 +445,7 @@ const AttendanceReport: React.FC = () => {
             <div className="layout-content-container flex flex-col max-w-5xl flex-1 gap-8">
               <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center">
-                  <svg className="animate-spin h-8 w-8 text-primary mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="animate-spin h-8 w-8 text-[#f04129] mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                   </svg>
@@ -480,7 +480,7 @@ const AttendanceReport: React.FC = () => {
             {/* Filter Section */}
             <div className="bg-white dark:bg-background-dark/50 border border-[#e6e2db] dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8">
               <h2 className="text-[#181511] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em] pb-5 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">description</span>
+                <span className="material-symbols-outlined text-[#f04129]">description</span>
                 Generate Report
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
@@ -500,7 +500,7 @@ const AttendanceReport: React.FC = () => {
                       }}
                       disabled={isLoading}
                     >
-                      <option value="session">Session</option>
+                      <option value="session">Class/Batch</option>
                       <option value="user">User</option>
                     </select>
                     <span className="material-symbols-outlined pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#8a7b60] dark:text-white/60">unfold_more</span>
@@ -509,7 +509,7 @@ const AttendanceReport: React.FC = () => {
 
                 {filterType === 'session' ? (
                   <label className="flex flex-col min-w-40 flex-1">
-                    <p className="text-[#181511] dark:text-white/80 text-base font-medium leading-normal pb-2">Select Session</p>
+                    <p className="text-[#181511] dark:text-white/80 text-base font-medium leading-normal pb-2">Select Class/Batch</p>
                     <div className="relative">
                       <select
                         className="form-select appearance-none flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-xl text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 h-14 p-[15px] text-base font-normal leading-normal"
@@ -521,7 +521,7 @@ const AttendanceReport: React.FC = () => {
                         }}
                         disabled={isLoading}
                       >
-                        <option value="">-- Select Session --</option>
+                        <option value="">-- Select Class/Batch --</option>
                         {allSessions.map((session) => (
                           <option key={session._id} value={session._id}>
                             {session.name} ({new Date(session.startDate).toLocaleDateString()})
@@ -562,13 +562,13 @@ const AttendanceReport: React.FC = () => {
 
                 <div className="w-full">
                   <button
-                    className={`flex w-full min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-14 px-5 bg-primary text-[#181511] gap-2 text-base font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed`}
+                    className={`flex w-full min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-14 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white gap-2 text-base font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all disabled:opacity-70 disabled:cursor-not-allowed`}
                     onClick={handleViewReport}
                     disabled={isLoading || (filterType === 'session' && !selectedSession) || (filterType === 'user' && !selectedUser)}
                   >
                     {isLoading ? (
                       <>
-                        <svg className="animate-spin h-5 w-5 text-[#181511]" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                         </svg>
@@ -576,7 +576,7 @@ const AttendanceReport: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <span className="material-symbols-outlined text-[#181511]">filter_alt</span>
+                        <span className="material-symbols-outlined text-white">filter_alt</span>
                         <span className="truncate">View Report</span>
                       </>
                     )}
@@ -589,7 +589,7 @@ const AttendanceReport: React.FC = () => {
             {isLoading && (
               <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center">
-                  <svg className="animate-spin h-8 w-8 text-primary mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="animate-spin h-8 w-8 text-[#f04129] mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                   </svg>
@@ -604,29 +604,29 @@ const AttendanceReport: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-between gap-4 pb-5">
                   <div className="flex items-center gap-4 flex-wrap">
                     <h2 className="text-[#181511] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em]">Report Results</h2>
-                    <span className="px-3 py-1 bg-primary/20 text-primary-darker dark:text-primary rounded-full text-sm font-medium">
+                    <span className="px-3 py-1 bg-red-100 text-[#f04129] dark:bg-[#f04129]/20 dark:text-[#f04129] rounded-full text-sm font-medium">
                       Total Records: {sessionReport.length}
                     </span>
                     <span className="px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded-full text-sm font-medium">
                       Verified: {sessionReport.filter(r => r.locationVerified).length}
                     </span>
-                    <span className="px-3 py-1 bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 rounded-full text-sm font-medium">
+                    <span className="px-3 py-1 bg-red-100 text-[#f04129] dark:bg-red-900/50 dark:text-red-300 rounded-full text-sm font-medium">
                       Not Verified: {sessionReport.filter(r => !r.locationVerified).length}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
                     <button 
                       onClick={downloadSessionCSV}
-                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-transparent text-primary dark:text-primary border border-primary gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/10 transition-colors"
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-gradient-to-r from-orange-500 to-[#f04129] text-white border-0 gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
                     >
-                      <FileText className="w-4 h-4" />
+                      <FileText className="w-4 h-4 text-white" />
                       <span className="truncate">CSV</span>
                     </button>
                     <button 
                       onClick={downloadSessionPDF}
-                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-primary text-[#181511] gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors"
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-gradient-to-r from-orange-500 to-[#f04129] text-white gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
                     >
-                      <Download className="w-4 h-4" />
+                      <Download className="w-4 h-4 text-white" />
                       <span className="truncate">PDF</span>
                     </button>
                   </div>
@@ -643,7 +643,7 @@ const AttendanceReport: React.FC = () => {
                     </thead>
                     <tbody className="bg-white dark:bg-background-dark/50 divide-y divide-[#e6e2db] dark:divide-white/10">
                       {sessionReport.map(record => (
-                        <tr key={record._id} className="hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors duration-150">
+                        <tr key={record._id} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#181511] dark:text-white">
                             {record.userId ? (
                               `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
@@ -684,29 +684,29 @@ const AttendanceReport: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-between gap-4 pb-5">
                   <div className="flex items-center gap-4 flex-wrap">
                     <h2 className="text-[#181511] dark:text-background-light text-[22px] font-bold leading-tight tracking-[-0.015em]">Report Results</h2>
-                    <span className="px-3 py-1 bg-primary/20 text-primary-darker dark:text-primary rounded-full text-sm font-medium">
+                    <span className="px-3 py-1 bg-red-100 text-[#f04129] dark:bg-[#f04129]/20 dark:text-[#f04129] rounded-full text-sm font-medium">
                       Total Records: {userReport.length}
                     </span>
                     <span className="px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 rounded-full text-sm font-medium">
                       Verified: {userReport.filter(r => r.locationVerified).length}
                     </span>
-                    <span className="px-3 py-1 bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 rounded-full text-sm font-medium">
+                    <span className="px-3 py-1 bg-red-100 text-[#f04129] dark:bg-red-900/50 dark:text-red-300 rounded-full text-sm font-medium">
                       Not Verified: {userReport.filter(r => !r.locationVerified).length}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
                     <button 
                       onClick={downloadUserCSV}
-                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-transparent text-primary dark:text-primary border border-primary gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/10 transition-colors"
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-gradient-to-r from-orange-500 to-[#f04129] text-white border-0 gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
                     >
-                      <FileText className="w-4 h-4" />
+                      <FileText className="w-4 h-4 text-white" />
                       <span className="truncate">CSV</span>
                     </button>
                     <button 
                       onClick={downloadUserPDF}
-                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-primary text-[#181511] gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors"
+                      className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-gradient-to-r from-orange-500 to-[#f04129] text-white gap-2 text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
                     >
-                      <Download className="w-4 h-4" />
+                      <Download className="w-4 h-4 text-white" />
                       <span className="truncate">PDF</span>
                     </button>
                   </div>
@@ -715,15 +715,15 @@ const AttendanceReport: React.FC = () => {
                   <table className="w-full min-w-full divide-y divide-[#e6e2db] dark:divide-white/10">
                     <thead className="bg-background-light dark:bg-white/5">
                       <tr>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Session Name</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Session Start Time</th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Class/Batch Name</th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Start Time</th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Check-in Time</th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-white/60 uppercase tracking-wider" scope="col">Status</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-background-dark/50 divide-y divide-[#e6e2db] dark:divide-white/10">
                       {userReport.map(record => (
-                        <tr key={record._id} className="hover:bg-primary/10 dark:hover:bg-primary/20 transition-colors duration-150">
+                        <tr key={record._id} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#181511] dark:text-white">
                             {record.sessionId ? (
                               <div>
@@ -767,7 +767,7 @@ const AttendanceReport: React.FC = () => {
             {!isLoading && sessionReport.length === 0 && userReport.length === 0 && !error && selectedSession === '' && selectedUser === '' && (
               <div className="bg-white dark:bg-background-dark/50 border border-[#e6e2db] dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8 text-center py-12">
                 <p className="text-[#181511] dark:text-white text-xl font-semibold mb-2">📊 Ready to Generate Report</p>
-                <p className="text-[#8a7b60] dark:text-gray-400">Select a session or user above and click "View Report" to generate a report.</p>
+                <p className="text-[#8a7b60] dark:text-gray-400">Select a class/batch or user above and click "View Report" to generate a report.</p>
               </div>
             )}
 
@@ -777,8 +777,8 @@ const AttendanceReport: React.FC = () => {
                 <p className="text-[#181511] dark:text-white text-xl font-semibold mb-2">📭 No Attendance Records Found</p>
                 <p className="text-[#8a7b60] dark:text-gray-400">
                   {filterType === 'session'
-                    ? 'No users have marked attendance for this session yet.'
-                    : 'This user has not marked attendance for any sessions yet.'}
+                    ? 'No users have marked attendance for this class/batch yet.'
+                    : 'This user has not marked attendance for any classes/batches yet.'}
                 </p>
               </div>
             )}

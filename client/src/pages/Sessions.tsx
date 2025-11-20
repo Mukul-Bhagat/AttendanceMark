@@ -86,27 +86,24 @@ const Sessions: React.FC = () => {
         <div className="layout-container flex h-full grow flex-col">
           <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-primary text-4xl">calendar_month</span>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">Sessions</h1>
-              </div>
+              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">Classes/Batches</h1>
               {canCreateSession && (
                 <Link
                   to="/sessions/create"
-                  className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors"
+                  className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
                 >
                   <span className="material-symbols-outlined text-xl">add</span>
-                  <span className="truncate">Create New Session</span>
+                  <span className="truncate">Create New Class</span>
                 </Link>
               )}
             </header>
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center">
-                <svg className="animate-spin h-8 w-8 text-primary mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg className="animate-spin h-8 w-8 text-[#f04129] mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                 </svg>
-                <p className="text-[#8a7b60] dark:text-gray-400">Loading sessions...</p>
+                <p className="text-[#8a7b60] dark:text-gray-400">Loading classes/batches...</p>
               </div>
             </div>
           </main>
@@ -121,17 +118,14 @@ const Sessions: React.FC = () => {
         <div className="layout-container flex h-full grow flex-col">
           <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-primary text-4xl">calendar_month</span>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">Sessions</h1>
-              </div>
+              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">Classes/Batches</h1>
               {canCreateSession && (
                 <Link
                   to="/sessions/create"
-                  className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors"
+                  className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
                 >
                   <span className="material-symbols-outlined text-xl">add</span>
-                  <span className="truncate">Create New Session</span>
+                  <span className="truncate">Create New Class</span>
                 </Link>
               )}
             </header>
@@ -151,13 +145,13 @@ const Sessions: React.FC = () => {
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-4xl">calendar_month</span>
+              <span className="material-symbols-outlined text-[#f04129] text-4xl">calendar_month</span>
               <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">Sessions</h1>
             </div>
             {canCreateSession && (
               <Link
                 to="/sessions/create"
-                className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors"
+                className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
               >
                 <span className="material-symbols-outlined text-xl">add</span>
                 <span className="truncate">Create New Session</span>
@@ -169,16 +163,16 @@ const Sessions: React.FC = () => {
             <div className="mt-12 md:col-span-2 lg:col-span-3">
               <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-[#e6e2db] dark:border-slate-800 px-6 py-14">
                 <div className="flex max-w-[480px] flex-col items-center gap-2 text-center">
-                  <p className="text-[#181511] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">No Sessions Available</p>
-                  <p className="text-[#181511] dark:text-slate-300 text-sm font-normal leading-normal">There are currently no sessions scheduled. Get started by creating a new one.</p>
+                  <p className="text-[#181511] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">No Classes/Batches Available</p>
+                  <p className="text-[#181511] dark:text-slate-300 text-sm font-normal leading-normal">There are currently no classes/batches scheduled. Get started by creating a new one.</p>
                 </div>
                 {canCreateSession && (
                   <Link
                     to="/sessions/create"
-                    className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors"
+                    className="flex min-w-[84px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-5 bg-gradient-to-r from-orange-500 to-[#f04129] text-white text-sm font-bold leading-normal tracking-[0.015em] hover:from-orange-600 hover:to-[#d63a25] transition-all"
                   >
                     <span className="material-symbols-outlined text-xl">add</span>
-                    <span className="truncate">Create New Session</span>
+                    <span className="truncate">Create New Class</span>
                   </Link>
                 )}
               </div>
@@ -240,7 +234,7 @@ const Sessions: React.FC = () => {
                     </button>
                     {canEditSession(session) && (
                       <button
-                        className="flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 border border-primary text-primary text-sm font-bold hover:bg-primary/10 transition-colors"
+                        className="flex flex-1 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 border border-[#f04129] text-[#f04129] text-sm font-bold hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/sessions/edit/${session._id}`);

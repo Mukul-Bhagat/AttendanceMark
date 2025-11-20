@@ -33,6 +33,8 @@ const ManageUsers: React.FC = () => {
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All Status');
 
   // Fetch existing EndUsers
   const fetchUsers = async () => {
@@ -170,6 +172,26 @@ const ManageUsers: React.FC = () => {
     }
   };
 
+  // Filter users based on search term and status
+  const filteredUsers = usersList.filter((user) => {
+    const userName = `${user.profile.firstName} ${user.profile.lastName}`.toLowerCase();
+    const userEmail = user.email.toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Search filter: check if name or email includes search term
+    const matchesSearch = !searchTerm || 
+      userName.includes(searchLower) || 
+      userEmail.includes(searchLower);
+    
+    // Status filter: check if device is locked/unlocked
+    const isDeviceLocked = !!user.registeredDeviceId;
+    const matchesStatus = statusFilter === 'All Status' || 
+      (statusFilter === 'Locked' && isDeviceLocked) ||
+      (statusFilter === 'Unlocked' && !isDeviceLocked);
+    
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root">
       <div className="layout-container flex h-full grow flex-col">
@@ -199,7 +221,7 @@ const ManageUsers: React.FC = () => {
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center">
-                  <svg className="animate-spin h-8 w-8 text-primary mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="animate-spin h-8 w-8 text-[#f04129] mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                   </svg>
@@ -210,18 +232,18 @@ const ManageUsers: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Create User Form */}
                 <div className="lg:col-span-1 lg:sticky lg:top-8 lg:self-start">
-                  <div className="bg-white dark:bg-background-dark/50 rounded-xl shadow-sm border border-[#e6e2db] dark:border-white/10 p-6 sm:p-8">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6 sm:p-8">
                     <h2 className="text-[#181511] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em] mb-5 flex items-center">
-                      <span className="material-symbols-outlined text-primary mr-2">person_add</span>
+                      <span className="material-symbols-outlined text-[#f04129] mr-2">person_add</span>
                       Add New User
                     </h2>
                     <form onSubmit={handleSubmit} className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <label className="flex flex-col flex-1">
-                          <p className="text-[#181511] dark:text-gray-300 text-sm font-medium leading-normal pb-2">First Name</p>
+                          <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">First Name</p>
                           <input
-                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder:text-gray-500"
-                            placeholder="John"
+                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                            placeholder="Ramesh"
                             type="text"
                             value={firstName}
                             onChange={(e) => {
@@ -233,10 +255,10 @@ const ManageUsers: React.FC = () => {
                           />
                         </label>
                         <label className="flex flex-col flex-1">
-                          <p className="text-[#181511] dark:text-gray-300 text-sm font-medium leading-normal pb-2">Last Name</p>
+                          <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Last Name</p>
                           <input
-                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder:text-gray-500"
-                            placeholder="Doe"
+                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                            placeholder="Deo"
                             type="text"
                             value={lastName}
                             onChange={(e) => {
@@ -250,10 +272,10 @@ const ManageUsers: React.FC = () => {
                       </div>
 
                       <label className="flex flex-col flex-1">
-                        <p className="text-[#181511] dark:text-gray-300 text-sm font-medium leading-normal pb-2">Email</p>
+                        <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Email</p>
                         <input
-                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder:text-gray-500"
-                          placeholder="john.doe@example.com"
+                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                          placeholder="ramesh.deo@example.com"
                           type="email"
                           value={email}
                           onChange={(e) => {
@@ -266,9 +288,9 @@ const ManageUsers: React.FC = () => {
                       </label>
 
                       <label className="flex flex-col flex-1">
-                        <p className="text-[#181511] dark:text-gray-300 text-sm font-medium leading-normal pb-2">Temporary Password</p>
+                        <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Temporary Password</p>
                         <input
-                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder:text-gray-500"
+                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
                           placeholder="Min 6 characters"
                           type="password"
                           value={password}
@@ -284,10 +306,10 @@ const ManageUsers: React.FC = () => {
                       </label>
 
                       <label className="flex flex-col flex-1">
-                        <p className="text-[#181511] dark:text-gray-300 text-sm font-medium leading-normal pb-2">Phone (Optional)</p>
+                        <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Phone (Optional)</p>
                         <input
-                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder:text-gray-500"
-                          placeholder="(123) 456-7890"
+                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                          placeholder="+91 98765 43210"
                           type="tel"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
@@ -299,7 +321,7 @@ const ManageUsers: React.FC = () => {
                         <button
                           type="submit"
                           disabled={isSubmitting}
-                          className="flex w-full items-center justify-center rounded-lg bg-primary py-3 px-4 font-semibold text-white transition-colors duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                          className="flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-orange-500 to-[#f04129] py-3 px-4 font-semibold text-white transition-all duration-200 hover:from-orange-600 hover:to-[#d63a25] disabled:cursor-not-allowed disabled:opacity-70"
                         >
                           <span className="material-symbols-outlined mr-2 text-xl">person_add</span>
                           {isSubmitting ? 'Creating...' : 'Create User'}
@@ -319,11 +341,11 @@ const ManageUsers: React.FC = () => {
 
                 {/* Users Table */}
                 <div className="lg:col-span-2">
-                  <div className="bg-white dark:bg-background-dark/50 rounded-xl shadow-sm border border-[#e6e2db] dark:border-white/10 p-6 sm:p-8">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6 sm:p-8">
                     <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                       <h2 className="text-xl text-[#181511] dark:text-white font-bold flex items-center shrink-0">
                         End Users
-                        <span className="ml-3 px-3 py-1 bg-primary/20 text-primary-700 dark:text-primary dark:bg-primary/20 rounded-full text-sm font-semibold">
+                        <span className="ml-3 px-3 py-1 bg-red-100 text-[#f04129] dark:bg-[#f04129]/20 dark:text-[#f04129] rounded-full text-sm font-semibold">
                           {usersList.length}
                         </span>
                       </h2>
@@ -336,16 +358,22 @@ const ManageUsers: React.FC = () => {
                             </svg>
                           </div>
                           <input
-                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-white/20 bg-white dark:bg-background-dark/50 focus:border-primary/50 dark:focus:border-primary/50 h-10 pl-10 pr-3 text-sm font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder:text-gray-500"
+                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-10 pl-10 pr-3 text-sm font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
                             placeholder="Search by name or email..."
                             type="search"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                           />
                         </div>
                         <div className="relative">
-                          <select className="form-select w-full appearance-none rounded-lg border border-[#e6e2db] bg-white dark:border-white/20 dark:bg-background-dark/50 py-2 pl-3 pr-8 text-sm text-[#181511] dark:text-white focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:border-primary/50">
-                            <option>All Status</option>
-                            <option>Locked</option>
-                            <option>Unlocked</option>
+                          <select 
+                            className="form-select w-full appearance-none rounded-lg border border-[#e6e2db] dark:border-slate-600 bg-white dark:bg-slate-800 py-2 pl-3 pr-8 text-sm text-[#181511] dark:text-white focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-[#f04129] dark:focus:border-primary/50"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                          >
+                            <option value="All Status">All Status</option>
+                            <option value="Locked">Locked</option>
+                            <option value="Unlocked">Unlocked</option>
                           </select>
                           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[#8a7b60] dark:text-gray-400">
                             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
@@ -361,23 +389,28 @@ const ManageUsers: React.FC = () => {
                         <p className="text-[#8a7b60] dark:text-gray-400 text-base mb-2">No end users found.</p>
                         <p className="text-[#8a7b60] dark:text-gray-400 text-sm">Create your first end user using the form above.</p>
                       </div>
+                    ) : filteredUsers.length === 0 ? (
+                      <div className="text-center py-12">
+                        <p className="text-[#8a7b60] dark:text-gray-400 text-base mb-2">No matching records found.</p>
+                        <p className="text-[#8a7b60] dark:text-gray-400 text-sm">Try adjusting your search or filter criteria.</p>
+                      </div>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="min-w-full">
                           <thead className="border-b border-[#e6e2db] dark:border-white/10">
                             <tr>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400 uppercase tracking-wider" scope="col">Name</th>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400 uppercase tracking-wider" scope="col">Email</th>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400 uppercase tracking-wider" scope="col">Status</th>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400 uppercase tracking-wider" scope="col">Phone</th>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400 uppercase tracking-wider" scope="col">Actions</th>
+                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Name</th>
+                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Email</th>
+                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Status</th>
+                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
+                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
                               {isSuperAdmin && (
-                                <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400 uppercase tracking-wider" scope="col"></th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col"></th>
                               )}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#e6e2db] dark:divide-white/10">
-                            {usersList.map((user) => {
+                            {filteredUsers.map((user) => {
                               const userId = user._id || user.id || '';
                               const isDeviceLocked = !!user.registeredDeviceId;
                               const isResetting = resettingDevice === userId;
@@ -385,7 +418,7 @@ const ManageUsers: React.FC = () => {
                               const userName = `${user.profile.firstName} ${user.profile.lastName}`;
 
                               return (
-                                <tr key={userId} className="hover:bg-primary/10 dark:hover:bg-primary/10 transition-colors duration-150">
+                                <tr key={userId} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#181511] dark:text-white">
                                     {userName}
                                   </td>

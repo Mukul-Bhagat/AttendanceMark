@@ -27,7 +27,7 @@ const MySessions: React.FC = () => {
         if (err.response?.status === 401) {
           setError('You are not authorized. Please log in again.');
         } else {
-          setError('Failed to load sessions. Please try again.');
+          setError('Failed to load classes/batches. Please try again.');
         }
         console.error(err);
       } finally {
@@ -89,7 +89,7 @@ const MySessions: React.FC = () => {
             <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-primary text-4xl">calendar_month</span>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">My Sessions</h1>
+                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">My Classes/Batches</h1>
               </div>
             </header>
             <div className="flex items-center justify-center py-12">
@@ -98,7 +98,7 @@ const MySessions: React.FC = () => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                 </svg>
-                <p className="text-[#8a7b60] dark:text-gray-400">Loading sessions...</p>
+                <p className="text-[#8a7b60] dark:text-gray-400">Loading classes/batches...</p>
               </div>
             </div>
           </main>
@@ -115,7 +115,7 @@ const MySessions: React.FC = () => {
             <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-primary text-4xl">calendar_month</span>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">My Sessions</h1>
+                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">My Classes/Batches</h1>
               </div>
             </header>
             <div className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-center">
@@ -136,10 +136,10 @@ const MySessions: React.FC = () => {
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-primary text-4xl">calendar_month</span>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">My Sessions</h1>
+                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white leading-tight tracking-[-0.033em]">My Classes/Batches</h1>
               </div>
               <p className="text-[#8a7b60] dark:text-gray-400 text-sm ml-14">
-                Click on a session to scan QR code and mark attendance
+                Click on a class/batch to scan QR code and mark attendance
               </p>
             </div>
           </header>
@@ -148,11 +148,11 @@ const MySessions: React.FC = () => {
             <div className="mt-12">
               <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-[#e6e2db] dark:border-slate-800 px-6 py-14">
                 <div className="flex max-w-[480px] flex-col items-center gap-2 text-center">
-                  <p className="text-[#181511] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">No Sessions Available</p>
+                  <p className="text-[#181511] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">No Classes/Batches Available</p>
                   <p className="text-[#181511] dark:text-slate-300 text-sm font-normal leading-normal">
                     {user?.role === 'EndUser' 
-                      ? 'You have no sessions assigned to you yet.' 
-                      : 'There are currently no sessions scheduled.'}
+                      ? 'You have no classes/batches assigned to you yet.' 
+                      : 'There are currently no classes/batches scheduled.'}
                   </p>
                 </div>
               </div>
@@ -197,7 +197,7 @@ const MySessions: React.FC = () => {
                   </div>
                   <div className="mt-auto">
                     <button
-                      className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-colors"
+                      className="flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold hover:bg-[#d63a25] transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleSessionClick(session._id);

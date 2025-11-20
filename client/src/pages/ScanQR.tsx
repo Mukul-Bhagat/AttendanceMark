@@ -225,7 +225,7 @@ const ScanQR: React.FC = () => {
               </div>
               <button
                 onClick={handleRetry}
-                className="flex h-10 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-primary px-4 text-sm font-bold leading-normal tracking-[0.015em] text-white hover:bg-primary/90 transition-colors"
+                className="flex h-10 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-primary px-4 text-sm font-bold leading-normal tracking-[0.015em] text-white hover:bg-[#d63a25] transition-colors"
               >
                 <span className="truncate">Scan Another QR Code</span>
               </button>
@@ -252,7 +252,7 @@ const ScanQR: React.FC = () => {
               </div>
               <button
                 onClick={handleRetry}
-                className="flex h-10 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary px-4 text-sm font-bold leading-normal tracking-[0.015em] text-white hover:bg-primary/90 transition-colors"
+                className="flex h-10 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary px-4 text-sm font-bold leading-normal tracking-[0.015em] text-white hover:bg-[#d63a25] transition-colors"
               >
                 <RefreshCw className="w-5 h-5" />
                 <span className="truncate">Retry Scan</span>
@@ -288,7 +288,7 @@ const ScanQR: React.FC = () => {
               </div>
               <button
                 onClick={handleRetry}
-                className="flex h-10 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary px-4 text-sm font-bold leading-normal tracking-[0.015em] text-white hover:bg-primary/90 transition-colors"
+                className="flex h-10 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl bg-primary px-4 text-sm font-bold leading-normal tracking-[0.015em] text-white hover:bg-[#d63a25] transition-colors"
               >
                 <RefreshCw className="w-5 h-5" />
                 <span className="truncate">Retry</span>

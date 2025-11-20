@@ -135,7 +135,7 @@ const ForceResetPassword: React.FC = () => {
           
           <button
             type="submit"
-            className="w-full px-6 py-3 text-base font-bold text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full px-6 py-3 text-base font-bold text-white bg-primary hover:bg-[#d63a25] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             disabled={!!message || isSubmitting}
           >
             {isSubmitting ? (

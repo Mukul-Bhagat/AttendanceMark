@@ -116,7 +116,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <div className="size-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
+          <div className="size-9 rounded-full bg-[#fef2f2] border border-[#f04129] flex items-center justify-center text-[#991b1b] text-sm font-bold">
             {userInitials}
           </div>
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100 hidden lg:inline">
@@ -273,7 +273,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-[#d63a25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {isSubmitting ? 'Changing...' : 'Change Password'}
                 </button>

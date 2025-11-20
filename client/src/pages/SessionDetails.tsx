@@ -15,7 +15,7 @@ const SessionDetails: React.FC = () => {
   useEffect(() => {
     const fetchSession = async () => {
       if (!id) {
-        setError('Invalid session ID.');
+          setError('Invalid class/batch ID.');
         setIsLoading(false);
         return;
       }
@@ -25,11 +25,11 @@ const SessionDetails: React.FC = () => {
         setSession(data);
       } catch (err: any) {
         if (err.response?.status === 401) {
-          setError('You are not authorized to view this session.');
+          setError('You are not authorized to view this class/batch.');
         } else if (err.response?.status === 404) {
-          setError('Session not found.');
+          setError('Class/Batch not found.');
         } else {
-          setError('Failed to load session. Please try again.');
+          setError('Failed to load class/batch. Please try again.');
         }
         console.error(err);
       } finally {
@@ -51,7 +51,7 @@ const SessionDetails: React.FC = () => {
                 className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#f5f3f0] dark:bg-background-dark/50 text-[#181511] dark:text-gray-200 gap-2 text-sm font-bold leading-normal tracking-[0.015em] border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-background-dark"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="truncate">Back to All Sessions</span>
+                <span className="truncate">Back to All Classes/Batches</span>
               </Link>
             </header>
             <div className="flex items-center justify-center py-12">
@@ -60,7 +60,7 @@ const SessionDetails: React.FC = () => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                 </svg>
-                <p className="text-[#8a7b60] dark:text-gray-400">Loading session...</p>
+                <p className="text-[#8a7b60] dark:text-gray-400">Loading class/batch...</p>
               </div>
             </div>
           </main>
@@ -80,12 +80,12 @@ const SessionDetails: React.FC = () => {
                 className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#f5f3f0] dark:bg-background-dark/50 text-[#181511] dark:text-gray-200 gap-2 text-sm font-bold leading-normal tracking-[0.015em] border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-background-dark"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="truncate">Back to All Sessions</span>
+                <span className="truncate">Back to All Classes/Batches</span>
               </Link>
             </header>
             <div className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-center mb-4">
               <span className="material-symbols-outlined mr-2">error</span>
-              {error || 'Session not found.'}
+              {error || 'Class/Batch not found.'}
             </div>
           </main>
         </div>
@@ -151,7 +151,7 @@ const SessionDetails: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Column 1: Session Information */}
-            <div className="bg-white dark:bg-[#2a2418] rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 sm:p-8">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 sm:p-8">
               <div className="flex min-w-72 flex-col gap-2 mb-6">
                 <p className="text-[#181511] dark:text-white text-3xl font-black leading-tight tracking-[-0.033em]">{session.name}</p>
                 {session.description && (
@@ -250,7 +250,7 @@ const SessionDetails: React.FC = () => {
             </div>
 
             {/* Column 2: QR Code */}
-            <div className="bg-white dark:bg-[#2a2418] rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 sm:p-8 flex flex-col items-center justify-between text-center">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 sm:p-8 flex flex-col items-center justify-between text-center">
               <div className="w-full">
                 <h2 className="text-xl font-semibold text-[#181511] dark:text-white mb-6">Scan this code for attendance</h2>
                 <div className="w-64 h-64 sm:w-80 sm:h-80 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-center p-4 mx-auto bg-gray-50 dark:bg-background-dark">

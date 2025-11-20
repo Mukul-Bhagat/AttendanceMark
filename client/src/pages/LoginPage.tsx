@@ -161,16 +161,18 @@ const LoginPage: React.FC = () => {
             <div className="flex w-full flex-col items-center justify-center bg-background-light p-6 lg:w-1/2 lg:p-10">
               <div className="layout-content-container flex w-full max-w-md flex-col">
                 {/* Main AttendMark Logo */}
-                <div className="flex justify-center mb-6 pt-6">
-                  <img 
-                    src="/assets/attendmarklogo.png" 
-                    alt="AttendMark Logo" 
-                    style={{ 
-                      width: '200px', 
-                      maxWidth: '60%', 
-                      height: 'auto',
-                      objectFit: 'contain'
-                    }}
+                <div className="flex justify-center mb-8">
+                  {/* Light Mode Logo (Black Text) - Shows by default, hides in dark mode */}
+                  <img
+                    src="/assets/attendmarklogo.png"
+                    alt="AttendMark"
+                    className="h-16 w-auto object-contain block dark:hidden"
+                  />
+                  {/* Dark Mode Logo (White Text) - Hides by default, shows in dark mode */}
+                  <img
+                    src="/assets/atendmarkwhitelogo.png"
+                    alt="AttendMark"
+                    className="h-16 w-auto object-contain hidden dark:block"
                   />
                 </div>
                 
@@ -233,13 +235,13 @@ const LoginPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isSubmitting || isLoading}
-                    className={`flex items-center justify-center text-center font-bold text-base h-14 w-full rounded-lg bg-primary text-slate-900 hover:bg-primary/90 transition-colors duration-200 mt-4 ${
+                    className={`flex items-center justify-center text-center font-bold text-base h-14 w-full rounded-lg bg-primary text-white hover:bg-[#d63a25] transition-colors duration-200 mt-4 ${
                       isSubmitting || isLoading ? 'opacity-70 cursor-not-allowed' : ''
                     }`}
                   >
                     {isSubmitting || isLoading ? (
                       <>
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-slate-900" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                         </svg>
@@ -278,6 +280,17 @@ const LoginPage: React.FC = () => {
                     <img 
                       src="/assets/image01.png" 
                       alt="AI ALLY Logo" 
+                      className="block dark:hidden"
+                      style={{ 
+                        height: '24px', 
+                        width: 'auto',
+                        objectFit: 'contain'
+                      }}
+                    />
+                    <img 
+                      src="/assets/aiallywhite.png" 
+                      alt="AI ALLY Logo" 
+                      className="hidden dark:block"
                       style={{ 
                         height: '24px', 
                         width: 'auto',

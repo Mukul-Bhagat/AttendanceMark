@@ -32,6 +32,8 @@ const ManageStaff: React.FC = () => {
   const [deletingStaff, setDeletingStaff] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('All Roles');
 
   // Fetch existing staff
   const fetchStaff = async () => {
@@ -147,6 +149,30 @@ const ManageStaff: React.FC = () => {
     }
   };
 
+  // Filter staff based on search term and role
+  const filteredStaff = staffList.filter((staff) => {
+    const staffName = `${staff.profile.firstName} ${staff.profile.lastName}`.toLowerCase();
+    const staffEmail = staff.email.toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Search filter: check if name or email includes search term
+    const matchesSearch = !searchTerm || 
+      staffName.includes(searchLower) || 
+      staffEmail.includes(searchLower);
+    
+    // Role filter: check if role matches
+    // Map dropdown values to actual role values
+    const roleMap: { [key: string]: string } = {
+      'All Roles': 'All',
+      'Session Admin': 'SessionAdmin',
+      'Manager': 'Manager'
+    };
+    const mappedRole = roleMap[roleFilter] || roleFilter;
+    const matchesRole = mappedRole === 'All' || staff.role === mappedRole;
+    
+    return matchesSearch && matchesRole;
+  });
+
   return (
     <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
       <div className="layout-container flex h-full grow flex-col">
@@ -178,7 +204,7 @@ const ManageStaff: React.FC = () => {
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center">
-                <svg className="animate-spin h-8 w-8 text-primary mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <svg className="animate-spin h-8 w-8 text-[#f04129] mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
                 </svg>
@@ -188,18 +214,18 @@ const ManageStaff: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4">
               {/* Create Staff Form */}
-              <div className="lg:col-span-1 bg-white dark:bg-background-dark dark:border dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8 lg:sticky lg:top-8 lg:self-start">
+              <div className="lg:col-span-1 bg-white dark:bg-slate-800 dark:border dark:border-slate-700 rounded-xl shadow-sm p-6 sm:p-8 lg:sticky lg:top-8 lg:self-start">
                 <h2 className="text-[#181511] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] pb-5 flex items-center">
-                  <span className="material-symbols-outlined mr-3 text-primary" style={{ fontSize: '28px' }}>manage_accounts</span>
+                  <span className="material-symbols-outlined mr-3 text-[#f04129]" style={{ fontSize: '28px' }}>manage_accounts</span>
                   Add Staff Member
                 </h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <label className="flex flex-col min-w-40 flex-1">
-                      <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">First Name</p>
+                      <p className="text-[#181511] dark:text-gray-200 text-base font-medium leading-normal pb-2">First Name</p>
                       <input
-                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
-                        placeholder="Enter first name"
+                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] dark:placeholder-gray-400 p-[15px] text-base font-normal leading-normal"
+                        placeholder="Suresh"
                         type="text"
                         value={firstName}
                         onChange={(e) => {
@@ -211,10 +237,10 @@ const ManageStaff: React.FC = () => {
                       />
                     </label>
                     <label className="flex flex-col min-w-40 flex-1">
-                      <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Last Name</p>
+                      <p className="text-[#181511] dark:text-gray-200 text-base font-medium leading-normal pb-2">Last Name</p>
                       <input
-                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
-                        placeholder="Enter last name"
+                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] dark:placeholder-gray-400 p-[15px] text-base font-normal leading-normal"
+                        placeholder="Patil"
                         type="text"
                         value={lastName}
                         onChange={(e) => {
@@ -228,10 +254,10 @@ const ManageStaff: React.FC = () => {
                   </div>
 
                   <label className="flex flex-col w-full">
-                    <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Email</p>
+                    <p className="text-[#181511] dark:text-gray-200 text-base font-medium leading-normal pb-2">Email</p>
                     <input
-                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
-                      placeholder="Enter email address"
+                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] dark:placeholder-gray-400 p-[15px] text-base font-normal leading-normal"
+                      placeholder="suresh.patil@example.com"
                       type="email"
                       value={email}
                       onChange={(e) => {
@@ -244,9 +270,9 @@ const ManageStaff: React.FC = () => {
                   </label>
 
                   <label className="flex flex-col w-full">
-                    <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Password</p>
+                    <p className="text-[#181511] dark:text-gray-200 text-base font-medium leading-normal pb-2">Password</p>
                     <input
-                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
+                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] dark:placeholder-gray-400 p-[15px] text-base font-normal leading-normal"
                       placeholder="Enter password"
                       type="password"
                       value={password}
@@ -262,10 +288,10 @@ const ManageStaff: React.FC = () => {
                   </label>
 
                   <label className="flex flex-col w-full">
-                    <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Phone (Optional)</p>
+                    <p className="text-[#181511] dark:text-gray-200 text-base font-medium leading-normal pb-2">Phone (Optional)</p>
                     <input
-                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] p-[15px] text-base font-normal leading-normal"
-                      placeholder="Enter phone number"
+                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] dark:placeholder-gray-400 p-[15px] text-base font-normal leading-normal"
+                      placeholder="+91 98765 12345"
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -274,10 +300,10 @@ const ManageStaff: React.FC = () => {
                   </label>
 
                   <div className="flex flex-col w-full">
-                    <p className="text-[#181511] dark:text-gray-300 text-base font-medium leading-normal pb-2">Role</p>
+                    <p className="text-[#181511] dark:text-gray-200 text-base font-medium leading-normal pb-2">Role</p>
                     <div className="relative">
                       <select
-                        className="form-select flex w-full appearance-none min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-14 p-[15px] text-base font-normal leading-normal"
+                        className="form-select flex w-full appearance-none min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-14 p-[15px] text-base font-normal leading-normal"
                         value={role}
                         onChange={(e) => setRole(e.target.value as 'SessionAdmin' | 'Manager')}
                         required
@@ -288,13 +314,13 @@ const ManageStaff: React.FC = () => {
                       </select>
                       <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Can manage assigned sessions.</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Can manage assigned classes/batches.</p>
                   </div>
 
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-4 text-base font-semibold leading-6 text-black shadow-sm hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#f04129] px-6 py-4 text-base font-semibold leading-6 text-white shadow-sm hover:bg-[#d63a25] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     <span className="material-symbols-outlined">person_add</span>
                     {isSubmitting ? 'Creating...' : 'Create Staff Member'}
@@ -311,11 +337,11 @@ const ManageStaff: React.FC = () => {
               </div>
 
               {/* Staff Table */}
-              <div className="lg:col-span-2 bg-white dark:bg-background-dark dark:border dark:border-white/10 rounded-xl shadow-sm p-6 sm:p-8">
+              <div className="lg:col-span-2 bg-white dark:bg-slate-800 dark:border dark:border-slate-700 rounded-xl shadow-sm p-6 sm:p-8">
                 <div className="flex items-center justify-between pb-5">
                   <h2 className="text-[#181511] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] flex items-center">
                     Current Staff
-                    <span className="ml-3 px-3 py-1 bg-primary/20 text-primary dark:bg-primary/30 dark:text-primary-300 rounded-full text-sm font-medium">
+                    <span className="ml-3 px-3 py-1 bg-red-100 text-[#f04129] dark:bg-[#f04129]/20 dark:text-[#f04129] rounded-full text-sm font-semibold">
                       {staffList.length}
                     </span>
                   </h2>
@@ -325,15 +351,21 @@ const ManageStaff: React.FC = () => {
                   <div className="relative flex-grow">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span>
                     <input
-                      className="form-input w-full rounded-lg text-sm text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-12 placeholder:text-[#8a7b60] pl-10 pr-4"
+                      className="form-input w-full rounded-lg text-sm text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 placeholder:text-[#8a7b60] dark:placeholder-gray-400 pl-10 pr-4"
                       placeholder="Search by name or email..."
                       type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <div className="relative min-w-[180px]">
-                    <select className="form-select w-full appearance-none rounded-lg text-sm text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-gray-700 bg-white dark:bg-gray-800 focus:border-primary/50 dark:focus:border-primary/50 h-12 px-4">
-                      <option value="All">All Roles</option>
-                      <option value="SessionAdmin">Session Admin</option>
+                    <select 
+                      className="form-select w-full appearance-none rounded-lg text-sm text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-[#f04129] border border-[#e6e2db] dark:border-slate-600 bg-white dark:bg-slate-800 focus:border-primary/50 dark:focus:border-primary/50 h-12 px-4"
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                    >
+                      <option value="All Roles">All Roles</option>
+                      <option value="Session Admin">Session Admin</option>
                       <option value="Manager">Manager</option>
                     </select>
                     <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
@@ -345,29 +377,34 @@ const ManageStaff: React.FC = () => {
                     <p className="text-[#8a7b60] dark:text-gray-400 text-base mb-2">No staff members found.</p>
                     <p className="text-[#8a7b60] dark:text-gray-400 text-sm">Create your first staff member using the form above.</p>
                   </div>
+                ) : filteredStaff.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-[#8a7b60] dark:text-gray-400 text-base mb-2">No matching records found.</p>
+                    <p className="text-[#8a7b60] dark:text-gray-400 text-sm">Try adjusting your search or filter criteria.</p>
+                  </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                       <thead className="bg-gray-50 dark:bg-white/5">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Name</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Email</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Role</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Phone</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Name</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Email</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Role</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
                           {isSuperAdmin && (
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">Actions</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
                           )}
                         </tr>
                       </thead>
-                      <tbody className="bg-white dark:bg-background-dark divide-y divide-gray-200 dark:divide-gray-700">
-                        {staffList.map((staff) => {
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {filteredStaff.map((staff) => {
                           const staffId = staff._id || staff.id || '';
                           const roleDisplay = staff.role === 'SessionAdmin' ? 'Session Admin' : staff.role;
                           const isDeleting = deletingStaff === staffId;
                           const staffName = `${staff.profile.firstName} ${staff.profile.lastName}`;
                           
                           return (
-                            <tr key={staffId} className="hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors duration-150">
+                            <tr key={staffId} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                                 {staffName}
                               </td>
@@ -376,7 +413,7 @@ const ManageStaff: React.FC = () => {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm">
                                 {staff.role === 'SessionAdmin' ? (
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full border bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/50 dark:text-amber-300 dark:border-amber-800">
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full border bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-800">
                                     <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>shield_person</span>
                                     {roleDisplay}
                                   </span>

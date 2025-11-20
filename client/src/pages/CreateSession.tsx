@@ -122,7 +122,7 @@ const CreateSession: React.FC = () => {
     
     // Validate weekly days
     if (formData.frequency === 'Weekly' && formData.weeklyDays.length === 0) {
-      setError('Please select at least one day for weekly sessions');
+      setError('Please select at least one day for weekly classes/batches');
       return;
     }
     
@@ -141,12 +141,12 @@ const CreateSession: React.FC = () => {
     // Validate location for PHYSICAL or HYBRID sessions
     if (formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') {
       if (locationInputType === 'LINK' && !locationLink.trim()) {
-        setError('Google Maps Link is required for Physical or Hybrid sessions.');
+        setError('Google Maps Link is required for Physical or Hybrid classes/batches.');
         setIsSubmitting(false);
         return;
       }
       if (locationInputType === 'COORDS' && (!latitude.trim() || !longitude.trim())) {
-        setError('Latitude and Longitude are required for Physical or Hybrid sessions.');
+        setError('Latitude and Longitude are required for Physical or Hybrid classes/batches.');
         setIsSubmitting(false);
         return;
       }
@@ -262,7 +262,7 @@ const CreateSession: React.FC = () => {
     <div className="relative flex min-h-screen w-full flex-col p-4 sm:p-6 lg:p-8 bg-background-light dark:bg-background-dark font-display">
       <div className="mx-auto flex w-full max-w-4xl flex-col">
         <div className="mb-8">
-          <p className="text-3xl font-black leading-tight tracking-[-0.033em] text-[#181511] dark:text-white sm:text-4xl">Create New Session</p>
+          <p className="text-3xl font-black leading-tight tracking-[-0.033em] text-[#181511] dark:text-white sm:text-4xl">Create New Class/Batch</p>
         </div>
 
         {error && (
@@ -274,30 +274,30 @@ const CreateSession: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="flex flex-col space-y-6">
           {/* Section 1: Basic Details */}
-          <div className="flex flex-col gap-6 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-[#3a311f] dark:bg-[#1a150b] sm:p-8">
+          <div className="flex flex-col gap-6 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-2xl text-primary">calendar_month</span>
+              <span className="material-symbols-outlined text-2xl text-[#f04129]">calendar_month</span>
               <h2 className="text-xl font-bold leading-tight tracking-[-0.015em] text-[#181511] dark:text-white">Basic Details</h2>
             </div>
             <div className="flex flex-col gap-4">
               <label className="flex flex-col">
-                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Session Name</p>
+                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Class/Batch Name</p>
                 <input
                   ref={nameInputRef}
-                  className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white dark:placeholder:text-[#6f634b] dark:focus:border-primary/80"
+                  className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:border-primary/80"
                   name="name"
                   type="text"
                   value={formData.name}
                   onChange={handleChange}
                   required
                   autoComplete="off"
-                  placeholder="Enter the session name"
+                  placeholder="Enter the class/batch name"
                 />
               </label>
               <label className="flex flex-col">
-                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Description</p>
+                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Description</p>
                 <textarea
-                  className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white dark:placeholder:text-[#6f634b] dark:focus:border-primary/80"
+                  className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:border-primary/80"
                   name="description"
                   rows={3}
                   value={formData.description}
@@ -307,9 +307,9 @@ const CreateSession: React.FC = () => {
               </label>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <label className="flex flex-col">
-                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Start Date</p>
+                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Start Date</p>
                   <input
-                    className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white"
+                    className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                     name="startDate"
                     type="date"
                     value={formData.startDate}
@@ -319,9 +319,9 @@ const CreateSession: React.FC = () => {
                 </label>
                 {formData.frequency !== 'OneTime' && (
                   <label className="flex flex-col">
-                    <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">End Date</p>
+                    <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">End Date</p>
                     <input
-                      className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white"
+                      className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                       name="endDate"
                       type="date"
                       value={formData.endDate}
@@ -331,9 +331,9 @@ const CreateSession: React.FC = () => {
                   </label>
                 )}
                 <label className="flex flex-col">
-                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Start Time</p>
+                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Start Time</p>
                   <input
-                    className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white"
+                    className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                     name="startTime"
                     type="time"
                     value={formData.startTime}
@@ -342,9 +342,9 @@ const CreateSession: React.FC = () => {
                   />
                 </label>
                 <label className="flex flex-col">
-                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">End Time</p>
+                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">End Time</p>
                   <input
-                    className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white"
+                    className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                     name="endTime"
                     type="time"
                     value={formData.endTime}
@@ -354,10 +354,10 @@ const CreateSession: React.FC = () => {
                 </label>
               </div>
               <label className="flex flex-col">
-                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Frequency</p>
+                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Frequency</p>
                 <div className="relative">
                   <select
-                    className="form-select w-full appearance-none rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white"
+                    className="form-select w-full appearance-none rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                     name="frequency"
                     value={formData.frequency}
                     onChange={handleChange}
@@ -373,7 +373,7 @@ const CreateSession: React.FC = () => {
               </label>
               {formData.frequency === 'Weekly' && (
                 <div>
-                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Repeat On</p>
+                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Repeat On</p>
                   <div className="flex flex-wrap gap-2">
                     {daysOfWeek.map((day, index) => {
                       const isSelected = formData.weeklyDays.includes(day);
@@ -384,8 +384,8 @@ const CreateSession: React.FC = () => {
                           onClick={() => handleDayToggle(day)}
                           className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition-colors duration-200 ${
                             isSelected
-                              ? 'bg-primary text-white'
-                              : 'bg-[#f5f3f0] text-[#181511] hover:bg-[#e6e2db] dark:bg-[#3a311f] dark:text-white dark:hover:bg-[#4b3f28]'
+                              ? 'bg-gradient-to-r from-orange-500 to-[#f04129] text-white'
+                              : 'bg-[#f5f3f0] text-[#181511] hover:bg-[#e6e2db] dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600'
                           }`}
                         >
                           {dayLabels[index]}
@@ -394,7 +394,7 @@ const CreateSession: React.FC = () => {
                     })}
                   </div>
                   {formData.weeklyDays.length === 0 && (
-                    <p className="text-xs text-red-500 dark:text-red-400 mt-2">Please select at least one day for weekly sessions</p>
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-2">Please select at least one day for weekly classes/batches</p>
                   )}
                 </div>
               )}
@@ -402,9 +402,9 @@ const CreateSession: React.FC = () => {
           </div>
 
           {/* Section 2: Session Mode */}
-          <div className="flex flex-col gap-5 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-[#3a311f] dark:bg-[#1a150b] sm:p-8">
+          <div className="flex flex-col gap-5 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-2xl text-primary">devices</span>
+              <span className="material-symbols-outlined text-2xl text-[#f04129]">devices</span>
               <h2 className="text-xl font-bold leading-tight tracking-[-0.015em] text-[#181511] dark:text-white">Session Mode</h2>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -418,14 +418,14 @@ const CreateSession: React.FC = () => {
                 }}
                 className={`relative flex flex-col items-center justify-center rounded-xl border-2 p-6 text-center shadow-md transition-all duration-200 ${
                   formData.sessionType === 'PHYSICAL'
-                    ? 'border-primary dark:border-primary'
-                    : 'border-[#e6e2db] hover:border-[#d6d0c6] dark:border-[#3a311f] dark:hover:border-[#4b3f28]'
+                    ? 'border-[#f04129] dark:border-[#f04129]'
+                    : 'border-[#e6e2db] hover:border-[#d6d0c6] dark:border-slate-700 dark:hover:border-slate-600'
                 }`}
               >
                 {formData.sessionType === 'PHYSICAL' && (
-                  <span className="material-symbols-outlined absolute right-3 top-3 text-xl text-primary">check_circle</span>
+                  <span className="material-symbols-outlined absolute right-3 top-3 text-xl text-[#f04129]">check_circle</span>
                 )}
-                <span className={`material-symbols-outlined mb-3 text-3xl ${formData.sessionType === 'PHYSICAL' ? 'text-primary' : 'text-[#5c5445] dark:text-[#a89d85]'}`}>location_on</span>
+                <span className={`material-symbols-outlined mb-3 text-3xl ${formData.sessionType === 'PHYSICAL' ? 'text-[#f04129]' : 'text-[#5c5445] dark:text-slate-400'}`}>location_on</span>
                 <p className="font-semibold text-[#181511] dark:text-white">Physical</p>
               </button>
               <button
@@ -438,14 +438,14 @@ const CreateSession: React.FC = () => {
                 }}
                 className={`relative flex flex-col items-center justify-center rounded-xl border-2 p-6 text-center shadow-md transition-all duration-200 ${
                   formData.sessionType === 'REMOTE'
-                    ? 'border-primary dark:border-primary'
-                    : 'border-[#e6e2db] hover:border-[#d6d0c6] dark:border-[#3a311f] dark:hover:border-[#4b3f28]'
+                    ? 'border-[#f04129] dark:border-[#f04129]'
+                    : 'border-[#e6e2db] hover:border-[#d6d0c6] dark:border-slate-700 dark:hover:border-slate-600'
                 }`}
               >
                 {formData.sessionType === 'REMOTE' && (
-                  <span className="material-symbols-outlined absolute right-3 top-3 text-xl text-primary">check_circle</span>
+                  <span className="material-symbols-outlined absolute right-3 top-3 text-xl text-[#f04129]">check_circle</span>
                 )}
-                <span className={`material-symbols-outlined mb-3 text-3xl ${formData.sessionType === 'REMOTE' ? 'text-primary' : 'text-[#5c5445] dark:text-[#a89d85]'}`}>desktop_windows</span>
+                <span className={`material-symbols-outlined mb-3 text-3xl ${formData.sessionType === 'REMOTE' ? 'text-[#f04129]' : 'text-[#5c5445] dark:text-slate-400'}`}>desktop_windows</span>
                 <p className="font-semibold text-[#181511] dark:text-white">Remote</p>
               </button>
               <button
@@ -458,14 +458,14 @@ const CreateSession: React.FC = () => {
                 }}
                 className={`relative flex flex-col items-center justify-center rounded-xl border-2 p-6 text-center shadow-md transition-all duration-200 ${
                   formData.sessionType === 'HYBRID'
-                    ? 'border-primary dark:border-primary'
-                    : 'border-[#e6e2db] hover:border-[#d6d0c6] dark:border-[#3a311f] dark:hover:border-[#4b3f28]'
+                    ? 'border-[#f04129] dark:border-[#f04129]'
+                    : 'border-[#e6e2db] hover:border-[#d6d0c6] dark:border-slate-700 dark:hover:border-slate-600'
                 }`}
               >
                 {formData.sessionType === 'HYBRID' && (
-                  <span className="material-symbols-outlined absolute right-3 top-3 text-xl text-primary">check_circle</span>
+                  <span className="material-symbols-outlined absolute right-3 top-3 text-xl text-[#f04129]">check_circle</span>
                 )}
-                <span className={`material-symbols-outlined mb-3 text-3xl ${formData.sessionType === 'HYBRID' ? 'text-primary' : 'text-[#5c5445] dark:text-[#a89d85]'}`}>hub</span>
+                <span className={`material-symbols-outlined mb-3 text-3xl ${formData.sessionType === 'HYBRID' ? 'text-[#f04129]' : 'text-[#5c5445] dark:text-slate-400'}`}>hub</span>
                 <p className="font-semibold text-[#181511] dark:text-white">Hybrid</p>
               </button>
             </div>
@@ -513,21 +513,21 @@ const CreateSession: React.FC = () => {
             )}
 
             {formData.sessionType === 'HYBRID' && (
-              <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 mt-0.5">info</span>
+                  <span className="material-symbols-outlined text-red-600 dark:text-red-400 mt-0.5">info</span>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-1">
+                    <p className="text-sm font-medium text-red-900 dark:text-red-200 mb-1">
                       Hybrid Session Information
                     </p>
-                    <p className="text-sm text-amber-800 dark:text-amber-300 mb-2">
+                    <p className="text-sm text-red-800 dark:text-red-300 mb-2">
                       Selected people assigned as "Physical" must come to the specified location to mark attendance. Users assigned as "Remote" can mark attendance from any location.
                     </p>
                     <a
                       href="https://maps.google.com"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
                     >
                       <span className="material-symbols-outlined text-sm">map</span>
                       Open Google Maps
@@ -540,17 +540,17 @@ const CreateSession: React.FC = () => {
 
           {/* Section 3: Location (Conditional) */}
           {(formData.sessionType === 'PHYSICAL' || formData.sessionType === 'HYBRID') && (
-            <div className="flex flex-col gap-6 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-[#3a311f] dark:bg-[#1a150b] sm:p-8">
+            <div className="flex flex-col gap-6 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-2xl text-primary">pin_drop</span>
+                  <span className="material-symbols-outlined text-2xl text-[#f04129]">pin_drop</span>
                   <h2 className="text-xl font-bold leading-tight tracking-[-0.015em] text-[#181511] dark:text-white">Location Details</h2>
                 </div>
                 <a
                   href="https://maps.google.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-primary bg-primary/10 dark:bg-primary/20 rounded-lg hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-[#f04129] bg-red-100 dark:bg-[#f04129]/20 rounded-lg hover:bg-red-200 dark:hover:bg-[#f04129]/30 transition-colors"
                 >
                   <span className="material-symbols-outlined text-base">map</span>
                   Open Maps
@@ -558,15 +558,15 @@ const CreateSession: React.FC = () => {
               </div>
               <div className="flex flex-col gap-4">
                 <div>
-                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Input Method</p>
+                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Input Method</p>
                   <div className="flex space-x-2">
                     <button
                       type="button"
                       onClick={() => setLocationInputType('LINK')}
                       className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-200 ${
                         locationInputType === 'LINK'
-                          ? 'bg-primary text-white'
-                          : 'border-[#e6e2db] bg-white text-[#181511] hover:bg-[#f5f3f0] dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white dark:hover:bg-[#3a311f]'
+                          ? 'bg-gradient-to-r from-orange-500 to-[#f04129] text-white'
+                          : 'border-[#e6e2db] bg-white text-[#181511] hover:bg-[#f5f3f0] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700'
                       }`}
                     >
                       Google Maps Link
@@ -576,8 +576,8 @@ const CreateSession: React.FC = () => {
                       onClick={() => setLocationInputType('COORDS')}
                       className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-200 ${
                         locationInputType === 'COORDS'
-                          ? 'bg-primary text-white'
-                          : 'border-[#e6e2db] bg-white text-[#181511] hover:bg-[#f5f3f0] dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white dark:hover:bg-[#3a311f]'
+                          ? 'bg-gradient-to-r from-orange-500 to-[#f04129] text-white'
+                          : 'border-[#e6e2db] bg-white text-[#181511] hover:bg-[#f5f3f0] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700'
                       }`}
                     >
                       Coordinates
@@ -586,9 +586,9 @@ const CreateSession: React.FC = () => {
                 </div>
                 {locationInputType === 'LINK' ? (
                   <label className="flex flex-col">
-                    <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Google Maps Link</p>
+                    <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Google Maps Link</p>
                     <input
-                      className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white dark:placeholder:text-[#6f634b] dark:focus:border-primary/80"
+                      className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:border-primary/80"
                       type="url"
                       value={locationLink}
                       onChange={(e) => setLocationLink(e.target.value)}
@@ -599,9 +599,9 @@ const CreateSession: React.FC = () => {
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
                     <label className="flex flex-col">
-                      <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Latitude</p>
+                      <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Latitude</p>
                       <input
-                        className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white dark:placeholder:text-[#6f634b] dark:focus:border-primary/80"
+                        className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:border-primary/80"
                         type="number"
                         step="any"
                         value={latitude}
@@ -611,9 +611,9 @@ const CreateSession: React.FC = () => {
                       />
                     </label>
                     <label className="flex flex-col">
-                      <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Longitude</p>
+                      <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Longitude</p>
                       <input
-                        className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white dark:placeholder:text-[#6f634b] dark:focus:border-primary/80"
+                        className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:border-primary/80"
                         type="number"
                         step="any"
                         value={longitude}
@@ -625,9 +625,9 @@ const CreateSession: React.FC = () => {
                   </div>
                 )}
                 <label className="flex flex-col">
-                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Radius (meters)</p>
+                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Radius (meters)</p>
                   <input
-                    className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white dark:placeholder:text-[#6f634b] dark:focus:border-primary/80"
+                    className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:border-primary/80"
                     type="number"
                     name="radius"
                     value={formData.radius}
@@ -641,16 +641,16 @@ const CreateSession: React.FC = () => {
           )}
 
           {/* Section 5: Attendees */}
-          <div className="flex flex-col gap-5 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-[#3a311f] dark:bg-[#1a150b] sm:p-8">
+          <div className="flex flex-col gap-5 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-2xl text-primary">group</span>
+              <span className="material-symbols-outlined text-2xl text-[#f04129]">group</span>
               <h2 className="text-xl font-bold leading-tight tracking-[-0.015em] text-[#181511] dark:text-white">Assign Users</h2>
             </div>
             {formData.sessionType === 'HYBRID' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div className="flex flex-col gap-4">
                   <h3 className="font-semibold dark:text-gray-200">Physical Attendees ({physicalUsers.length})</h3>
-                  <div className="min-h-[100px] rounded-lg border border-[#e6e2db] p-4 dark:border-[#3a311f]">
+                  <div className="min-h-[100px] rounded-lg border border-[#e6e2db] p-4 dark:border-slate-700">
                     {physicalUsers.length > 0 ? (
                       <div className="flex flex-col gap-3">
                         {physicalUsers.map(user => (
@@ -667,13 +667,13 @@ const CreateSession: React.FC = () => {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-[#8a7b60] dark:text-[#6f634b]">No physical attendees assigned yet.</p>
+                      <p className="text-sm text-[#8a7b60] dark:text-slate-400">No physical attendees assigned yet.</p>
                     )}
                   </div>
                   <button
                     type="button"
                     onClick={() => openUserModal('PHYSICAL')}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary py-2 font-semibold text-primary transition-colors duration-200 hover:bg-primary/10 dark:hover:bg-primary/20"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#f04129] py-2 font-semibold text-[#f04129] transition-colors duration-200 hover:bg-red-50 dark:hover:bg-[#f04129]/10"
                   >
                     <span className="material-symbols-outlined text-xl">add_circle</span>
                     {physicalUsers.length > 0 ? `Edit Physical Users (${physicalUsers.length})` : 'Add Physical Users'}
@@ -681,7 +681,7 @@ const CreateSession: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-4">
                   <h3 className="font-semibold dark:text-gray-200">Remote Attendees ({remoteUsers.length})</h3>
-                  <div className="min-h-[100px] rounded-lg border border-[#e6e2db] p-4 dark:border-[#3a311f]">
+                  <div className="min-h-[100px] rounded-lg border border-[#e6e2db] p-4 dark:border-slate-700">
                     {remoteUsers.length > 0 ? (
                       <div className="flex flex-col gap-3">
                         {remoteUsers.map(user => (
@@ -698,13 +698,13 @@ const CreateSession: React.FC = () => {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-[#8a7b60] dark:text-[#6f634b]">No remote attendees assigned yet.</p>
+                      <p className="text-sm text-[#8a7b60] dark:text-slate-400">No remote attendees assigned yet.</p>
                     )}
                   </div>
                   <button
                     type="button"
                     onClick={() => openUserModal('REMOTE')}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary py-2 font-semibold text-primary transition-colors duration-200 hover:bg-primary/10 dark:hover:bg-primary/20"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#f04129] py-2 font-semibold text-[#f04129] transition-colors duration-200 hover:bg-red-50 dark:hover:bg-[#f04129]/10"
                   >
                     <span className="material-symbols-outlined text-xl">add_circle</span>
                     {remoteUsers.length > 0 ? `Edit Remote Users (${remoteUsers.length})` : 'Add Remote Users'}
@@ -713,7 +713,7 @@ const CreateSession: React.FC = () => {
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                <div className="min-h-[100px] rounded-lg border border-[#e6e2db] p-4 dark:border-[#3a311f]">
+                <div className="min-h-[100px] rounded-lg border border-[#e6e2db] p-4 dark:border-slate-700">
                   {assignedUsers.length > 0 ? (
                     <div className="flex flex-col gap-3">
                       {assignedUsers.map(user => (
@@ -730,13 +730,13 @@ const CreateSession: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-[#8a7b60] dark:text-[#6f634b]">No attendees assigned yet.</p>
+                    <p className="text-sm text-[#8a7b60] dark:text-slate-400">No attendees assigned yet.</p>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => openUserModal('ALL')}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary py-2 font-semibold text-primary transition-colors duration-200 hover:bg-primary/10 dark:hover:bg-primary/20"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#f04129] py-2 font-semibold text-[#f04129] transition-colors duration-200 hover:bg-red-50 dark:hover:bg-[#f04129]/10"
                 >
                   <span className="material-symbols-outlined text-xl">add_circle</span>
                   {assignedUsers.length > 0 ? `Edit Users (${assignedUsers.length})` : 'Add Users'}
@@ -747,16 +747,16 @@ const CreateSession: React.FC = () => {
 
           {/* Section 6: Administration */}
           {isSuperAdmin && (
-            <div className="flex flex-col gap-5 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-[#3a311f] dark:bg-[#1a150b] sm:p-8">
+            <div className="flex flex-col gap-5 rounded-xl border border-[#e6e2db] bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
               <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-2xl text-primary">admin_panel_settings</span>
+                <span className="material-symbols-outlined text-2xl text-[#f04129]">admin_panel_settings</span>
                 <h2 className="text-xl font-bold leading-tight tracking-[-0.015em] text-[#181511] dark:text-white">Administration</h2>
               </div>
               <label className="flex flex-col">
-                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-[#a89d85]">Session Admin</p>
+                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Session Admin</p>
                 <div className="relative">
                   <select
-                    className="form-select w-full appearance-none rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-[#3a311f] dark:bg-[#221c10] dark:text-white"
+                    className="form-select w-full appearance-none rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                     name="sessionAdmin"
                     value={formData.sessionAdmin}
                     onChange={handleChange}
@@ -779,7 +779,7 @@ const CreateSession: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/sessions')}
-              className="rounded-lg px-6 py-3 font-semibold text-[#5c5445] transition-colors duration-200 hover:bg-[#f5f3f0] dark:text-[#a89d85] dark:hover:bg-[#3a311f]"
+              className="rounded-lg px-6 py-3 font-semibold text-[#5c5445] transition-colors duration-200 hover:bg-[#f5f3f0] dark:text-slate-300 dark:hover:bg-slate-700"
               disabled={isSubmitting}
             >
               Cancel
@@ -787,7 +787,7 @@ const CreateSession: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center justify-center rounded-lg bg-primary px-8 py-3 font-semibold text-white transition-colors duration-200 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center justify-center rounded-lg bg-gradient-to-r from-orange-500 to-[#f04129] px-8 py-3 font-semibold text-white transition-all duration-200 hover:from-orange-600 hover:to-[#d63a25] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined mr-2 text-xl">add_circle</span>
               {isSubmitting ? 'Creating Session...' : 'Create Session'}
