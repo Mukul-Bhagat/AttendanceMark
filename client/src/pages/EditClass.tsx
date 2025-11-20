@@ -4,7 +4,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useAuth, IUser as IAuthUser } from '../contexts/AuthContext';
 import AddUsersModal from '../components/AddUsersModal';
 import { X, ArrowLeft } from 'lucide-react';
-import { IClassBatch, ISession } from '../types';
+import { IClassBatch } from '../types';
 
 interface IUser {
   _id: string;
