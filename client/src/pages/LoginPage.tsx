@@ -160,19 +160,12 @@ const LoginPage: React.FC = () => {
             {/* Form Container */}
             <div className="flex w-full flex-col items-center justify-center bg-background-light p-6 lg:w-1/2 lg:p-10">
               <div className="layout-content-container flex w-full max-w-md flex-col">
-                {/* Main AttendMark Logo */}
+                {/* Main AttendMark Logo - Always visible, no dark mode */}
                 <div className="flex justify-center mb-8">
-                  {/* Light Mode Logo (Black Text) - Shows by default, hides in dark mode */}
                   <img
                     src="/assets/attendmarklogo.png"
                     alt="AttendMark"
-                    className="h-16 w-auto object-contain block dark:hidden"
-                  />
-                  {/* Dark Mode Logo (White Text) - Hides by default, shows in dark mode */}
-                  <img
-                    src="/assets/atendmarkwhitelogo.png"
-                    alt="AttendMark"
-                    className="h-16 w-auto object-contain hidden dark:block"
+                    className="h-16 w-auto object-contain"
                   />
                 </div>
                 
@@ -267,8 +260,8 @@ const LoginPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Powered By AI ALLY Logo */}
-                <div className="flex items-center justify-center mt-8 pt-6 border-t border-slate-200 dark:border-slate-700" style={{ gap: '8px' }}>
+                {/* Powered By AI ALLY Logo - Always visible, no dark mode */}
+                <div className="flex items-center justify-center mt-8 pt-6 border-t border-slate-200" style={{ gap: '8px' }}>
                   <a 
                     href="https://aially.in" 
                     target="_blank" 
@@ -276,21 +269,10 @@ const LoginPage: React.FC = () => {
                     className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                     style={{ gap: '8px' }}
                   >
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Powered By</p>
+                    <p className="text-xs text-slate-500 font-medium">Powered By</p>
                     <img 
                       src="/assets/image01.png" 
                       alt="AI ALLY Logo" 
-                      className="block dark:hidden"
-                      style={{ 
-                        height: '24px', 
-                        width: 'auto',
-                        objectFit: 'contain'
-                      }}
-                    />
-                    <img 
-                      src="/assets/aiallywhite.png" 
-                      alt="AI ALLY Logo" 
-                      className="hidden dark:block"
                       style={{ 
                         height: '24px', 
                         width: 'auto',
