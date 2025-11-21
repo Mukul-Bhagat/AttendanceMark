@@ -292,15 +292,16 @@ export const markAttendance = async (req: Request, res: Response) => {
 
     await newAttendance.save();
 
-    // 11. UPDATE SESSION'S assignedUsers ARRAY TO MARK USER AS LATE (if applicable)
-    if (isLate) {
-      const assignmentIndex = session.assignedUsers.findIndex(
-        (u: any) => u.userId.toString() === userId.toString()
-      );
-      if (assignmentIndex !== -1) {
+    // 11. UPDATE SESSION'S assignedUsers ARRAY TO MARK USER AS PRESENT (and LATE if applicable)
+    const assignmentIndex = session.assignedUsers.findIndex(
+      (u: any) => u.userId.toString() === userId.toString()
+    );
+    if (assignmentIndex !== -1) {
+      session.assignedUsers[assignmentIndex].attendanceStatus = 'Present';
+      if (isLate) {
         session.assignedUsers[assignmentIndex].isLate = true;
-        await session.save();
       }
+      await session.save();
     }
 
     res.status(201).json({

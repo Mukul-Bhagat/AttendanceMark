@@ -64,6 +64,8 @@ export interface ISession {
     firstName: string;
     lastName: string;
     mode: 'PHYSICAL' | 'REMOTE'; // Specific mode for this user (Physical or Remote)
+    isLate?: boolean; // Whether this user marked attendance late
+    attendanceStatus?: 'Present' | 'Absent'; // Attendance status: Present (scanned) or Absent (auto-marked)
   }>;
   weeklyDays?: string[];
   sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
@@ -72,6 +74,7 @@ export interface ISession {
   classBatchId?: string | { _id: string; name: string; description?: string; }; // Reference to ClassBatch (can be populated)
   isCancelled?: boolean; // Whether the session has been cancelled
   cancellationReason?: string; // Reason for cancellation
+  isCompleted?: boolean; // Whether the session has been processed for end-of-session attendance marking
   createdAt: string;
   updatedAt: string;
 }

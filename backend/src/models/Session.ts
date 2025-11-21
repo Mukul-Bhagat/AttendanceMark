@@ -33,6 +33,7 @@ export interface ISession extends Document {
     lastName: string;
     mode: 'PHYSICAL' | 'REMOTE'; // Specific mode for this user (Physical or Remote)
     isLate?: boolean; // Whether this user marked attendance late
+    attendanceStatus?: 'Present' | 'Absent'; // Attendance status: Present (scanned) or Absent (auto-marked)
   }>;
   weeklyDays?: string[]; // For Weekly frequency: ['Monday', 'Tuesday', etc.]
   sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
@@ -41,6 +42,7 @@ export interface ISession extends Document {
   classBatchId?: string; // Reference to ClassBatch (optional for backward compatibility)
   isCancelled?: boolean; // Whether the session has been cancelled
   cancellationReason?: string; // Reason for cancellation
+  isCompleted?: boolean; // Whether the session has been processed for end-of-session attendance marking
 }
 
 // Session schema
@@ -136,6 +138,10 @@ const SessionSchema: Schema = new Schema({
       type: Boolean,
       default: false,
     },
+    attendanceStatus: {
+      type: String,
+      enum: ['Present', 'Absent'],
+    },
   }],
   weeklyDays: [{
     type: String,
@@ -162,6 +168,10 @@ const SessionSchema: Schema = new Schema({
   },
   cancellationReason: {
     type: String,
+  },
+  isCompleted: {
+    type: Boolean,
+    default: false,
   },
 }, { timestamps: true });
 

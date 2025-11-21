@@ -120,6 +120,11 @@ const Sessions: React.FC = () => {
   // Filter sessions: only show upcoming sessions (endDate >= today) by default
   const isSessionUpcoming = (session: ISession): boolean => {
     try {
+      // Exclude completed sessions from active list
+      if (session.isCompleted) {
+        return false;
+      }
+      
       // Use endDate if available, otherwise use startDate
       const sessionDate = session.endDate ? new Date(session.endDate) : new Date(session.startDate);
       

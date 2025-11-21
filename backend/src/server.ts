@@ -12,6 +12,7 @@ import classBatchRoutes from './routes/classBatchRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import reportRoutes from './routes/reportRoutes';
 import organizationRoutes from './routes/organizationRoutes';
+import { startAttendanceScheduler } from './cron/attendanceScheduler';
 
 // Load env vars
 dotenv.config();
@@ -142,5 +143,13 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 5001;
 
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
+  
+  // Start the attendance scheduler cron job
+  // Wait a bit for DB connection to be fully established
+  setTimeout(() => {
+    startAttendanceScheduler();
+  }, 2000);
+});
 
