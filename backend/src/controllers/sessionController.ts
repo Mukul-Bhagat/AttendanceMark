@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import createSessionModel from '../models/Session';
+import createClassBatchModel from '../models/ClassBatch';
 
 // @route   POST /api/sessions
 // @desc    Create a new session
@@ -120,15 +121,42 @@ export const getSessions = async (req: Request, res: Response) => {
   try {
     const { collectionPrefix } = req.user!;
 
-    // Get the organization-specific Session model
+    // Get the organization-specific models
     const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
+    const ClassBatchCollection = createClassBatchModel(`${collectionPrefix}_classbatches`);
 
     // Find all sessions for this organization, sorted by creation date (newest first)
     const sessions = await SessionCollection.find()
       .sort({ createdAt: -1 })
       .lean();
 
-    res.json(sessions);
+    // Populate classBatchId for each session
+    const sessionsWithClass = await Promise.all(
+      sessions.map(async (session: any) => {
+        if (session.classBatchId) {
+          try {
+            const classBatch = await ClassBatchCollection.findById(session.classBatchId)
+              .select('name description')
+              .lean();
+            
+            if (classBatch) {
+              // Replace classBatchId string with populated object
+              session.classBatchId = {
+                _id: classBatch._id.toString(),
+                name: classBatch.name,
+                description: classBatch.description,
+              };
+            }
+          } catch (err) {
+            console.error(`Error populating classBatchId for session ${session._id}:`, err);
+            // Keep classBatchId as string if population fails
+          }
+        }
+        return session;
+      })
+    );
+
+    res.json(sessionsWithClass);
   } catch (err: any) {
     console.error(err.message);
     res.status(500).send('Server error');

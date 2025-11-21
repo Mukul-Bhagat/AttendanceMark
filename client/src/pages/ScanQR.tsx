@@ -5,10 +5,12 @@ import api from '../api';
 import { getOrCreateDeviceId } from '../utils/deviceId';
 import { RefreshCw, ArrowLeft } from 'lucide-react';
 import { ISession } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 const ScanQR: React.FC = () => {
   const [searchParams] = useSearchParams();
   const sessionIdFromUrl = searchParams.get('sessionId');
+  const { user } = useAuth();
   
   // View State Management
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(sessionIdFromUrl || null);
@@ -592,6 +594,17 @@ const ScanQR: React.FC = () => {
 
   // Default View: Session List
   const filteredSessions = getFilteredSessions();
+  
+  // Filter sessions to only show those where the current user is assigned
+  const myScanSessions = filteredSessions.filter(session => {
+    if (!user) return false;
+    if (!session.assignedUsers || !Array.isArray(session.assignedUsers)) return false;
+    
+    // Check if user is in assignedUsers by userId or email
+    return session.assignedUsers.some(u => 
+      u.userId === user.id || u.userId === user._id || u.email === user.email
+    );
+  });
 
   if (isLoadingSessions) {
     return (
@@ -641,7 +654,7 @@ const ScanQR: React.FC = () => {
             </p>
           </header>
 
-          {filteredSessions.length === 0 ? (
+          {myScanSessions.length === 0 ? (
             // Empty State
             <div className="mt-12">
               <div className="flex flex-col items-center gap-6 rounded-xl border-2 border-dashed border-[#e6e2db] dark:border-slate-800 px-6 py-14">
@@ -651,7 +664,9 @@ const ScanQR: React.FC = () => {
                     No Active Sessions
                   </p>
                   <p className="text-[#181511] dark:text-slate-300 text-xs sm:text-sm font-normal leading-normal">
-                    No active sessions found. Please wait for the next scheduled class.
+                    {filteredSessions.length > 0 
+                      ? 'No active sessions found for you to attend.'
+                      : 'No active sessions found. Please wait for the next scheduled class.'}
                   </p>
                 </div>
               </div>
@@ -659,7 +674,7 @@ const ScanQR: React.FC = () => {
           ) : (
             // Session Cards
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {filteredSessions.map((session) => {
+              {myScanSessions.map((session) => {
                 const status = getSessionStatus(session);
                 const isLive = status.type === 'live';
 

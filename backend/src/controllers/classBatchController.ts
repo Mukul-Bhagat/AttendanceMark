@@ -514,10 +514,24 @@ export const getSessionsByClassBatch = async (req: Request, res: Response) => {
       .sort({ startDate: 1 })
       .lean();
 
+    // Populate classBatchId for each session (even though we already have the classBatch)
+    // This ensures consistency with the getSessions endpoint
+    const sessionsWithClass = sessions.map((session: any) => {
+      if (session.classBatchId && classBatch) {
+        // Replace classBatchId string with populated object
+        session.classBatchId = {
+          _id: classBatch._id.toString(),
+          name: classBatch.name,
+          description: classBatch.description,
+        };
+      }
+      return session;
+    });
+
     res.json({
       classBatch,
-      sessions,
-      count: sessions.length,
+      sessions: sessionsWithClass,
+      count: sessionsWithClass.length,
     });
   } catch (err: any) {
     console.error(err.message);

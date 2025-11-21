@@ -438,8 +438,29 @@ const Sessions: React.FC = () => {
                       </div>
                     </div>
                   )}
+                  {/* Class Name Label (Above Session Name) */}
+                  {session.classBatchId && typeof session.classBatchId === 'object' && (
+                    <div className="mb-2">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        {session.classBatchId.name}
+                      </span>
+                    </div>
+                  )}
+                  
                   <div className="flex items-start justify-between mb-4 gap-2">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white break-words flex-1">{session.name}</h2>
+                    <div className="flex-1">
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white break-words">{session.name}</h2>
+                      {/* Class Description or Session Description */}
+                      {(session.classBatchId && typeof session.classBatchId === 'object' && session.classBatchId.description) ? (
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
+                          {session.classBatchId.description}
+                        </p>
+                      ) : session.description ? (
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
+                          {session.description}
+                        </p>
+                      ) : null}
+                    </div>
                     <div className="flex flex-col gap-2 items-end">
                       {session.isCancelled && (
                         <span className="whitespace-nowrap rounded-full bg-orange-100 dark:bg-orange-900/30 px-3 py-1 text-xs font-medium text-orange-600 dark:text-orange-400 border border-orange-300 dark:border-orange-800">

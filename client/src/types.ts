@@ -69,7 +69,7 @@ export interface ISession {
   sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
   createdBy: string;
   organizationPrefix: string;
-  classBatchId?: string; // Reference to ClassBatch (optional for backward compatibility)
+  classBatchId?: string | { _id: string; name: string; description?: string; }; // Reference to ClassBatch (can be populated)
   isCancelled?: boolean; // Whether the session has been cancelled
   cancellationReason?: string; // Reason for cancellation
   createdAt: string;
