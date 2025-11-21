@@ -602,7 +602,7 @@ const ScanQR: React.FC = () => {
     
     // Check if user is in assignedUsers by userId or email
     return session.assignedUsers.some(u => 
-      u.userId === user.id || u.userId === user._id || u.email === user.email
+      u.userId === user.id || u.email === user.email
     );
   });
 
