@@ -67,6 +67,9 @@ app.use(express.json());
 // Serve static files from public/uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
+// Serve static files from client/dist (React build)
+app.use(express.static(path.join(__dirname, '../../client/dist')));
+
 // Define Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -76,7 +79,16 @@ app.use('/api/classes', classBatchRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 
-app.get('/', (req, res) => res.send('API Running'));
+// Catch-all route: serve React app for all non-API routes
+// This must be AFTER all API routes to allow API calls to work
+app.get('*', (req, res) => {
+  // Only serve index.html for non-API routes
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
+  } else {
+    res.status(404).json({ message: 'API route not found' });
+  }
+});
 
 const PORT = process.env.PORT || 5001;
 
