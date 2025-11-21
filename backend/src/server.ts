@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import connectDB from './config/db';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
@@ -67,8 +68,42 @@ app.use(express.json());
 // Serve static files from public/uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// Serve static files from client/dist (React build)
-app.use(express.static(path.join(__dirname, '../../client/dist')));
+// Determine client build path (works for both local dev and Render deployment)
+// Try multiple possible paths based on different deployment scenarios
+const possibleClientPaths = [
+  path.join(__dirname, '../../client/dist'), // Local dev: backend/dist/src -> backend -> client/dist
+  path.join(__dirname, '../../../client/dist'), // Render: backend/dist/src -> backend -> root -> client/dist
+  path.join(process.cwd(), 'client/dist'), // Render: from project root
+  path.join(process.cwd(), '../client/dist'), // Render: from backend folder
+  path.join(process.cwd(), '../../client/dist'), // Render: alternative structure
+  '/opt/render/project/src/client/dist', // Render absolute path (if client is in same repo)
+  path.join(process.cwd(), 'dist'), // If client is built in backend folder
+];
+
+let clientDistPath: string | null = null;
+for (const clientPath of possibleClientPaths) {
+  try {
+    const indexPath = path.join(clientPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      clientDistPath = clientPath;
+      console.log(`✓ Found client build at: ${clientDistPath}`);
+      break;
+    }
+  } catch (error) {
+    // Skip invalid paths
+    continue;
+  }
+}
+
+if (!clientDistPath) {
+  console.log('⚠ Client build not found. Frontend will not be served by this backend.');
+  console.log('  This is normal if frontend is deployed as a separate service.');
+}
+
+// Serve static files from client/dist if it exists
+if (clientDistPath) {
+  app.use(express.static(clientDistPath));
+}
 
 // Define Routes
 app.use('/api/auth', authRoutes);
@@ -84,7 +119,20 @@ app.use('/api/reports', reportRoutes);
 app.get('*', (req, res) => {
   // Only serve index.html for non-API routes
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
+    if (clientDistPath) {
+      const indexPath = path.join(clientDistPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).json({ message: 'Frontend build not found' });
+      }
+    } else {
+      // If client build is not available, return a helpful message
+      res.status(503).json({ 
+        message: 'Frontend not available. This is an API-only deployment.',
+        note: 'If you expected the frontend, ensure the client/dist folder exists and is accessible.'
+      });
+    }
   } else {
     res.status(404).json({ message: 'API route not found' });
   }
