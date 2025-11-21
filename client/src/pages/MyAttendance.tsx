@@ -418,7 +418,17 @@ const MyAttendance: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {record.locationVerified ? (
+                            {record.isLate ? (
+                              <span 
+                                className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800"
+                                title={record.lateByMinutes 
+                                  ? `Late by ${record.lateByMinutes} ${record.lateByMinutes === 1 ? 'minute' : 'minutes'} - Marked at ${formatDateTime(record.checkInTime)}`
+                                  : `Marked Late at ${formatDateTime(record.checkInTime)}`}
+                              >
+                                <span className="material-symbols-outlined mr-1 text-sm">schedule</span>
+                                Late{record.lateByMinutes ? ` (${record.lateByMinutes}m)` : ''}
+                              </span>
+                            ) : record.locationVerified ? (
                               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border border-green-200 dark:border-green-800">
                                 <span className="material-symbols-outlined mr-1 text-sm">verified</span>
                                 Verified
@@ -490,7 +500,17 @@ const MyAttendance: React.FC = () => {
                         )}
                       </div>
                       <div className="ml-2 flex-shrink-0">
-                        {record.locationVerified ? (
+                        {record.isLate ? (
+                          <span 
+                            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800"
+                            title={record.lateByMinutes 
+                              ? `Late by ${record.lateByMinutes} ${record.lateByMinutes === 1 ? 'minute' : 'minutes'} - Marked at ${formatDateTime(record.checkInTime)}`
+                              : `Marked Late at ${formatDateTime(record.checkInTime)}`}
+                          >
+                            <span className="material-symbols-outlined mr-1 text-sm">schedule</span>
+                            Late{record.lateByMinutes ? ` (${record.lateByMinutes}m)` : ''}
+                          </span>
+                        ) : record.locationVerified ? (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border border-green-200 dark:border-green-800">
                             <span className="material-symbols-outlined mr-1 text-sm">verified</span>
                             Verified

@@ -144,18 +144,17 @@ const Sessions: React.FC = () => {
     }
   };
 
-  // Check if a session is scheduled for today
+  // Check if a session is scheduled for today (date-only comparison)
+  // Button should be available from 00:00 Midnight (IST) on the day of the session
   const isSessionToday = (session: ISession): boolean => {
     try {
-      if (!session.startDate) return false;
+      if (!session.startDate || session.isCancelled) return false;
       
-      const sessionDate = new Date(session.startDate);
-      sessionDate.setHours(0, 0, 0, 0);
+      // Compare dates only (not time) - using toDateString() for clarity
+      const today = new Date().toDateString();
+      const sessionDate = new Date(session.startDate).toDateString();
       
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      return sessionDate.getTime() === today.getTime() && !session.isCancelled;
+      return today === sessionDate;
     } catch {
       return false;
     }

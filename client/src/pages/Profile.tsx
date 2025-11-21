@@ -3,8 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 
 const Profile: React.FC = () => {
-  const { user, refetchUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'preferences'>('personal');
+  const { user, refetchUser, isSuperAdmin } = useAuth();
+  const [activeTab, setActiveTab] = useState<'personal' | 'preferences' | 'organization'>('personal');
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -19,19 +19,66 @@ const Profile: React.FC = () => {
     bio: user?.profile.bio || '',
   });
 
-  // Security Form State
-  const [securityForm, setSecurityForm] = useState({
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-
   // Preferences State
   const [preferences, setPreferences] = useState({
     emailNotifications: true,
     twoFactorAuth: false,
     darkMode: localStorage.getItem('theme') === 'dark',
   });
+
+  // Organization Settings State
+  const [organizationSettings, setOrganizationSettings] = useState({
+    lateAttendanceLimit: 30,
+    isStrictAttendance: false,
+  });
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Fetch organization settings on mount (if SuperAdmin)
+  useEffect(() => {
+    if (isSuperAdmin) {
+      const fetchOrganizationSettings = async () => {
+        setIsLoadingSettings(true);
+        try {
+          const { data } = await api.get('/api/organization/settings');
+          setOrganizationSettings({
+            lateAttendanceLimit: data.lateAttendanceLimit || 30,
+            isStrictAttendance: data.isStrictAttendance || false,
+          });
+        } catch (err: any) {
+          console.error('Failed to fetch organization settings:', err);
+          // Use default value if fetch fails
+        } finally {
+          setIsLoadingSettings(false);
+        }
+      };
+      fetchOrganizationSettings();
+    }
+  }, [isSuperAdmin]);
+
+  // Handle organization settings update
+  const handleOrganizationSettingsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
+    setMessage(null);
+
+    try {
+      await api.put('/api/organization/settings', {
+        lateAttendanceLimit: organizationSettings.lateAttendanceLimit,
+        isStrictAttendance: organizationSettings.isStrictAttendance,
+      });
+
+      setMessage({ type: 'success', text: 'Organization settings updated successfully!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      setMessage({
+        type: 'error',
+        text: err.response?.data?.msg || 'Failed to update organization settings',
+      });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
 
   // Update form when user changes
   useEffect(() => {
@@ -144,43 +191,6 @@ const Profile: React.FC = () => {
       setMessage({
         type: 'error',
         text: err.response?.data?.msg || 'Failed to update profile',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Handle password change
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setMessage(null);
-
-    if (securityForm.newPassword !== securityForm.confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match' });
-      setIsSaving(false);
-      return;
-    }
-
-    if (securityForm.newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'New password must be at least 6 characters' });
-      setIsSaving(false);
-      return;
-    }
-
-    try {
-      await api.put('/api/users/change-password', {
-        oldPassword: securityForm.oldPassword,
-        newPassword: securityForm.newPassword,
-      });
-
-      setMessage({ type: 'success', text: 'Password changed successfully!' });
-      setSecurityForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err: any) {
-      setMessage({
-        type: 'error',
-        text: err.response?.data?.msg || 'Failed to change password',
       });
     } finally {
       setIsSaving(false);
@@ -383,16 +393,6 @@ const Profile: React.FC = () => {
                 Personal Details
               </button>
               <button
-                onClick={() => setActiveTab('security')}
-                className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
-                  activeTab === 'security'
-                    ? 'text-[#f04129] border-b-2 border-[#f04129]'
-                    : 'text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark'
-                }`}
-              >
-                Account Security
-              </button>
-              <button
                 onClick={() => setActiveTab('preferences')}
                 className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
                   activeTab === 'preferences'
@@ -402,6 +402,18 @@ const Profile: React.FC = () => {
               >
                 Preferences
               </button>
+              {isSuperAdmin && (
+                <button
+                  onClick={() => setActiveTab('organization')}
+                  className={`flex-1 px-6 py-4 text-sm font-medium transition-colors ${
+                    activeTab === 'organization'
+                      ? 'text-[#f04129] border-b-2 border-[#f04129]'
+                      : 'text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark'
+                  }`}
+                >
+                  Organization Settings
+                </button>
+              )}
             </div>
 
             {/* Tab Content */}
@@ -485,66 +497,6 @@ const Profile: React.FC = () => {
                     >
                       <span className="material-symbols-outlined text-lg">save</span>
                       {isSaving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Account Security Tab */}
-              {activeTab === 'security' && (
-                <form onSubmit={handlePasswordChange} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                      Current Password
-                    </label>
-                    <input
-                      type="password"
-                      value={securityForm.oldPassword}
-                      onChange={(e) => setSecurityForm({ ...securityForm, oldPassword: e.target.value })}
-                      className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-900 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-[#f04129]"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                      New Password
-                    </label>
-                    <input
-                      type="password"
-                      value={securityForm.newPassword}
-                      onChange={(e) => setSecurityForm({ ...securityForm, newPassword: e.target.value })}
-                      className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-900 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-[#f04129]"
-                      required
-                      minLength={6}
-                    />
-                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-                      Minimum 6 characters
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      value={securityForm.confirmPassword}
-                      onChange={(e) => setSecurityForm({ ...securityForm, confirmPassword: e.target.value })}
-                      className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-900 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-[#f04129]"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={isSaving}
-                      className="flex items-center gap-2 px-6 py-2 bg-[#f04129] text-white rounded-lg font-medium hover:bg-[#d63a25] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className="material-symbols-outlined text-lg">lock</span>
-                      {isSaving ? 'Changing...' : 'Change Password'}
                     </button>
                   </div>
                 </form>
@@ -635,6 +587,85 @@ const Profile: React.FC = () => {
                     </button>
                   </div>
                 </div>
+              )}
+
+              {/* Organization Settings Tab */}
+              {activeTab === 'organization' && isSuperAdmin && (
+                <form onSubmit={handleOrganizationSettingsSubmit} className="space-y-6">
+                  {isLoadingSettings ? (
+                    <div className="flex items-center justify-center py-8">
+                      <svg className="animate-spin h-6 w-6 text-[#f04129]" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                      </svg>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                          Attendance Grace Period (Minutes)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={organizationSettings.lateAttendanceLimit}
+                          onChange={(e) => setOrganizationSettings({
+                            ...organizationSettings,
+                            lateAttendanceLimit: parseInt(e.target.value) || 0,
+                          })}
+                          className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-900 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                          required
+                        />
+                        <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-2">
+                          Users can mark attendance up to this many minutes after the class starts. Any attendance marked after the start time will be flagged as 'Late'.
+                        </p>
+                      </div>
+
+                      {/* Strict Attendance Mode Toggle */}
+                      <div className="flex items-center justify-between p-4 rounded-lg border border-border-light dark:border-border-dark">
+                        <div className="flex items-center gap-3">
+                          <span className="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark">lock</span>
+                          <div>
+                            <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+                              Strict Attendance Enforcement
+                            </p>
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                              If enabled, users will be BLOCKED from marking attendance after the grace period. If disabled (Default), they can still mark attendance but will be flagged as 'Late'.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setOrganizationSettings({
+                            ...organizationSettings,
+                            isStrictAttendance: !organizationSettings.isStrictAttendance,
+                          })}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            organizationSettings.isStrictAttendance ? 'bg-[#f04129]' : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              organizationSettings.isStrictAttendance ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={isSavingSettings}
+                          className="flex items-center gap-2 px-6 py-2 bg-[#f04129] text-white rounded-lg font-medium hover:bg-[#d63a25] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <span className="material-symbols-outlined text-lg">save</span>
+                          {isSavingSettings ? 'Saving...' : 'Save Settings'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </form>
               )}
             </div>
           </div>

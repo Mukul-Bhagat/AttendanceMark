@@ -5,6 +5,7 @@ import { getDistance } from 'geolib'; // For geolocation
 import createSessionModel from '../models/Session';
 import createAttendanceModel from '../models/Attendance';
 import createUserModel from '../models/User'; // We need this now
+import createOrganizationSettingsModel from '../models/OrganizationSettings';
 
 // @route   POST /api/attendance/scan
 export const markAttendance = async (req: Request, res: Response) => {
@@ -26,8 +27,23 @@ export const markAttendance = async (req: Request, res: Response) => {
     const UserCollection = createUserModel(`${collectionPrefix}_users`);
     const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
     const AttendanceCollection = createAttendanceModel(`${collectionPrefix}_attendance`);
+    const OrganizationSettings = createOrganizationSettingsModel();
 
-    // 3. FIND THE USER AND SESSION (in parallel)
+    // 3. FETCH ORGANIZATION SETTINGS (lateAttendanceLimit and isStrictAttendance)
+    let lateAttendanceLimit = 30; // Default: 30 minutes
+    let isStrictAttendance = false; // Default: false (non-strict mode)
+    try {
+      const settings = await OrganizationSettings.findOne({ organizationPrefix: collectionPrefix });
+      if (settings) {
+        lateAttendanceLimit = settings.lateAttendanceLimit;
+        isStrictAttendance = settings.isStrictAttendance || false;
+      }
+    } catch (err) {
+      // If settings don't exist, use defaults
+      console.log('Using default settings: lateAttendanceLimit=30, isStrictAttendance=false');
+    }
+
+    // 4. FIND THE USER AND SESSION (in parallel)
     const [user, session] = await Promise.all([
       UserCollection.findById(userId).select('+registeredDeviceId'), // Get the locked ID
       SessionCollection.findById(sessionId)
@@ -36,7 +52,8 @@ export const markAttendance = async (req: Request, res: Response) => {
     if (!user) return res.status(404).json({ msg: 'User not found' });
     if (!session) return res.status(404).json({ msg: 'Session not found' });
 
-    // 4. CHECK IF SESSION IS ACTIVE (with 15-minute grace period and IST timezone conversion)
+    // 5. CHECK IF SESSION DATE MATCHES TODAY (date-only check)
+    // Allow attendance from 00:00 Midnight (IST) on the day of the session
     // Server runs in UTC, but session times are stored in IST (UTC+5:30)
     const nowUTC = new Date();
     
@@ -44,31 +61,21 @@ export const markAttendance = async (req: Request, res: Response) => {
     const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000; // 5 hours 30 minutes in milliseconds
     const nowInIST = new Date(nowUTC.getTime() + IST_OFFSET_MS);
     
-    // Get today's date in IST
+    // Get today's date in IST (at midnight)
     const todayIST = new Date(nowInIST.getFullYear(), nowInIST.getMonth(), nowInIST.getDate());
     
     // Parse startTime and endTime (HH:mm format in IST)
     const [startHour, startMinute] = session.startTime.split(':').map(Number);
     const [endHour, endMinute] = session.endTime.split(':').map(Number);
     
-    // Grace period: 15 minutes before start and 15 minutes after end
-    const GRACE_PERIOD_MS = 15 * 60 * 1000; // 15 minutes in milliseconds
-    
-    let isActive = false;
+    // Check if the session date matches today (date-only comparison)
+    let isSessionDateToday = false;
     
     if (session.frequency === 'OneTime') {
-      // For one-time sessions, check the exact start/end datetime with grace period
-      // session.startDate is stored as a Date, we need to interpret it in IST context
-      const sessionStartDateTime = new Date(session.startDate);
-      sessionStartDateTime.setHours(startHour, startMinute, 0, 0);
-      const sessionStartWithGrace = new Date(sessionStartDateTime.getTime() - GRACE_PERIOD_MS);
-      
-      const sessionEndDateTime = new Date(session.startDate);
-      sessionEndDateTime.setHours(endHour, endMinute, 59, 999);
-      const sessionEndWithGrace = new Date(sessionEndDateTime.getTime() + GRACE_PERIOD_MS);
-      
-      // Compare IST time with session times
-      isActive = nowInIST >= sessionStartWithGrace && nowInIST <= sessionEndWithGrace;
+      // For one-time sessions, check if startDate matches today
+      const sessionDate = new Date(session.startDate);
+      sessionDate.setHours(0, 0, 0, 0);
+      isSessionDateToday = sessionDate.getTime() === todayIST.getTime();
     } else {
       // For recurring sessions (Daily, Weekly, Monthly)
       const sessionStartDate = new Date(session.startDate);
@@ -82,31 +89,31 @@ export const markAttendance = async (req: Request, res: Response) => {
       }
       
       // Check if today (in IST) is within the date range
-      const isWithinDateRange = nowInIST >= sessionStartDate && 
-        (!sessionEndDate || nowInIST <= sessionEndDate);
+      const isWithinDateRange = todayIST >= sessionStartDate && 
+        (!sessionEndDate || todayIST <= sessionEndDate);
       
       if (isWithinDateRange) {
-        // Check if current time (in IST) is within the time window (with grace period)
-        const todayStart = new Date(todayIST);
-        todayStart.setHours(startHour, startMinute, 0, 0);
-        const todayStartWithGrace = new Date(todayStart.getTime() - GRACE_PERIOD_MS);
-        
-        const todayEnd = new Date(todayIST);
-        todayEnd.setHours(endHour, endMinute, 59, 999);
-        const todayEndWithGrace = new Date(todayEnd.getTime() + GRACE_PERIOD_MS);
-        
-        // Compare IST time with session times
-        isActive = nowInIST >= todayStartWithGrace && nowInIST <= todayEndWithGrace;
+        // For Weekly sessions, also check if today is one of the scheduled days
+        if (session.frequency === 'Weekly' && session.weeklyDays && session.weeklyDays.length > 0) {
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const todayDayName = dayNames[nowInIST.getDay()];
+          isSessionDateToday = session.weeklyDays.includes(todayDayName);
+        } else {
+          // For Daily and Monthly, if within date range, it's valid
+          isSessionDateToday = true;
+        }
+      } else {
+        isSessionDateToday = false;
       }
     }
     
-    if (!isActive) {
+    if (!isSessionDateToday) {
       return res.status(400).json({ 
-        msg: 'Session is not currently active. Please check the session time and try again.' 
+        msg: 'Session is not scheduled for today. Please check the session date and try again.' 
       });
     }
 
-    // 5. CHECK FOR DUPLICATE ATTENDANCE
+    // 6. CHECK FOR DUPLICATE ATTENDANCE
     // For recurring sessions, check if attendance was already marked TODAY (in IST)
     // For one-time sessions, check if attendance was already marked at all
     let existingAttendance;
@@ -141,7 +148,50 @@ export const markAttendance = async (req: Request, res: Response) => {
       });
     }
 
-    // 6. *** SMART GEOLOCATION CHECK BASED ON USER MODE ***
+    // 7. *** LATE MARKING LOGIC WITH STRICT MODE ***
+    // Calculate session start time and check if attendance is late
+    let isLate = false;
+    let lateByMinutes: number | undefined = undefined;
+    let sessionStartDateTime: Date;
+
+    if (session.frequency === 'OneTime') {
+      // For one-time sessions, use the exact start datetime
+      sessionStartDateTime = new Date(session.startDate);
+      sessionStartDateTime.setHours(startHour, startMinute, 0, 0);
+    } else {
+      // For recurring sessions, use today's date with the start time
+      sessionStartDateTime = new Date(todayIST);
+      sessionStartDateTime.setHours(startHour, startMinute, 0, 0);
+    }
+
+    // Compare current time (in IST) with session start time
+    const timeDifferenceMs = nowInIST.getTime() - sessionStartDateTime.getTime();
+    const timeDifferenceMinutes = timeDifferenceMs / (1000 * 60);
+    const timeDifferenceSeconds = Math.floor((timeDifferenceMs % (1000 * 60)) / 1000);
+
+    if (timeDifferenceMinutes > 0 && timeDifferenceMinutes <= lateAttendanceLimit) {
+      // Scenario A: Current time is after start time but within the grace period
+      isLate = true;
+      lateByMinutes = Math.floor(timeDifferenceMinutes);
+    } else if (timeDifferenceMinutes > lateAttendanceLimit) {
+      // Scenario B: Current time is beyond the grace period
+      const minutesLate = Math.floor(timeDifferenceMinutes);
+      const secondsLate = timeDifferenceSeconds;
+
+      if (isStrictAttendance) {
+        // Strict Mode: REJECT the request
+        return res.status(400).json({
+          msg: `Attendance window closed. Strict Mode is active. You are late for the session by ${minutesLate} minutes and ${secondsLate} seconds.`,
+        });
+      } else {
+        // Non-Strict Mode: ACCEPT but mark as late
+        isLate = true;
+        lateByMinutes = minutesLate;
+      }
+    }
+    // If timeDifferenceMinutes <= 0, attendance is on time (isLate remains false)
+
+    // 8. *** SMART GEOLOCATION CHECK BASED ON USER MODE ***
     // Find the user's specific assignment for this session
     const assignment = session.assignedUsers.find(
       (u: any) => u.userId.toString() === userId.toString()
@@ -215,7 +265,7 @@ export const markAttendance = async (req: Request, res: Response) => {
       locationVerified = true;
     }
 
-    // 7. *** DEVICE-LOCKING CHECK (MOVED SECOND) ***
+    // 9. *** DEVICE-LOCKING CHECK (MOVED SECOND) ***
     if (!user.registeredDeviceId) {
       // This is the user's FIRST scan. Register this device.
       user.registeredDeviceId = deviceId;
@@ -228,17 +278,30 @@ export const markAttendance = async (req: Request, res: Response) => {
     }
     // If user.registeredDeviceId === deviceId, the check passes.
 
-    // 8. ALL CHECKS PASSED: CREATE ATTENDANCE RECORD
+    // 10. ALL CHECKS PASSED: CREATE ATTENDANCE RECORD
     const newAttendance = new AttendanceCollection({
       userId,
       sessionId,
       userLocation,
       locationVerified,
+      isLate, // Mark if attendance was late
+      lateByMinutes, // Number of minutes late (if applicable)
       deviceId, // Log the device used for this scan
       checkInTime: nowUTC, // Store in UTC (standard practice)
     });
 
     await newAttendance.save();
+
+    // 11. UPDATE SESSION'S assignedUsers ARRAY TO MARK USER AS LATE (if applicable)
+    if (isLate) {
+      const assignmentIndex = session.assignedUsers.findIndex(
+        (u: any) => u.userId.toString() === userId.toString()
+      );
+      if (assignmentIndex !== -1) {
+        session.assignedUsers[assignmentIndex].isLate = true;
+        await session.save();
+      }
+    }
 
     res.status(201).json({
       msg: 'Attendance marked successfully!',
@@ -362,6 +425,8 @@ export const getSessionAttendance = async (req: Request, res: Response) => {
         _id: record._id,
         checkInTime: record.checkInTime,
         locationVerified: record.locationVerified,
+        isLate: record.isLate || false, // Include isLate field
+        lateByMinutes: record.lateByMinutes, // Include lateByMinutes field
         userId: user || null, // Include full user data or null if deleted
       };
     });

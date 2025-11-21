@@ -5,8 +5,8 @@ import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tool
 import jsPDF from 'jspdf';
 
 interface AnalyticsData {
-  timeline: Array<{ date: string; percentage: number }>;
-  summary: { present: number; absent: number };
+  timeline: Array<{ date: string; percentage: number; lateCount?: number }>;
+  summary: { present: number; late: number; absent: number };
   topPerformers: Array<{ name: string; email: string; percentage: number; verified: number; assigned: number }>;
   defaulters: Array<{ name: string; email: string; percentage: number; verified: number; assigned: number }>;
 }
@@ -17,6 +17,7 @@ interface SessionLog {
   date: string;
   totalUsers: number;
   presentCount: number;
+  lateCount: number;
   absentCount: number;
   status: string;
 }
@@ -25,6 +26,8 @@ interface SessionAttendanceRecord {
   _id: string;
   checkInTime: string;
   locationVerified: boolean;
+  isLate: boolean;
+  lateByMinutes?: number;
   userId: {
     _id: string;
     email: string;
@@ -161,17 +164,25 @@ const AttendanceReport: React.FC = () => {
       }
 
       // CSV Headers
-      const headers = ['User Name', 'Email', 'Check-in Time', 'Location Status'];
+      const headers = ['User Name', 'Email', 'Check-in Time', 'Status'];
 
       // CSV Rows
-      const rows = records.map(record => [
-        record.userId
-          ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
-          : 'User (deleted)',
-        record.userId ? record.userId.email : 'N/A',
-        formatDateTime(record.checkInTime),
-        record.locationVerified ? 'Verified' : 'Not Verified',
-      ]);
+      const rows = records.map(record => {
+        let status = 'Not Verified';
+        if (record.isLate) {
+          status = 'Late';
+        } else if (record.locationVerified) {
+          status = 'Verified';
+        }
+        return [
+          record.userId
+            ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
+            : 'User (deleted)',
+          record.userId ? record.userId.email : 'N/A',
+          formatDateTime(record.checkInTime),
+          status,
+        ];
+      });
 
       // Combine headers and rows
       const csvContent = [
@@ -226,10 +237,11 @@ const AttendanceReport: React.FC = () => {
       yPos += 10;
 
       // Summary
-      const verifiedCount = records.filter(r => r.locationVerified).length;
+      const verifiedCount = records.filter(r => r.locationVerified && !r.isLate).length;
+      const lateCount = records.filter(r => r.isLate).length;
       const notVerifiedCount = records.filter(r => !r.locationVerified).length;
       pdf.setFontSize(10);
-      pdf.text(`Total Records: ${records.length} | Verified: ${verifiedCount} | Not Verified: ${notVerifiedCount}`, margin, yPos);
+      pdf.text(`Total Records: ${records.length} | Verified: ${verifiedCount} | Late: ${lateCount} | Not Verified: ${notVerifiedCount}`, margin, yPos);
       yPos += 15;
 
       // Table Headers
@@ -260,7 +272,12 @@ const AttendanceReport: React.FC = () => {
           : 'User (deleted)';
         const email = record.userId ? record.userId.email : 'N/A';
         const checkInTime = formatDateTime(record.checkInTime);
-        const status = record.locationVerified ? 'Verified' : 'Not Verified';
+        let status = 'Not Verified';
+        if (record.isLate) {
+          status = 'Late';
+        } else if (record.locationVerified) {
+          status = 'Verified';
+        }
 
         const rowData = [userName, email, checkInTime, status];
 
@@ -350,8 +367,9 @@ const AttendanceReport: React.FC = () => {
   const pieData = analyticsData
     ? [
         { name: 'Present', value: analyticsData.summary.present, color: '#22c55e' },
+        { name: 'Late', value: analyticsData.summary.late || 0, color: '#eab308' },
         { name: 'Absent', value: analyticsData.summary.absent, color: '#ef4444' },
-      ]
+      ].filter(item => item.value > 0) // Only show categories with values > 0
     : [];
 
   if (isLoadingFilters) {
@@ -737,6 +755,7 @@ const AttendanceReport: React.FC = () => {
                           <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Session Name</th>
                           <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Attendance</th>
                           <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Status</th>
+                          <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Late</th>
                           <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
                         </tr>
                       </thead>
@@ -767,6 +786,15 @@ const AttendanceReport: React.FC = () => {
                                   <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
                                     Upcoming
                                   </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                {log.lateCount > 0 ? (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300">
+                                    {log.lateCount}
+                                  </span>
+                                ) : (
+                                  <span className="text-[#8a7b60] dark:text-gray-400">0</span>
                                 )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -801,7 +829,7 @@ const AttendanceReport: React.FC = () => {
                             {/* Expanded Row - Attendance Details */}
                             {expandedSessionId === log._id && (
                               <tr>
-                                <td colSpan={5} className="px-6 py-4 bg-gray-50 dark:bg-slate-900/50">
+                                <td colSpan={6} className="px-6 py-4 bg-gray-50 dark:bg-slate-900/50">
                                   {isLoadingDetails[log._id] ? (
                                     <div className="flex items-center justify-center py-4">
                                       <svg className="animate-spin h-5 w-5 text-[#f04129]" fill="none" viewBox="0 0 24 24">
@@ -837,7 +865,16 @@ const AttendanceReport: React.FC = () => {
                                                   {formatDateTime(record.checkInTime)}
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                  {record.locationVerified ? (
+                                                  {record.isLate ? (
+                                                    <span 
+                                                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300"
+                                                      title={record.lateByMinutes 
+                                                        ? `Late by ${record.lateByMinutes} ${record.lateByMinutes === 1 ? 'minute' : 'minutes'}`
+                                                        : 'Late'}
+                                                    >
+                                                      Late{record.lateByMinutes ? ` (${record.lateByMinutes}m)` : ''}
+                                                    </span>
+                                                  ) : record.locationVerified ? (
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
                                                       Verified
                                                     </span>

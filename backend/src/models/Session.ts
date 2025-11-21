@@ -32,6 +32,7 @@ export interface ISession extends Document {
     firstName: string;
     lastName: string;
     mode: 'PHYSICAL' | 'REMOTE'; // Specific mode for this user (Physical or Remote)
+    isLate?: boolean; // Whether this user marked attendance late
   }>;
   weeklyDays?: string[]; // For Weekly frequency: ['Monday', 'Tuesday', etc.]
   sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
@@ -130,6 +131,10 @@ const SessionSchema: Schema = new Schema({
       type: String,
       enum: ['PHYSICAL', 'REMOTE'],
       required: true,
+    },
+    isLate: {
+      type: Boolean,
+      default: false,
     },
   }],
   weeklyDays: [{

@@ -82,6 +82,8 @@ export interface IMyAttendanceRecord {
   sessionId: ISession | null; // Full session object or null if session was deleted
   checkInTime: string; // ISO date string
   locationVerified: boolean;
+  isLate: boolean; // Whether this attendance was marked late
+  lateByMinutes?: number; // Number of minutes late (if isLate is true)
   userLocation: {
     latitude: number;
     longitude: number;

@@ -11,6 +11,7 @@ import attendanceRoutes from './routes/attendanceRoutes';
 import classBatchRoutes from './routes/classBatchRoutes';
 import dashboardRoutes from './routes/dashboardRoutes';
 import reportRoutes from './routes/reportRoutes';
+import organizationRoutes from './routes/organizationRoutes';
 
 // Load env vars
 dotenv.config();
@@ -113,6 +114,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/classes', classBatchRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/organization', organizationRoutes);
 
 // Catch-all route: serve React app for all non-API routes
 // This must be AFTER all API routes to allow API calls to work

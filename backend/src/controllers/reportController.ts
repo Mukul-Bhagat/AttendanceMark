@@ -78,23 +78,26 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
       attendanceBySession.get(sessionIdStr).push(record);
     });
 
-    // A. Timeline Graph: Group by date and calculate attendance percentage
-    const timelineMap = new Map<string, { totalAssigned: number; totalVerified: number }>();
+    // A. Timeline Graph: Group by date and calculate attendance percentage with Late count
+    const timelineMap = new Map<string, { totalAssigned: number; totalVerified: number; totalLate: number }>();
 
     sessions.forEach(session => {
       const sessionDate = new Date(session.startDate).toISOString().split('T')[0]; // YYYY-MM-DD
       const assignedCount = session.assignedUsers?.length || 0;
       const sessionAttendance = attendanceBySession.get(session._id.toString()) || [];
       const verifiedCount = sessionAttendance.filter((a: any) => a.locationVerified === true).length;
+      const lateCount = sessionAttendance.filter((a: any) => a.isLate === true).length;
 
       if (timelineMap.has(sessionDate)) {
         const existing = timelineMap.get(sessionDate)!;
         existing.totalAssigned += assignedCount;
         existing.totalVerified += verifiedCount;
+        existing.totalLate += lateCount;
       } else {
         timelineMap.set(sessionDate, {
           totalAssigned: assignedCount,
           totalVerified: verifiedCount,
+          totalLate: lateCount,
         });
       }
     });
@@ -105,29 +108,35 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
         percentage: data.totalAssigned > 0 
           ? Math.round((data.totalVerified / data.totalAssigned) * 100 * 100) / 100 // Round to 2 decimal places
           : 0,
+        lateCount: data.totalLate, // Add late count for each day
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // B. Summary Pie Chart: Total Present vs Absent
+    // B. Summary Pie Chart: Total Present, Late, and Absent
     let totalPresent = 0;
+    let totalLate = 0;
     let totalAbsent = 0;
 
     sessions.forEach(session => {
       const assignedCount = session.assignedUsers?.length || 0;
       const sessionAttendance = attendanceBySession.get(session._id.toString()) || [];
       const verifiedCount = sessionAttendance.filter((a: any) => a.locationVerified === true).length;
+      const lateCount = sessionAttendance.filter((a: any) => a.isLate === true).length;
+      const onTimeCount = verifiedCount - lateCount; // Present but not late
       
-      totalPresent += verifiedCount;
+      totalPresent += onTimeCount;
+      totalLate += lateCount;
       totalAbsent += assignedCount - verifiedCount;
     });
 
     const summary = {
       present: totalPresent,
+      late: totalLate,
       absent: totalAbsent,
     };
 
-    // C. Top 5 Performers & Defaulters: Calculate per-user attendance
-    const userStatsMap = new Map<string, { assigned: number; verified: number; name: string; email: string }>();
+    // C. Top 5 Performers & Defaulters: Calculate per-user attendance with punctuality focus
+    const userStatsMap = new Map<string, { assigned: number; verified: number; onTime: number; late: number; absent: number; name: string; email: string }>();
 
     // Collect all unique user IDs from assignedUsers across all sessions
     sessions.forEach(session => {
@@ -135,6 +144,16 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
       const verifiedUserIds = new Set(
         sessionAttendance
           .filter((a: any) => a.locationVerified === true)
+          .map((a: any) => a.userId?.toString())
+      );
+      const lateUserIds = new Set(
+        sessionAttendance
+          .filter((a: any) => a.isLate === true)
+          .map((a: any) => a.userId?.toString())
+      );
+      const onTimeUserIds = new Set(
+        sessionAttendance
+          .filter((a: any) => a.locationVerified === true && !a.isLate)
           .map((a: any) => a.userId?.toString())
       );
 
@@ -147,6 +166,9 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
             userStatsMap.set(userId, {
               assigned: 0,
               verified: 0,
+              onTime: 0,
+              late: 0,
+              absent: 0,
               name: `${assignedUser.firstName || ''} ${assignedUser.lastName || ''}`.trim() || 'Unknown',
               email: assignedUser.email || '',
             });
@@ -156,6 +178,13 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
           stats.assigned += 1;
           if (verifiedUserIds.has(userId)) {
             stats.verified += 1;
+            if (onTimeUserIds.has(userId)) {
+              stats.onTime += 1;
+            } else if (lateUserIds.has(userId)) {
+              stats.late += 1;
+            }
+          } else {
+            stats.absent += 1;
           }
         });
       }
@@ -168,20 +197,28 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
       email: stats.email,
       assigned: stats.assigned,
       verified: stats.verified,
+      onTime: stats.onTime,
+      late: stats.late,
+      absent: stats.absent,
       percentage: stats.assigned > 0 
         ? Math.round((stats.verified / stats.assigned) * 100 * 100) / 100 
         : 0,
     }));
 
-    // Sort and get top 5 performers (highest percentage)
+    // Sort and get top 5 performers: Prioritize Total Present AND Not Late (highest count of Verified AND isLate=false)
     const topPerformers = userStats
       .filter(u => u.assigned > 0) // Only include users who were assigned to at least one session
       .sort((a, b) => {
-        // Sort by percentage descending, then by verified count descending
-        if (b.percentage !== a.percentage) {
-          return b.percentage - a.percentage;
+        // Primary sort: Highest onTime count (Present AND Not Late)
+        if (b.onTime !== a.onTime) {
+          return b.onTime - a.onTime;
         }
-        return b.verified - a.verified;
+        // Secondary sort: Highest verified count
+        if (b.verified !== a.verified) {
+          return b.verified - a.verified;
+        }
+        // Tertiary sort: Highest percentage
+        return b.percentage - a.percentage;
       })
       .slice(0, 5)
       .map(u => ({
@@ -192,15 +229,22 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
         assigned: u.assigned,
       }));
 
-    // Sort and get top 5 defaulters (lowest percentage)
+    // Sort and get top 5 defaulters: Prioritize Absent OR Frequently Late (highest count of Absent + Late)
     const defaulters = userStats
       .filter(u => u.assigned > 0) // Only include users who were assigned to at least one session
       .sort((a, b) => {
-        // Sort by percentage ascending, then by verified count ascending
-        if (a.percentage !== b.percentage) {
-          return a.percentage - b.percentage;
+        // Primary sort: Highest (Absent + Late) count
+        const aDefaulterScore = a.absent + a.late;
+        const bDefaulterScore = b.absent + b.late;
+        if (bDefaulterScore !== aDefaulterScore) {
+          return bDefaulterScore - aDefaulterScore;
         }
-        return a.verified - b.verified;
+        // Secondary sort: Highest absent count
+        if (b.absent !== a.absent) {
+          return b.absent - a.absent;
+        }
+        // Tertiary sort: Lowest percentage
+        return a.percentage - b.percentage;
       })
       .slice(0, 5)
       .map(u => ({
@@ -297,6 +341,7 @@ export const getSessionLogs = async (req: Request, res: Response) => {
       const totalUsers = session.assignedUsers?.length || 0;
       const sessionAttendance = attendanceBySession.get(sessionIdStr) || [];
       const presentCount = sessionAttendance.filter((a: any) => a.locationVerified === true).length;
+      const lateCount = sessionAttendance.filter((a: any) => a.isLate === true).length;
       const absentCount = totalUsers - presentCount;
 
       // Determine status based on session date
@@ -315,6 +360,7 @@ export const getSessionLogs = async (req: Request, res: Response) => {
         date: new Date(session.startDate).toISOString().split('T')[0], // YYYY-MM-DD format
         totalUsers,
         presentCount,
+        lateCount,
         absentCount,
         status,
       };

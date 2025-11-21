@@ -6,6 +6,8 @@ export interface IAttendance extends Document {
   sessionId: Types.ObjectId;
   checkInTime: Date;
   locationVerified: boolean;
+  isLate: boolean; // Whether this attendance was marked late
+  lateByMinutes?: number; // Number of minutes late (if isLate is true)
   userLocation: {
     latitude: number;
     longitude: number;
@@ -18,6 +20,8 @@ const AttendanceSchema: Schema = new Schema({
   sessionId: { type: Schema.Types.ObjectId, required: true },
   checkInTime: { type: Date, default: Date.now },
   locationVerified: { type: Boolean, default: false },
+  isLate: { type: Boolean, default: false }, // Whether this attendance was marked late
+  lateByMinutes: { type: Number }, // Number of minutes late (if isLate is true)
   userLocation: {
     latitude: { type: Number },
     longitude: { type: Number },
