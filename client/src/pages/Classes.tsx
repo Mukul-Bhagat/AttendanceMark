@@ -111,7 +111,18 @@ const Classes: React.FC = () => {
   };
 
   // Check if a class is past (all sessions have ended)
+  // A class is only "Past" if its very last session has finished
   const isClassPast = (classBatch: IClassBatch): boolean => {
+    // Use latestSessionDate if available (calculated from all sessions)
+    if (classBatch.latestSessionDate) {
+      const latestSessionDate = new Date(classBatch.latestSessionDate);
+      const now = new Date();
+      // Class is past if latestSessionDate is before now
+      return latestSessionDate < now;
+    }
+
+    // Fallback: If latestSessionDate is not available, use firstSession logic
+    // (This should not happen if backend is working correctly, but provides backward compatibility)
     const firstSession = classBatch.firstSession;
     if (!firstSession || !firstSession.endDate) {
       // If no endDate, check startDate
@@ -123,9 +134,8 @@ const Classes: React.FC = () => {
         } else {
           sessionDate.setHours(23, 59, 59, 999);
         }
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return sessionDate < today;
+        const now = new Date();
+        return sessionDate < now;
       }
       return false;
     }
@@ -138,9 +148,8 @@ const Classes: React.FC = () => {
       endDate.setHours(23, 59, 59, 999);
     }
     
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return endDate < today;
+    const now = new Date();
+    return endDate < now;
   };
 
   // Format frequency for badge

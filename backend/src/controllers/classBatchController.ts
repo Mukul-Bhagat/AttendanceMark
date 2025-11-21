@@ -373,12 +373,14 @@ export const getClassBatches = async (req: Request, res: Response) => {
       console.log('[DEBUG] Found', classBatches?.length || 0, 'classes for EndUser');
     }
 
-    // For each class, fetch the first session to include date/time/location for One-Time classes
+    // For each class, fetch the first session and calculate latestSessionDate
     const classesWithSessions = await Promise.all(
       (classBatches || []).map(async (classBatch: any) => {
         try {
-          // Find the first session for this class (sorted by startDate)
-          const firstSession = await SessionCollection.findOne({ classBatchId: classBatch._id.toString() })
+          const classBatchIdStr = classBatch._id.toString();
+          
+          // Find the first session for this class (sorted by startDate) - for display purposes
+          const firstSession = await SessionCollection.findOne({ classBatchId: classBatchIdStr })
             .sort({ startDate: 1 })
             .select('startDate endDate startTime endTime locationType physicalLocation virtualLocation location frequency _id')
             .lean();
@@ -398,9 +400,55 @@ export const getClassBatches = async (req: Request, res: Response) => {
               frequency: firstSession.frequency,
             };
           }
+
+          // Calculate latestSessionDate: Find the MAX endDate among all sessions
+          // For sessions without endDate, calculate endDate from startDate + endTime
+          const allSessions = await SessionCollection.find({ 
+            classBatchId: classBatchIdStr,
+            isCancelled: { $ne: true } // Exclude cancelled sessions
+          })
+            .select('startDate endDate endTime')
+            .lean();
+
+          let latestSessionDate: Date | null = null;
+
+          if (allSessions.length > 0) {
+            // For each session, calculate the actual end datetime
+            const sessionEndDates = allSessions.map(session => {
+              let endDateTime: Date;
+              
+              if (session.endDate) {
+                // If session has endDate, use it
+                endDateTime = new Date(session.endDate);
+              } else {
+                // If no endDate, use startDate
+                endDateTime = new Date(session.startDate);
+              }
+
+              // Add endTime to the date
+              if (session.endTime) {
+                const [hours, minutes] = session.endTime.split(':').map(Number);
+                endDateTime.setHours(hours, minutes, 59, 999);
+              } else {
+                endDateTime.setHours(23, 59, 59, 999);
+              }
+
+              return endDateTime;
+            });
+
+            // Find the maximum (latest) end date
+            latestSessionDate = new Date(Math.max(...sessionEndDates.map(d => d.getTime())));
+          } else {
+            // Fallback: If no sessions exist, use class createdAt or defaultTime
+            latestSessionDate = classBatch.createdAt ? new Date(classBatch.createdAt) : new Date();
+          }
+
+          // Attach latestSessionDate to the class object
+          classBatch.latestSessionDate = latestSessionDate ? latestSessionDate.toISOString() : null;
         } catch (err) {
-          console.error(`[ERROR] Error fetching first session for class ${classBatch._id}:`, err);
-          // Continue without firstSession if there's an error
+          console.error(`[ERROR] Error processing sessions for class ${classBatch._id}:`, err);
+          // Fallback: Use createdAt if error occurs
+          classBatch.latestSessionDate = classBatch.createdAt ? new Date(classBatch.createdAt).toISOString() : new Date().toISOString();
         }
         return classBatch;
       })

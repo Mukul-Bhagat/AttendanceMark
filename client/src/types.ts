@@ -9,6 +9,7 @@ export interface IClassBatch {
   organizationPrefix: string;
   createdAt: string;
   updatedAt: string;
+  latestSessionDate?: string; // ISO date string - The latest end date/time among all sessions
   firstSession?: {
     _id: string;
     startDate: string;
