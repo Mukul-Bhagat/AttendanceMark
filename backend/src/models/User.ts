@@ -16,6 +16,7 @@ export interface IUser extends Document {
   profilePicture?: string;
   mustResetPassword: boolean;
   registeredDeviceId?: string; // Device ID for device-locking feature
+  registeredUserAgent?: string; // Browser/OS signature for device-locking feature
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
   createdAt?: Date;
@@ -57,6 +58,10 @@ const UserSchema: Schema = new Schema({
     default: true,
   },
   registeredDeviceId: {
+    type: String,
+    select: false, // Don't return by default, only when explicitly requested
+  },
+  registeredUserAgent: {
     type: String,
     select: false, // Don't return by default, only when explicitly requested
   },

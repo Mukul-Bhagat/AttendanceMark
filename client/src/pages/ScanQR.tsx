@@ -323,11 +323,12 @@ const ScanQR: React.FC = () => {
           longitude: position.coords.longitude,
         };
 
-        // 3. Get the unique device ID
+        // 3. Get the unique device ID and user agent
         const deviceId = getOrCreateDeviceId();
+        const userAgent = navigator.userAgent;
 
         // 4. Call the backend API
-        markAttendance(sessionId, userLocation, deviceId);
+        markAttendance(sessionId, userLocation, deviceId, userAgent);
       },
       (error) => {
         // 2. Location failed
@@ -340,12 +341,13 @@ const ScanQR: React.FC = () => {
   };
 
   // This function sends all data to our backend
-  const markAttendance = async (sessionId: string, userLocation: any, deviceId: string) => {
+  const markAttendance = async (sessionId: string, userLocation: any, deviceId: string, userAgent: string) => {
     try {
       const { data } = await api.post('/api/attendance/scan', {
         sessionId,
         userLocation,
         deviceId, // Send the device "fingerprint"
+        userAgent, // Send the browser/OS signature
       });
 
       setMessageType('success');
@@ -356,9 +358,9 @@ const ScanQR: React.FC = () => {
       // Extract the exact error message from backend
       const errorMsg = err.response?.data?.msg || err.response?.data?.errors?.[0]?.msg || 'Failed to mark attendance';
       
-      // Check if the error message contains "Security Alert" or "Device Mismatch"
-      if (errorMsg.includes('Security Alert') || errorMsg.includes('Device Mismatch') || errorMsg.includes('device registration')) {
-        // Show Modal instead of generic toast
+      // Check for 403/Device Mismatch error specifically
+      if (err.response?.status === 403 && (errorMsg.includes('Security Alert') || errorMsg.includes('Device Mismatch') || errorMsg.includes('Cloning detected') || errorMsg.includes('device registration'))) {
+        // Show Modal with user-friendly explanation
         setShowDeviceMismatchModal(true);
         setIsProcessing(false);
       } else {
@@ -780,9 +782,12 @@ const ScanQR: React.FC = () => {
 
               {/* Modal Body */}
               <div className="mb-6">
-                <p className="text-sm font-normal leading-normal text-[#181511] dark:text-gray-300">
-                  You are attempting to mark attendance from a new device or browser. To prevent proxy attendance, this is not allowed. Please ask your Admin to 'Reset Device' in the Manage Users section.
-                </p>
+                <div className="space-y-3 text-sm font-normal leading-normal text-[#181511] dark:text-gray-300">
+                  <p className="font-semibold">⚠️ Access Denied: Unrecognized Device.</p>
+                  <p>It looks like you are using a new phone, a different browser, or have recently cleared your browser history.</p>
+                  <p>To prevent proxy attendance, our system locks to your specific browser.</p>
+                  <p>Please ask your Administrator to 'Reset Device' for your account to generate a new login.</p>
+                </div>
               </div>
 
               {/* Modal Footer */}

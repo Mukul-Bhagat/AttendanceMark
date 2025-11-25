@@ -4,6 +4,9 @@ import createUserModel from '../models/User';
 import path from 'path';
 import fs from 'fs';
 import mongoose from 'mongoose';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import { sendEmail } from '../utils/email';
 
 // @route   GET /api/users/my-organization
 export const getOrganizationUsers = async (req: Request, res: Response) => {
@@ -236,7 +239,7 @@ export const createEndUser = async (req: Request, res: Response) => {
 };
 
 // @route   PUT /api/users/:userId/reset-device
-// @desc    Reset a user's registered device ID
+// @desc    Reset a user's registered device ID and generate new password
 // @access  Private (SuperAdmin or CompanyAdmin)
 export const resetDevice = async (req: Request, res: Response) => {
   const { collectionPrefix, role: requesterRole } = req.user!;
@@ -257,9 +260,48 @@ export const resetDevice = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'User not found' });
     }
 
-    // 4. Clear the device ID and save
+    // 4. Clear Security Locks: Set registeredDeviceId and registeredUserAgent to null
     user.registeredDeviceId = undefined;
+    user.registeredUserAgent = undefined;
+
+    // 5. Generate New Password: Create a random 8-character string
+    const newPassword = crypto.randomBytes(4).toString('hex').substring(0, 8);
+
+    // 6. Hash Password: Hash this new password using bcrypt
+    // Note: The User model has a pre-save hook that automatically hashes passwords
+    // We'll set the plain password and let the pre-save hook handle the hashing
+    // This ensures consistency with the rest of the codebase
+    user.password = newPassword;
+    user.mustResetPassword = true;
+    
+    // 7. Update User: Save the new password (will be hashed by pre-save hook) and cleared device fields
     await user.save();
+
+    // 8. Send Email: Email the user with the new temporary password
+    const emailSubject = 'Your Account Device has been Reset';
+    const emailText = `Your device lock has been cleared. Your new temporary password is: ${newPassword}. Please log in on your new device to secure it.`;
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #f04129;">Device Reset Notification</h2>
+        <p>Your device lock has been cleared by an administrator.</p>
+        <p><strong>Your new temporary password is: <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 16px;">${newPassword}</code></strong></p>
+        <p>Please log in on your new device to secure it. You will be required to change your password on first login.</p>
+        <p style="color: #666; font-size: 12px; margin-top: 20px;">If you did not request this reset, please contact your administrator immediately.</p>
+      </div>
+    `;
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: emailSubject,
+        text: emailText,
+        html: emailHtml,
+      });
+    } catch (emailErr: any) {
+      console.error('Error sending reset email:', emailErr);
+      // Don't fail the request if email fails, but log it
+      // The password was already reset, so we continue
+    }
 
     res.json({
       msg: 'Device restriction removed. User can now link a new device.',

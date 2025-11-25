@@ -16,7 +16,7 @@ export const markAttendance = async (req: Request, res: Response) => {
 
   // 1. GET ALL DATA
   const { id: userId, collectionPrefix } = req.user!;
-  const { sessionId, userLocation, deviceId } = req.body;
+  const { sessionId, userLocation, deviceId, userAgent } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(sessionId)) {
     return res.status(400).json({ msg: 'Invalid Session ID. Please scan a valid QR code.' });
@@ -45,7 +45,7 @@ export const markAttendance = async (req: Request, res: Response) => {
 
     // 4. FIND THE USER AND SESSION (in parallel)
     const [user, session] = await Promise.all([
-      UserCollection.findById(userId).select('+registeredDeviceId'), // Get the locked ID
+      UserCollection.findById(userId).select('+registeredDeviceId +registeredUserAgent'), // Get the locked ID and User Agent
       SessionCollection.findById(sessionId)
     ]);
 
@@ -265,25 +265,39 @@ export const markAttendance = async (req: Request, res: Response) => {
       locationVerified = true;
     }
 
-    // 9. *** DEVICE-LOCKING CHECK (MOVED SECOND) ***
-    // Step A: Extract deviceId from request body (already extracted above)
-    // Step B: Check the User's registeredDeviceId in the database
+    // 9. *** ENHANCED DEVICE-LOCKING CHECK WITH USER AGENT ***
+    // Step 1: Extract deviceId and userAgent from request body (already extracted above)
+    // Step 2: Check User's Registration
     
     // Logic Flow:
     if (!user.registeredDeviceId) {
-      // IF User has NO registeredDeviceId (First time):
-      // Update User: Set registeredDeviceId = deviceId
+      // IF First Time:
+      // Save registeredDeviceId = deviceId
+      // Save registeredUserAgent = userAgent
       user.registeredDeviceId = deviceId;
+      user.registeredUserAgent = userAgent;
       await user.save();
       // Allow Attendance
-    } else if (user.registeredDeviceId !== deviceId) {
-      // IF User HAS registeredDeviceId BUT it does NOT match request deviceId:
-      // BLOCK REQUEST (403 Forbidden)
-      return res.status(403).json({
-        msg: 'Security Alert: You are not using the same device/browser you use everyday. Access Denied. Please contact your Admin to reset your device registration.',
-      });
+    } else {
+      // IF Returning User:
+      // Check 1: Does deviceId match?
+      if (user.registeredDeviceId !== deviceId) {
+        // Device ID does NOT match -> BLOCK REQUEST
+        return res.status(403).json({
+          msg: 'Security Alert: You are not using the same device/browser you use everyday. Access Denied. Please contact your Admin to reset your device registration.',
+        });
+      }
+      
+      // Check 2: Does userAgent match registeredUserAgent?
+      // If deviceId matches but userAgent is completely different, BLOCK REQUEST
+      if (user.registeredUserAgent && user.registeredUserAgent !== userAgent) {
+        // Device ID matched but Browser Signature mismatch -> Cloning detected
+        return res.status(403).json({
+          msg: 'Security Alert: Device ID matched but Browser Signature mismatch. Cloning detected.',
+        });
+      }
     }
-    // IF Match: Allow Attendance (check passes, continue to create attendance record)
+    // IF Both Match: Allow Attendance (check passes, continue to create attendance record)
 
     // 10. ALL CHECKS PASSED: CREATE ATTENDANCE RECORD
     const newAttendance = new AttendanceCollection({

@@ -16,6 +16,7 @@ router.post(
     check('userLocation.latitude', 'User latitude is required').isNumeric(),
     check('userLocation.longitude', 'User longitude is required').isNumeric(),
     check('deviceId', 'Device ID is required').not().isEmpty(),
+    check('userAgent', 'User Agent is required').not().isEmpty(),
   ],
   markAttendance
 );
