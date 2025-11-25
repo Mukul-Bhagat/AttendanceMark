@@ -112,6 +112,30 @@ const processEndOfSessionAttendance = async () => {
           // Process this session
           let markedAbsentCount = 0;
           
+          // Migration: Ensure all assignedUsers have the 'mode' field (for backward compatibility)
+          // This fixes validation errors for old sessions created before 'mode' was required
+          let needsMigration = false;
+          for (let i = 0; i < session.assignedUsers.length; i++) {
+            if (!session.assignedUsers[i].mode) {
+              // Set default mode based on sessionType
+              // For HYBRID sessions, default to PHYSICAL; for others, match sessionType
+              if (session.sessionType === 'HYBRID') {
+                session.assignedUsers[i].mode = 'PHYSICAL'; // Default for HYBRID
+              } else if (session.sessionType === 'REMOTE') {
+                session.assignedUsers[i].mode = 'REMOTE';
+              } else {
+                session.assignedUsers[i].mode = 'PHYSICAL'; // Default for PHYSICAL
+              }
+              needsMigration = true;
+            }
+          }
+          
+          // If we migrated data, save it before processing
+          if (needsMigration) {
+            await session.save();
+            console.log(`[Cron] Migrated session "${session.name}" (${session._id}): Added missing 'mode' fields to assignedUsers`);
+          }
+          
           // Check each assigned user
           for (let i = 0; i < session.assignedUsers.length; i++) {
             const assignedUser = session.assignedUsers[i];

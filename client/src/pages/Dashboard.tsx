@@ -211,7 +211,11 @@ const Dashboard: React.FC = () => {
                         <span className="material-symbols-outlined text-[#f04129]">event</span>
                       </div>
                       <div>
-                        <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">{session.name}</p>
+                        <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">
+                          {session.classBatchId && typeof session.classBatchId === 'object' 
+                            ? session.classBatchId.name 
+                            : session.name}
+                        </p>
                         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                           {formatSessionDate(session.startDate, session.startTime)}
                         </p>

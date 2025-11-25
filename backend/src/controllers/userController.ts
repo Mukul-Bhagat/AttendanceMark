@@ -283,7 +283,6 @@ export const resetDevice = async (req: Request, res: Response) => {
 
     // 8. Send Email: Email the user with the new temporary password
     const emailSubject = 'Your Account Device has been Reset';
-    const emailText = `Your device lock has been cleared. Your new temporary password is: ${newPassword}. Please log in on your new device to secure it.`;
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #f04129;">Device Reset Notification</h2>
@@ -296,10 +295,9 @@ export const resetDevice = async (req: Request, res: Response) => {
 
     try {
       await sendEmail({
-        to: user.email,
+        email: user.email,
         subject: emailSubject,
-        text: emailText,
-        html: emailHtml,
+        message: emailHtml,
       });
     } catch (emailErr: any) {
       console.error('Error sending reset email:', emailErr);

@@ -3,6 +3,21 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+
+// Load env vars FIRST - before any other imports that might need them
+// Force load .env from the backend root folder (one level up from src/)
+const envPath = path.join(__dirname, '../.env');
+const result = dotenv.config({ path: envPath });
+
+if (result.error) {
+  console.warn(`⚠️  Could not load .env from ${envPath}`);
+  console.warn('   Trying default dotenv.config()...');
+  dotenv.config(); // Fallback to default behavior
+} else {
+  console.log(`✅ Loaded .env from: ${envPath}`);
+}
+
+// Now import modules that depend on env vars
 import connectDB from './config/db';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
@@ -13,9 +28,6 @@ import dashboardRoutes from './routes/dashboardRoutes';
 import reportRoutes from './routes/reportRoutes';
 import organizationRoutes from './routes/organizationRoutes';
 import { startAttendanceScheduler } from './cron/attendanceScheduler';
-
-// Load env vars
-dotenv.config();
 
 // Connect to database
 connectDB();

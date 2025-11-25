@@ -286,10 +286,9 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     try {
       await sendEmail({
-        to: user.email,
-        subject: 'Password Reset Request - Smart Attend',
-        text: `You have requested a password reset. Please visit the following link: ${resetUrl}`,
-        html: message,
+        email: user.email,
+        subject: 'Password Reset Request - AttendMark',
+        message: message,
       });
 
       res.json({
