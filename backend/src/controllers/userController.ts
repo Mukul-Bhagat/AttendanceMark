@@ -78,6 +78,30 @@ export const createStaff = async (req: Request, res: Response) => {
 
     await newStaff.save();
 
+    // Send welcome email with login credentials
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const welcomeEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h3 style="color: #f04129;">Welcome to AttendMark!</h3>
+        <p>Your account has been created by your administrator.</p>
+        <p><strong>Email:</strong> ${email.toLowerCase()}</p>
+        <p><strong>Temporary Password:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${password}</code></p>
+        <p>Please log in at: <a href="${clientUrl}">${clientUrl}</a></p>
+        <p style="color: #666; font-size: 14px;">Note: You will be asked to change this password on your first login.</p>
+      </div>
+    `;
+
+    try {
+      await sendEmail({
+        email: email.toLowerCase(),
+        subject: 'Welcome to AttendMark - Your Login Credentials',
+        message: welcomeEmailHtml,
+      });
+    } catch (emailErr: any) {
+      console.error('User created but failed to send welcome email:', emailErr.message);
+      // Don't fail user creation if email fails
+    }
+
     // Return user without password
     const userResponse = await UserCollection.findById(newStaff._id).select('-password');
 
@@ -121,6 +145,8 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
     let successCount = 0;
     let duplicateCount = 0;
     const errors: string[] = [];
+    const emailPromises: Promise<void>[] = [];
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
     // Process each user
     for (const userData of users) {
@@ -165,7 +191,35 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
 
       await newEndUser.save();
       successCount++;
+
+      // Queue welcome email (don't await - collect for Promise.all)
+      const welcomeEmailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h3 style="color: #f04129;">Welcome to AttendMark!</h3>
+          <p>Your account has been created by your administrator.</p>
+          <p><strong>Email:</strong> ${email.toLowerCase()}</p>
+          <p><strong>Temporary Password:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${temporaryPassword}</code></p>
+          <p>Please log in at: <a href="${clientUrl}">${clientUrl}</a></p>
+          <p style="color: #666; font-size: 14px;">Note: You will be asked to change this password on your first login.</p>
+        </div>
+      `;
+
+      emailPromises.push(
+        sendEmail({
+          email: email.toLowerCase(),
+          subject: 'Welcome to AttendMark - Your Login Credentials',
+          message: welcomeEmailHtml,
+        }).catch((emailErr: any) => {
+          console.error(`User ${email} created but failed to send welcome email:`, emailErr.message);
+          // Don't fail - just log
+        })
+      );
     }
+
+    // Send all welcome emails in parallel (don't block response)
+    Promise.all(emailPromises).catch((err) => {
+      console.error('Error sending bulk welcome emails:', err);
+    });
 
     res.status(201).json({
       msg: `Bulk import completed: ${successCount} users created, ${duplicateCount} duplicates skipped`,
@@ -221,6 +275,30 @@ export const createEndUser = async (req: Request, res: Response) => {
     });
 
     await newEndUser.save();
+
+    // Send welcome email with login credentials
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const welcomeEmailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h3 style="color: #f04129;">Welcome to AttendMark!</h3>
+        <p>Your account has been created by your administrator.</p>
+        <p><strong>Email:</strong> ${email.toLowerCase()}</p>
+        <p><strong>Temporary Password:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${password}</code></p>
+        <p>Please log in at: <a href="${clientUrl}">${clientUrl}</a></p>
+        <p style="color: #666; font-size: 14px;">Note: You will be asked to change this password on your first login.</p>
+      </div>
+    `;
+
+    try {
+      await sendEmail({
+        email: email.toLowerCase(),
+        subject: 'Welcome to AttendMark - Your Login Credentials',
+        message: welcomeEmailHtml,
+      });
+    } catch (emailErr: any) {
+      console.error('User created but failed to send welcome email:', emailErr.message);
+      // Don't fail user creation if email fails
+    }
 
     // Return user without password
     const userResponse = await UserCollection.findById(newEndUser._id).select('-password');
