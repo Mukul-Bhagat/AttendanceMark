@@ -8,7 +8,7 @@ import createAttendanceModel from '../models/Attendance';
 // @desc    Get dashboard statistics for the logged-in user's organization
 // @access  Private
 export const getDashboardStats = async (req: Request, res: Response) => {
-  const { collectionPrefix, organizationName, role, _id: userId } = req.user!;
+  const { collectionPrefix, organizationName, role, id: userId } = req.user!;
   const isEndUser = role === 'EndUser';
 
   try {

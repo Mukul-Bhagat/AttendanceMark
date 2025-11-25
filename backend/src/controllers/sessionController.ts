@@ -119,7 +119,7 @@ export const createSession = async (req: Request, res: Response) => {
 // @access  Private
 export const getSessions = async (req: Request, res: Response) => {
   try {
-    const { collectionPrefix, role, _id: userId } = req.user!;
+    const { collectionPrefix, role, id: userId } = req.user!;
     const isEndUser = role === 'EndUser';
 
     // Get the organization-specific models
