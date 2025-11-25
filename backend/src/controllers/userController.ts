@@ -255,12 +255,14 @@ export const resetDevice = async (req: Request, res: Response) => {
     const UserCollection = createUserModel(`${collectionPrefix}_users`);
 
     // 3. Find the user
+    // Data Integrity: Using findById (not delete methods) to preserve all user data
     const user = await UserCollection.findById(userId);
     if (!user) {
       return res.status(404).json({ msg: 'User not found' });
     }
 
     // 4. Clear Security Locks: Set registeredDeviceId and registeredUserAgent to null
+    // Data Integrity: Only modifying these 3 fields. All other fields (Name, Email, Profile Picture, etc.) are preserved
     user.registeredDeviceId = undefined;
     user.registeredUserAgent = undefined;
 
@@ -275,6 +277,8 @@ export const resetDevice = async (req: Request, res: Response) => {
     user.mustResetPassword = true;
     
     // 7. Update User: Save the new password (will be hashed by pre-save hook) and cleared device fields
+    // Data Integrity: Updating credentials only. User history and profile data are preserved because _id remains unchanged.
+    // Using user.save() ensures only modified fields are updated, preserving all other data
     await user.save();
 
     // 8. Send Email: Email the user with the new temporary password
@@ -303,8 +307,13 @@ export const resetDevice = async (req: Request, res: Response) => {
       // The password was already reset, so we continue
     }
 
+    // 9. Return user object (excluding password) to confirm account still exists with all data intact
+    // Fetch the updated user without password field to return in response
+    const updatedUser = await UserCollection.findById(userId).select('-password');
+    
     res.json({
       msg: 'Device restriction removed. User can now link a new device.',
+      user: updatedUser, // Return user object to confirm Name/Email/profile data are preserved
     });
   } catch (err: any) {
     console.error(err.message);
