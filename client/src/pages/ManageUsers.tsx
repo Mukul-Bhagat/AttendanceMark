@@ -138,7 +138,7 @@ const ManageUsers: React.FC = () => {
     setMessage('');
 
     try {
-      const { data } = await api.put(`/api/users/${userId}/reset-device`);
+      await api.put(`/api/users/${userId}/reset-device`);
       
       setMessage('Device reset successfully! A new password has been generated and emailed to the user.');
       // Refresh the list to show updated device status
