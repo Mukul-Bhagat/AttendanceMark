@@ -140,7 +140,7 @@ const ManageUsers: React.FC = () => {
     try {
       const { data } = await api.put(`/api/users/${userId}/reset-device`);
       
-      setMessage(data.msg || 'Device reset successfully');
+      setMessage('User device reset successfully.');
       // Refresh the list to show updated device status
       await fetchUsers();
     } catch (err: any) {
@@ -573,7 +573,7 @@ const ManageUsers: React.FC = () => {
                                         className={`inline-flex items-center text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400 transition-colors duration-200 text-xs py-1 px-2 rounded-md border border-transparent hover:bg-red-500/10 dark:hover:bg-red-500/10 ${
                                           isResetting ? 'opacity-50 cursor-not-allowed' : ''
                                         }`}
-                                        title="Reset device to allow user to register a new device"
+                                        title="Reset Device Lock"
                                       >
                                         {isResetting ? (
                                           <>

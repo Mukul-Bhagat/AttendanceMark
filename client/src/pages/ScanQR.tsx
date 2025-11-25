@@ -27,6 +27,7 @@ const ScanQR: React.FC = () => {
   const [cameraError, setCameraError] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<any>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showDeviceMismatchModal, setShowDeviceMismatchModal] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const qrCodeRegionId = 'qr-reader';
 
@@ -354,9 +355,17 @@ const ScanQR: React.FC = () => {
     } catch (err: any) {
       // Extract the exact error message from backend
       const errorMsg = err.response?.data?.msg || err.response?.data?.errors?.[0]?.msg || 'Failed to mark attendance';
-      setMessageType('error');
-      setMessage(errorMsg); // Show the exact backend error message
-      setIsProcessing(false);
+      
+      // Check if the error message contains "Security Alert" or "Device Mismatch"
+      if (errorMsg.includes('Security Alert') || errorMsg.includes('Device Mismatch') || errorMsg.includes('device registration')) {
+        // Show Modal instead of generic toast
+        setShowDeviceMismatchModal(true);
+        setIsProcessing(false);
+      } else {
+        setMessageType('error');
+        setMessage(errorMsg); // Show the exact backend error message
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -755,6 +764,56 @@ const ScanQR: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* Device Mismatch Modal */}
+      {showDeviceMismatchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-red-200 dark:border-red-800 w-full max-w-md mx-4">
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50">
+                  <span className="material-symbols-outlined text-red-600 dark:text-red-400" style={{ fontSize: '32px' }}>security</span>
+                </div>
+                <h3 className="text-xl font-bold text-[#181511] dark:text-white">Device Mismatch Detected</h3>
+              </div>
+
+              {/* Modal Body */}
+              <div className="mb-6">
+                <p className="text-sm font-normal leading-normal text-[#181511] dark:text-gray-300">
+                  You are attempting to mark attendance from a new device or browser. To prevent proxy attendance, this is not allowed. Please ask your Admin to 'Reset Device' in the Manage Users section.
+                </p>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeviceMismatchModal(false);
+                    setIsProcessing(false);
+                    setIsScannerPaused(false);
+                    handleBackToList();
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-[#8a7b60] dark:text-gray-400 hover:text-[#181511] dark:hover:text-white transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeviceMismatchModal(false);
+                    setIsProcessing(false);
+                    setIsScannerPaused(false);
+                    handleBackToList();
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-[#f04129] rounded-lg hover:from-orange-600 hover:to-[#d63a25] transition-all"
+                >
+                  Back to Sessions
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

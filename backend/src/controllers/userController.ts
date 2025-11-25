@@ -262,7 +262,7 @@ export const resetDevice = async (req: Request, res: Response) => {
     await user.save();
 
     res.json({
-      msg: 'User device has been reset. They can register a new device on their next scan.',
+      msg: 'Device restriction removed. User can now link a new device.',
     });
   } catch (err: any) {
     console.error(err.message);

@@ -266,17 +266,24 @@ export const markAttendance = async (req: Request, res: Response) => {
     }
 
     // 9. *** DEVICE-LOCKING CHECK (MOVED SECOND) ***
+    // Step A: Extract deviceId from request body (already extracted above)
+    // Step B: Check the User's registeredDeviceId in the database
+    
+    // Logic Flow:
     if (!user.registeredDeviceId) {
-      // This is the user's FIRST scan. Register this device.
+      // IF User has NO registeredDeviceId (First time):
+      // Update User: Set registeredDeviceId = deviceId
       user.registeredDeviceId = deviceId;
       await user.save();
+      // Allow Attendance
     } else if (user.registeredDeviceId !== deviceId) {
-      // Device IDs DO NOT match.
+      // IF User HAS registeredDeviceId BUT it does NOT match request deviceId:
+      // BLOCK REQUEST (403 Forbidden)
       return res.status(403).json({
-        msg: 'This is not your registered device. Please check you are using the phone you use every day.',
+        msg: 'Security Alert: You are not using the same device/browser you use everyday. Access Denied. Please contact your Admin to reset your device registration.',
       });
     }
-    // If user.registeredDeviceId === deviceId, the check passes.
+    // IF Match: Allow Attendance (check passes, continue to create attendance record)
 
     // 10. ALL CHECKS PASSED: CREATE ATTENDANCE RECORD
     const newAttendance = new AttendanceCollection({
