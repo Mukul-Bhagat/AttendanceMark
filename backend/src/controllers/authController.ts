@@ -271,17 +271,23 @@ export const forgotPassword = async (req: Request, res: Response) => {
     await user.save({ validateBeforeSave: false });
 
     // 5. Create reset URL
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:3000'}/reset-password/${org.collectionPrefix}/${resetToken}`;
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const resetUrl = `${clientUrl}/reset-password/${org.collectionPrefix}/${resetToken}`;
 
-    // 6. Create message
+    // 6. Create HTML message
     const message = `
-      <h2>You have requested a password reset</h2>
-      <p>Please click on the following link to reset your password:</p>
-      <a href="${resetUrl}" style="display: inline-block; padding: 10px 20px; background-color: #007aff; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
-      <p>This link will expire in 10 minutes.</p>
-      <p>If you did not request this, please ignore this email.</p>
-      <p>If the button doesn't work, copy and paste this link into your browser:</p>
-      <p>${resetUrl}</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h3 style="color: #333;">Password Reset Request</h3>
+        <p>You requested a password reset for your AttendMark account.</p>
+        <p>Click the button below to reset it (valid for 10 minutes):</p>
+        <p style="margin: 25px 0;">
+          <a href="${resetUrl}" style="background-color: #f04129; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Reset Password</a>
+        </p>
+        <p style="color: #666; font-size: 14px;">If you did not request this, please ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="color: #999; font-size: 12px;">If the button doesn't work, copy and paste this link into your browser:</p>
+        <p style="color: #999; font-size: 12px; word-break: break-all;">${resetUrl}</p>
+      </div>
     `;
 
     try {
@@ -295,7 +301,8 @@ export const forgotPassword = async (req: Request, res: Response) => {
         msg: 'If that email exists in our system, you will receive a password reset link.',
       });
     } catch (err: any) {
-      console.error(err);
+      console.error('Failed to send password reset email:', err.message);
+      // Clear the reset token since email failed
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
