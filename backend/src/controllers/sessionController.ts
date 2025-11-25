@@ -115,18 +115,28 @@ export const createSession = async (req: Request, res: Response) => {
 };
 
 // @route   GET /api/sessions
-// @desc    Get all sessions for the user's organization
+// @desc    Get all sessions for the user's organization (filtered for EndUsers)
 // @access  Private
 export const getSessions = async (req: Request, res: Response) => {
   try {
-    const { collectionPrefix } = req.user!;
+    const { collectionPrefix, role, _id: userId } = req.user!;
+    const isEndUser = role === 'EndUser';
 
     // Get the organization-specific models
     const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
     const ClassBatchCollection = createClassBatchModel(`${collectionPrefix}_classbatches`);
 
-    // Find all sessions for this organization, sorted by creation date (newest first)
-    const sessions = await SessionCollection.find()
+    // Build query based on user role
+    let query: any = {};
+    
+    if (isEndUser) {
+      // EndUsers only see sessions they are assigned to
+      query['assignedUsers.userId'] = userId.toString();
+    }
+    // Admins/Managers see all sessions (no filter)
+
+    // Find sessions, sorted by creation date (newest first)
+    const sessions = await SessionCollection.find(query)
       .sort({ createdAt: -1 })
       .lean();
 
