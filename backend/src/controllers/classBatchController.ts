@@ -7,8 +7,8 @@ import createSessionModel from '../models/Session';
 // Helper function to generate sessions based on frequency
 const generateSessions = (
   classBatchId: string,
-  frequency: 'OneTime' | 'Daily' | 'Weekly' | 'Monthly',
-  startDate: Date,
+  frequency: 'OneTime' | 'Daily' | 'Weekly' | 'Monthly' | 'Random',
+  startDate: Date | undefined,
   endDate: Date | undefined,
   startTime: string,
   endTime: string,
@@ -25,13 +25,42 @@ const generateSessions = (
   createdBy: string,
   organizationPrefix: string,
   defaultTime?: string,
-  defaultLocation?: string
+  defaultLocation?: string,
+  customDates?: string[] // New parameter for Random frequency
 ) => {
   const sessions: any[] = [];
   const finalStartTime = startTime || defaultTime || '09:00';
   const finalEndTime = endTime || '17:00';
 
-  if (frequency === 'OneTime') {
+  // Handle Random/Custom Dates frequency
+  if (frequency === 'Random' && customDates && customDates.length > 0) {
+    // Create one session for each custom date
+    for (const dateStr of customDates) {
+      const sessionDate = new Date(dateStr);
+      sessions.push({
+        name: `Session - ${sessionDate.toLocaleDateString()}`,
+        frequency: 'Random',
+        startDate: sessionDate,
+        startTime: finalStartTime,
+        endTime: finalEndTime,
+        locationType: locationType || 'Physical',
+        sessionType: sessionType || 'PHYSICAL',
+        physicalLocation: physicalLocation || defaultLocation,
+        virtualLocation,
+        location,
+        geolocation,
+        radius,
+        assignedUsers,
+        sessionAdmin,
+        createdBy,
+        organizationPrefix,
+        classBatchId,
+      });
+    }
+    return sessions;
+  }
+
+  if (frequency === 'OneTime' && startDate) {
     // Create a single session
     sessions.push({
       name: `Session - ${startDate.toLocaleDateString()}`,
@@ -52,7 +81,7 @@ const generateSessions = (
       organizationPrefix,
       classBatchId,
     });
-  } else if (frequency === 'Daily' && endDate) {
+  } else if (frequency === 'Daily' && startDate && endDate) {
     // Create daily sessions from startDate to endDate
     const currentDate = new Date(startDate);
     const finalEndDate = new Date(endDate);
@@ -79,7 +108,7 @@ const generateSessions = (
       });
       currentDate.setDate(currentDate.getDate() + 1);
     }
-  } else if (frequency === 'Weekly' && endDate && weeklyDays && weeklyDays.length > 0) {
+  } else if (frequency === 'Weekly' && startDate && endDate && weeklyDays && weeklyDays.length > 0) {
     // Create weekly sessions based on selected days
     const currentDate = new Date(startDate);
     const finalEndDate = new Date(endDate);
@@ -120,7 +149,7 @@ const generateSessions = (
       }
       currentDate.setDate(currentDate.getDate() + 1);
     }
-  } else if (frequency === 'Monthly' && endDate) {
+  } else if (frequency === 'Monthly' && startDate && endDate) {
     // Create monthly sessions (first occurrence of each month)
     const currentDate = new Date(startDate);
     const finalEndDate = new Date(endDate);
@@ -185,6 +214,7 @@ export const createClassBatch = async (req: Request, res: Response) => {
     assignedUsers,
     weeklyDays,
     sessionAdmin,
+    customDates, // New field for Random frequency
   } = req.body;
 
   try {
@@ -207,7 +237,14 @@ export const createClassBatch = async (req: Request, res: Response) => {
     let createdSessions: any[] = [];
     if (shouldGenerateSessions && frequency) {
       // Validate required fields for session generation
-      if (!startDate) {
+      if (frequency === 'Random') {
+        // For Random frequency, customDates is required instead of startDate
+        if (!customDates || !Array.isArray(customDates) || customDates.length === 0) {
+          return res.status(400).json({ 
+            msg: 'At least one custom date is required for Random frequency sessions.' 
+          });
+        }
+      } else if (!startDate) {
         return res.status(400).json({ 
           msg: 'Start date is required when generating sessions.' 
         });
@@ -253,7 +290,7 @@ export const createClassBatch = async (req: Request, res: Response) => {
       const sessionData = generateSessions(
         classBatch._id.toString(),
         frequency,
-        new Date(startDate),
+        startDate ? new Date(startDate) : undefined,
         endDate ? new Date(endDate) : undefined,
         startTime || defaultTime || '09:00',
         endTime || '17:00',
@@ -270,7 +307,8 @@ export const createClassBatch = async (req: Request, res: Response) => {
         userId,
         collectionPrefix,
         defaultTime,
-        defaultLocation
+        defaultLocation,
+        customDates // Pass customDates for Random frequency
       );
 
       // Save all generated sessions
@@ -574,6 +612,7 @@ export const updateClassBatch = async (req: Request, res: Response) => {
     assignedUsers,
     weeklyDays,
     sessionAdmin,
+    customDates, // New field for Random frequency
   } = req.body;
 
   try {
@@ -639,7 +678,8 @@ export const updateClassBatch = async (req: Request, res: Response) => {
           (frequency && frequency !== existingFrequency) ||
           (startDate && startDate !== existingStartDate) ||
           (endDate !== undefined && endDate !== existingEndDate) ||
-          (weeklyDays && newWeeklyDaysStr !== existingWeeklyDaysStr);
+          (weeklyDays && newWeeklyDaysStr !== existingWeeklyDaysStr) ||
+          (frequency === 'Random' && customDates && customDates.length > 0); // Always regenerate for Random with customDates
 
         console.log(`[DEBUG] Schedule comparison:`, {
           existingFrequency,
@@ -653,7 +693,7 @@ export const updateClassBatch = async (req: Request, res: Response) => {
           scheduleChanged,
         });
 
-        if (scheduleChanged && frequency && startDate) {
+        if (scheduleChanged && frequency && (startDate || (frequency === 'Random' && customDates))) {
           console.log(`[DEBUG] Schedule changed - Regenerating sessions`);
           
           // Validate location if updating to PHYSICAL or HYBRID
@@ -692,23 +732,34 @@ export const updateClassBatch = async (req: Request, res: Response) => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
 
-          // Preserve past sessions - find sessions that have already ended
-          const pastSessions = existingSessions.filter(session => {
-            const sessionEndDate = session.endDate 
-              ? new Date(session.endDate)
-              : new Date(session.startDate);
-            sessionEndDate.setHours(23, 59, 59, 999);
-            return sessionEndDate < today;
-          });
+          // For Random frequency, delete ALL sessions and regenerate from customDates
+          // For other frequencies, preserve past sessions
+          let pastSessions: any[] = [];
+          if (frequency === 'Random') {
+            // Delete ALL sessions for Random frequency since we're replacing with custom dates
+            const deleteResult = await SessionCollection.deleteMany({
+              classBatchId: id,
+            });
+            console.log(`[DEBUG] Random frequency - Deleted ${deleteResult.deletedCount} existing sessions`);
+          } else {
+            // Preserve past sessions - find sessions that have already ended
+            pastSessions = existingSessions.filter(session => {
+              const sessionEndDate = session.endDate 
+                ? new Date(session.endDate)
+                : new Date(session.startDate);
+              sessionEndDate.setHours(23, 59, 59, 999);
+              return sessionEndDate < today;
+            });
 
-          console.log(`[DEBUG] Preserving ${pastSessions.length} past sessions`);
+            console.log(`[DEBUG] Preserving ${pastSessions.length} past sessions`);
 
-          // Delete future sessions (startDate >= today)
-          const deleteResult = await SessionCollection.deleteMany({
-            classBatchId: id,
-            startDate: { $gte: today },
-          });
-          console.log(`[DEBUG] Deleted ${deleteResult.deletedCount} future sessions`);
+            // Delete future sessions (startDate >= today)
+            const deleteResult = await SessionCollection.deleteMany({
+              classBatchId: id,
+              startDate: { $gte: today },
+            });
+            console.log(`[DEBUG] Deleted ${deleteResult.deletedCount} future sessions`);
+          }
 
           // Calculate regeneration start date: max(newStartDate, today)
           const newStartDateObj = new Date(startDate);
@@ -727,8 +778,8 @@ export const updateClassBatch = async (req: Request, res: Response) => {
           const sessionData = generateSessions(
             id,
             frequency,
-            regenerationStartDate,
-            regenerationEndDate,
+            frequency === 'Random' ? undefined : regenerationStartDate,
+            frequency === 'Random' ? undefined : regenerationEndDate,
             startTime || classBatch.defaultTime || '09:00',
             endTime || '17:00',
             locationType || firstSession.locationType || 'Physical',
@@ -744,7 +795,8 @@ export const updateClassBatch = async (req: Request, res: Response) => {
             userId,
             collectionPrefix,
             classBatch.defaultTime,
-            classBatch.defaultLocation
+            classBatch.defaultLocation,
+            customDates // Pass customDates for Random frequency
           );
 
           // Save all generated sessions

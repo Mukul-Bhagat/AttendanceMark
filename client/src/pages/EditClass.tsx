@@ -5,6 +5,8 @@ import { useAuth, IUser as IAuthUser } from '../contexts/AuthContext';
 import AddUsersModal from '../components/AddUsersModal';
 import { X, ArrowLeft } from 'lucide-react';
 import { IClassBatch } from '../types';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
 
 interface IUser {
   _id: string;
@@ -25,7 +27,7 @@ const EditClass: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    frequency: 'OneTime' as 'OneTime' | 'Daily' | 'Weekly' | 'Monthly',
+    frequency: 'OneTime' as 'OneTime' | 'Daily' | 'Weekly' | 'Monthly' | 'Random',
     startDate: '',
     endDate: '',
     startTime: '',
@@ -38,6 +40,9 @@ const EditClass: React.FC = () => {
     weeklyDays: [] as string[],
     sessionAdmin: '',
   });
+
+  // Custom dates for Random frequency
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
 
   const [assignedUsers, setAssignedUsers] = useState<IUser[]>([]);
   const [physicalUsers, setPhysicalUsers] = useState<IUser[]>([]);
@@ -271,6 +276,12 @@ const EditClass: React.FC = () => {
       return;
     }
     
+    // Validate custom dates for Random frequency
+    if (formData.frequency === 'Random' && selectedDates.length === 0) {
+      setError('Please select at least one date for custom date sessions');
+      return;
+    }
+    
     if (formData.endDate && formData.startDate && formData.endDate < formData.startDate) {
       setError('End date must be after start date');
       return;
@@ -371,8 +382,8 @@ const EditClass: React.FC = () => {
         updateSessions: true,
         // ALWAYS include these critical fields
         frequency: formData.frequency,
-        startDate: formData.startDate || undefined,
-        endDate: formData.endDate || undefined,
+        startDate: formData.frequency === 'Random' ? undefined : (formData.startDate || undefined),
+        endDate: formData.frequency === 'Random' ? undefined : (formData.endDate || undefined),
         startTime: formData.startTime || '',
         endTime: formData.endTime || '',
         locationType: formData.locationType,
@@ -382,6 +393,8 @@ const EditClass: React.FC = () => {
         geolocation: geolocationObj,
         // Always include assignedUsers (even if empty array)
         assignedUsers: combinedAssignedUsers,
+        // Custom dates for Random frequency
+        customDates: formData.frequency === 'Random' ? selectedDates.map(d => d.toISOString()) : undefined,
       };
 
       // Conditionally add location-related fields
@@ -547,53 +560,163 @@ const EditClass: React.FC = () => {
                   placeholder="Enter a description for the class"
                 />
               </label>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="flex flex-col">
-                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Start Date</p>
-                  <input
-                    className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    name="startDate"
-                    type="date"
-                    value={formData.startDate}
-                    onChange={handleChange}
-                  />
-                </label>
-                {formData.frequency !== 'OneTime' && (
+              {/* Date/Time inputs - different layout for Random frequency */}
+              {formData.frequency !== 'Random' ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <label className="flex flex-col">
-                    <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">End Date</p>
+                    <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Start Date</p>
                     <input
                       className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                      name="endDate"
+                      name="startDate"
                       type="date"
-                      value={formData.endDate}
+                      value={formData.startDate}
                       onChange={handleChange}
-                      min={formData.startDate}
                     />
                   </label>
-                )}
-                <label className="flex flex-col">
-                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Start Time</p>
-                  <input
-                    className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    name="startTime"
-                    type="time"
-                    value={formData.startTime}
-                    onChange={handleChange}
-                    required
-                  />
-                </label>
-                <label className="flex flex-col">
-                  <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">End Time</p>
-                  <input
-                    className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                    name="endTime"
-                    type="time"
-                    value={formData.endTime}
-                    onChange={handleChange}
-                    required
-                  />
-                </label>
-              </div>
+                  {formData.frequency !== 'OneTime' && (
+                    <label className="flex flex-col">
+                      <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">End Date</p>
+                      <input
+                        className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        name="endDate"
+                        type="date"
+                        value={formData.endDate}
+                        onChange={handleChange}
+                        min={formData.startDate}
+                      />
+                    </label>
+                  )}
+                  <label className="flex flex-col">
+                    <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Start Time</p>
+                    <input
+                      className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      name="startTime"
+                      type="time"
+                      value={formData.startTime}
+                      onChange={handleChange}
+                      required
+                    />
+                  </label>
+                  <label className="flex flex-col">
+                    <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">End Time</p>
+                    <input
+                      className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      name="endTime"
+                      type="time"
+                      value={formData.endTime}
+                      onChange={handleChange}
+                      required
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {/* Time inputs for Random frequency */}
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <label className="flex flex-col">
+                      <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Start Time</p>
+                      <input
+                        className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        name="startTime"
+                        type="time"
+                        value={formData.startTime}
+                        onChange={handleChange}
+                        required
+                      />
+                    </label>
+                    <label className="flex flex-col">
+                      <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">End Time</p>
+                      <input
+                        className="form-input w-full rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        name="endTime"
+                        type="time"
+                        value={formData.endTime}
+                        onChange={handleChange}
+                        required
+                      />
+                    </label>
+                  </div>
+                  
+                  {/* Custom Date Picker */}
+                  <div>
+                    <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">
+                      Select Dates ({selectedDates.length} selected)
+                    </p>
+                    <div className="rounded-lg border border-[#e6e2db] bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+                      <style>{`
+                        .rdp {
+                          --rdp-cell-size: 40px;
+                          --rdp-accent-color: #f04129;
+                          --rdp-background-color: #f04129;
+                          margin: 0;
+                        }
+                        .dark .rdp {
+                          --rdp-accent-color: #f04129;
+                          --rdp-background-color: #f04129;
+                        }
+                        .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+                          background-color: rgba(240, 65, 41, 0.1);
+                        }
+                        .dark .rdp-caption {
+                          color: #e2e8f0;
+                        }
+                        .dark .rdp-head_cell {
+                          color: #94a3b8;
+                        }
+                        .dark .rdp-day {
+                          color: #e2e8f0;
+                        }
+                        .dark .rdp-day_outside {
+                          color: #475569;
+                        }
+                        .rdp-day_selected {
+                          background-color: #f04129 !important;
+                          color: white !important;
+                        }
+                        .rdp-day_selected:hover {
+                          background-color: #d63a25 !important;
+                        }
+                        .dark .rdp-nav_button {
+                          color: #e2e8f0;
+                        }
+                        .dark .rdp-nav_button:hover {
+                          background-color: rgba(240, 65, 41, 0.2);
+                        }
+                      `}</style>
+                      <DayPicker
+                        mode="multiple"
+                        selected={selectedDates}
+                        onSelect={(dates) => setSelectedDates(dates || [])}
+                        numberOfMonths={2}
+                        showOutsideDays
+                        className="mx-auto"
+                      />
+                    </div>
+                    {selectedDates.length === 0 && (
+                      <p className="text-xs text-red-500 dark:text-red-400 mt-2">Please select at least one date</p>
+                    )}
+                    {selectedDates.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {selectedDates.sort((a, b) => a.getTime() - b.getTime()).map((date, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-[#f04129]/10 text-[#f04129] text-xs rounded-full"
+                          >
+                            {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDates(selectedDates.filter((_, i) => i !== index))}
+                              className="hover:bg-[#f04129]/20 rounded-full p-0.5"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <label className="flex flex-col">
                 <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Frequency</p>
                 <div className="relative">
@@ -601,13 +724,20 @@ const EditClass: React.FC = () => {
                     className="form-select w-full appearance-none rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
                     name="frequency"
                     value={formData.frequency}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      // Clear selected dates when switching away from Random
+                      if (e.target.value !== 'Random') {
+                        setSelectedDates([]);
+                      }
+                    }}
                     required
                   >
                     <option value="OneTime">One-Time</option>
                     <option value="Daily">Daily</option>
                     <option value="Weekly">Weekly</option>
                     <option value="Monthly">Monthly</option>
+                    <option value="Random">Custom Dates (Select Manually)</option>
                   </select>
                   <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">unfold_more</span>
                 </div>
