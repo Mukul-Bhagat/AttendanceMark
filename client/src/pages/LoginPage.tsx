@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import OrgSelector from '../components/OrgSelector';
 
 // Helper functions for sessionStorage (moved outside component to avoid recreation)
 const getStoredError = (): string => {
@@ -32,9 +33,10 @@ const LoginPage: React.FC = () => {
   
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
-  const orgNameInputRef = useRef<HTMLInputElement>(null);
+  const orgNameInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const errorPersistRef = useRef<string>('');
 
   const { organizationName, email, password } = formData;
@@ -173,16 +175,16 @@ const LoginPage: React.FC = () => {
                 <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4 py-3">
                   <label className="flex flex-col flex-1">
                     <p className="text-slate-900 text-base font-medium leading-normal pb-2">Organization Name</p>
-                    <input
-                      ref={orgNameInputRef}
-                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-900 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-14 placeholder:text-gray-400 p-[15px] text-base font-normal leading-normal"
-                      placeholder="Enter your organization's name"
-                      type="text"
-                      name="organizationName"
+                    <OrgSelector
                       value={organizationName}
-                      onChange={onChange}
-                      required
-                      autoComplete="organization"
+                      onChange={(value) => {
+                        setFormData(prev => ({ ...prev, organizationName: value }));
+                        if (error || errorPersistRef.current || getStoredError()) {
+                          clearError();
+                        }
+                      }}
+                      inputRef={orgNameInputRef}
+                      placeholder="Search for your organization..."
                     />
                   </label>
 
@@ -206,15 +208,21 @@ const LoginPage: React.FC = () => {
                       <input
                         className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-900 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-14 placeholder:text-gray-400 p-[15px] pr-12 text-base font-normal leading-normal"
                         placeholder="Enter your password"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         name="password"
                         value={password}
                         onChange={onChange}
                         required
                         autoComplete="current-password"
                       />
-                      <button type="button" className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-500 hover:text-primary">
-                        <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>visibility</span>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-500 hover:text-primary z-10 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>
+                          {showPassword ? 'visibility_off' : 'visibility'}
+                        </span>
                       </button>
                     </div>
                   </label>

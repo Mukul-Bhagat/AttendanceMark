@@ -25,6 +25,8 @@ const ManageStaff: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'SessionAdmin' | 'Manager'>('SessionAdmin');
 
+  const [showPassword, setShowPassword] = useState(false);
+
   // Page state
   const [staffList, setStaffList] = useState<StaffUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -271,19 +273,30 @@ const ManageStaff: React.FC = () => {
 
                   <label className="flex flex-col w-full">
                     <p className="text-[#181511] dark:text-gray-200 text-base font-medium leading-normal pb-2">Password</p>
-                    <input
-                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] dark:placeholder-gray-400 p-[15px] text-base font-normal leading-normal"
-                      placeholder="Enter password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        if (error) setError('');
-                      }}
-                      minLength={6}
-                      required
-                      disabled={isSubmitting}
-                    />
+                    <div className="relative">
+                      <input
+                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-14 placeholder:text-[#8a7b60] dark:placeholder-gray-400 p-[15px] pr-12 text-base font-normal leading-normal"
+                        placeholder="Enter password"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (error) setError('');
+                        }}
+                        minLength={6}
+                        required
+                        disabled={isSubmitting}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-[#8a7b60] dark:text-gray-400 hover:text-[#f04129] z-10 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                          {showPassword ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Min 6 chars</p>
                   </label>
 

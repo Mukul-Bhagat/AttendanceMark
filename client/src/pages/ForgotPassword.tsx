@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import api from '../api';
 import { Link } from 'react-router-dom';
+import OrgSelector from '../components/OrgSelector';
 
 const ForgotPassword: React.FC = () => {
   const [organizationName, setOrganizationName] = useState('');
@@ -8,12 +9,7 @@ const ForgotPassword: React.FC = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const orgNameInputRef = useRef<HTMLInputElement>(null);
-
-  // Auto-focus first input on mount
-  useEffect(() => {
-    orgNameInputRef.current?.focus();
-  }, []);
+  const orgNameInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -87,19 +83,15 @@ const ForgotPassword: React.FC = () => {
                 <p className="text-slate-900 dark:text-slate-200 text-sm font-medium leading-normal pb-2">
                   Organization Name <span className="text-red-500">*</span>
                 </p>
-                <input
-                  ref={orgNameInputRef}
-                  className="form-input flex w-full min-w-0 resize-none overflow-hidden rounded-lg text-slate-900 dark:text-white focus:outline-0 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 focus:border-[#f04129] focus:ring-2 focus:ring-[#f04129]/20 h-12 placeholder:text-slate-400 dark:placeholder:text-slate-500 px-4 text-base font-normal leading-normal disabled:opacity-50 disabled:cursor-not-allowed"
-                  placeholder="Enter your organization's name"
-                  type="text"
+                <OrgSelector
                   value={organizationName}
-                  onChange={(e) => {
-                    setOrganizationName(e.target.value);
+                  onChange={(value) => {
+                    setOrganizationName(value);
                     if (error) setError('');
                   }}
-                  required
+                  inputRef={orgNameInputRef}
                   disabled={!!message}
-                  autoComplete="organization"
+                  placeholder="Search for your organization..."
                 />
               </label>
 

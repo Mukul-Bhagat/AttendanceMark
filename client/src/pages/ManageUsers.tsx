@@ -26,6 +26,8 @@ const ManageUsers: React.FC = () => {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
 
+  const [showPassword, setShowPassword] = useState(false);
+
   // Page state
   const [usersList, setUsersList] = useState<EndUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -413,19 +415,30 @@ const ManageUsers: React.FC = () => {
 
                       <label className="flex flex-col flex-1">
                         <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Temporary Password</p>
-                        <input
-                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
-                          placeholder="Min 6 characters"
-                          type="password"
-                          value={password}
-                          onChange={(e) => {
-                            setPassword(e.target.value);
-                            if (error) setError('');
-                          }}
-                          minLength={6}
-                          required
-                          disabled={isSubmitting}
-                        />
+                        <div className="relative">
+                          <input
+                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 pr-12 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                            placeholder="Min 6 characters"
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => {
+                              setPassword(e.target.value);
+                              if (error) setError('');
+                            }}
+                            minLength={6}
+                            required
+                            disabled={isSubmitting}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-[#8a7b60] dark:text-gray-400 hover:text-[#f04129] z-10 cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                              {showPassword ? 'visibility_off' : 'visibility'}
+                            </span>
+                          </button>
+                        </div>
                         <p className="text-xs text-[#8a7b60] dark:text-gray-500 mt-1.5">Min 6 characters</p>
                       </label>
 

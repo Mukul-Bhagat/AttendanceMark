@@ -11,6 +11,29 @@ const createCollectionPrefix = (name: string): string => {
   return "org_" + name.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 50);
 };
 
+// @route   GET /api/auth/organizations
+// @desc    Get list of all organizations for dropdown
+// @access  Public
+export const getOrganizations = async (_req: Request, res: Response) => {
+  try {
+    // Query all organizations, sorted alphabetically by name
+    const organizations = await Organization.find({})
+      .select('name collectionPrefix')
+      .sort({ name: 1 });
+
+    // Return lightweight array with name and prefix
+    const orgList = organizations.map((org) => ({
+      name: org.name,
+      prefix: org.collectionPrefix,
+    }));
+
+    res.json(orgList);
+  } catch (err: any) {
+    console.error('Error fetching organizations:', err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+};
+
 // @route   POST /api/auth/register-super-admin
 export const registerSuperAdmin = async (req: Request, res: Response) => {
   const errors = validationResult(req);

@@ -1,9 +1,14 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { registerSuperAdmin, login, getMe, forceResetPassword, forgotPassword, resetPassword } from '../controllers/authController';
+import { getOrganizations, registerSuperAdmin, login, getMe, forceResetPassword, forgotPassword, resetPassword } from '../controllers/authController';
 
 const router = Router();
+
+// @route   GET /api/auth/organizations
+// @desc    Get list of all organizations for login dropdown
+// @access  Public
+router.get('/organizations', getOrganizations);
 
 // @route   POST /api/auth/register-super-admin
 // @desc    Register a new Organization AND create its user table
