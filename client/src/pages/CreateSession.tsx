@@ -26,9 +26,18 @@ const CreateSession: React.FC = () => {
   const isCreatingClass = location.pathname.includes('/classes/create');
   const urlParams = new URLSearchParams(location.search);
   const existingClassId = urlParams.get('classId');
+  
+  // State for existing class details (when adding session to existing class)
+  const [existingClassName, setExistingClassName] = useState('');
+  const [isLoadingClass, setIsLoadingClass] = useState(!!existingClassId);
+  
+  // Determine if we're in "Add Single Session" mode (existingClassId present)
+  const isAddingToExistingClass = !!existingClassId;
+  
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    // Lock frequency to 'OneTime' when adding to existing class
     frequency: 'OneTime' as 'OneTime' | 'Daily' | 'Weekly' | 'Monthly' | 'Random',
     startDate: '',
     endDate: '',
@@ -62,10 +71,37 @@ const CreateSession: React.FC = () => {
 
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  // Auto-focus first input on mount
+  // Fetch existing class details when adding to existing class
   useEffect(() => {
-    nameInputRef.current?.focus();
-  }, []);
+    if (existingClassId) {
+      const fetchClassDetails = async () => {
+        setIsLoadingClass(true);
+        try {
+          const { data } = await api.get(`/api/classes/${existingClassId}`);
+          setExistingClassName(data.name || '');
+          // Pre-fill the name field with the class name
+          setFormData(prev => ({
+            ...prev,
+            name: data.name || '',
+            description: data.description || '',
+          }));
+        } catch (err) {
+          console.error('Could not fetch class details:', err);
+          setError('Failed to load class details. Please try again.');
+        } finally {
+          setIsLoadingClass(false);
+        }
+      };
+      fetchClassDetails();
+    }
+  }, [existingClassId]);
+
+  // Auto-focus first input on mount (only if not loading class)
+  useEffect(() => {
+    if (!isLoadingClass) {
+      nameInputRef.current?.focus();
+    }
+  }, [isLoadingClass]);
 
   // Fetch SessionAdmins if user is SuperAdmin
   useEffect(() => {
@@ -273,11 +309,15 @@ const CreateSession: React.FC = () => {
         }
       } else {
         // Existing session creation flow (backward compatibility)
+        // Force 'OneTime' frequency when adding to existing class
+        const effectiveFrequency = isAddingToExistingClass ? 'OneTime' : formData.frequency;
+        
         const sessionData = {
           ...formData,
+          frequency: effectiveFrequency, // Enforce OneTime for existing class
           assignedUsers: combinedAssignedUsers,
-          endDate: formData.endDate || undefined,
-          weeklyDays: formData.frequency === 'Weekly' ? formData.weeklyDays : undefined,
+          endDate: effectiveFrequency === 'OneTime' ? undefined : (formData.endDate || undefined),
+          weeklyDays: effectiveFrequency === 'Weekly' ? formData.weeklyDays : undefined,
           virtualLocation: formData.sessionType === 'REMOTE' || formData.sessionType === 'HYBRID' 
             ? formData.virtualLocation 
             : undefined,
@@ -294,7 +334,7 @@ const CreateSession: React.FC = () => {
         if (existingClassId) {
           navigate(`/classes/${existingClassId}/sessions`);
         } else {
-          navigate('/sessions');
+          navigate('/classes');
         }
       }
     } catch (err: any) {
@@ -330,11 +370,15 @@ const CreateSession: React.FC = () => {
       <div className="mx-auto flex w-full max-w-4xl flex-col">
         <div className="mb-8">
           <p className="text-3xl font-black leading-tight tracking-[-0.033em] text-[#181511] dark:text-white sm:text-4xl">
-            {isCreatingClass ? 'Create New Class/Batch' : 'Create New Session'}
+            {isAddingToExistingClass 
+              ? `Add Single Session to "${existingClassName || 'Loading...'}"` 
+              : (isCreatingClass ? 'Create New Class/Batch' : 'Create New Session')
+            }
           </p>
-          {existingClassId && (
+          {isAddingToExistingClass && (
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-              Adding session to existing class
+              <span className="material-symbols-outlined text-sm align-middle mr-1">info</span>
+              This will add a single one-time session to the existing class.
             </p>
           )}
         </div>
@@ -343,6 +387,17 @@ const CreateSession: React.FC = () => {
           <div className="mb-6 flex items-center rounded-xl border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
             <span className="material-symbols-outlined mr-2 text-xl">error</span>
             <p>{error}</p>
+          </div>
+        )}
+
+        {/* Loading state when fetching existing class details */}
+        {isLoadingClass && (
+          <div className="mb-6 flex items-center justify-center rounded-xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-900/50 dark:bg-blue-900/20">
+            <svg className="animate-spin h-6 w-6 text-[#f04129] mr-3" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="text-blue-700 dark:text-blue-300">Loading class details...</span>
           </div>
         )}
 
@@ -355,10 +410,17 @@ const CreateSession: React.FC = () => {
             </div>
             <div className="flex flex-col gap-4">
               <label className="flex flex-col">
-                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Class/Batch Name</p>
+                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">
+                  Class/Batch Name
+                  {isAddingToExistingClass && (
+                    <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">(Read-only)</span>
+                  )}
+                </p>
                 <input
                   ref={nameInputRef}
-                  className="form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:border-primary/80"
+                  className={`form-input flex w-full resize-none overflow-hidden rounded-lg border border-[#e6e2db] bg-white p-3 text-base font-normal leading-normal text-[#181511] placeholder:text-[#8a7b60] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:placeholder:text-slate-400 dark:focus:border-primary/80 ${
+                    isAddingToExistingClass ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-75' : ''
+                  }`}
                   name="name"
                   type="text"
                   value={formData.name}
@@ -366,7 +428,14 @@ const CreateSession: React.FC = () => {
                   required
                   autoComplete="off"
                   placeholder="Enter the class/batch name"
+                  disabled={isAddingToExistingClass}
+                  readOnly={isAddingToExistingClass}
                 />
+                {isAddingToExistingClass && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    The session will be added to this existing class.
+                  </p>
+                )}
               </label>
               <label className="flex flex-col">
                 <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Description</p>
@@ -539,13 +608,21 @@ const CreateSession: React.FC = () => {
                 </div>
               )}
               <label className="flex flex-col">
-                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">Frequency</p>
+                <p className="pb-2 text-sm font-medium leading-normal text-[#5c5445] dark:text-slate-300">
+                  Frequency
+                  {isAddingToExistingClass && (
+                    <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">(Locked to One-Time)</span>
+                  )}
+                </p>
                 <div className="relative">
                   <select
-                    className="form-select w-full appearance-none rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    className={`form-select w-full appearance-none rounded-lg border border-[#e6e2db] bg-white p-3 text-[#181511] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 ${
+                      isAddingToExistingClass ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed opacity-75' : ''
+                    }`}
                     name="frequency"
-                    value={formData.frequency}
+                    value={isAddingToExistingClass ? 'OneTime' : formData.frequency}
                     onChange={(e) => {
+                      if (isAddingToExistingClass) return; // Prevent changes when adding to existing class
                       handleChange(e);
                       // Clear selected dates when switching away from Random
                       if (e.target.value !== 'Random') {
@@ -553,15 +630,25 @@ const CreateSession: React.FC = () => {
                       }
                     }}
                     required
+                    disabled={isAddingToExistingClass}
                   >
                     <option value="OneTime">One-Time</option>
-                    <option value="Daily">Daily</option>
-                    <option value="Weekly">Weekly</option>
-                    <option value="Monthly">Monthly</option>
-                    <option value="Random">Custom Dates (Select Manually)</option>
+                    {!isAddingToExistingClass && (
+                      <>
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Random">Custom Dates (Select Manually)</option>
+                      </>
+                    )}
                   </select>
                   <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">unfold_more</span>
                 </div>
+                {isAddingToExistingClass && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    When adding to an existing class, only single sessions can be added.
+                  </p>
+                )}
               </label>
               {formData.frequency === 'Weekly' && (
                 <div>
@@ -970,7 +1057,15 @@ const CreateSession: React.FC = () => {
           <div className="flex justify-end space-x-4 pt-4">
             <button
               type="button"
-              onClick={() => navigate('/sessions')}
+              onClick={() => {
+                if (isAddingToExistingClass && existingClassId) {
+                  navigate(`/classes/${existingClassId}/sessions`);
+                } else if (isCreatingClass) {
+                  navigate('/classes');
+                } else {
+                  navigate('/classes');
+                }
+              }}
               className="rounded-lg px-6 py-3 font-semibold text-[#5c5445] transition-colors duration-200 hover:bg-[#f5f3f0] dark:text-slate-300 dark:hover:bg-slate-700"
               disabled={isSubmitting}
             >
@@ -978,11 +1073,14 @@ const CreateSession: React.FC = () => {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLoadingClass}
               className="flex items-center justify-center rounded-lg bg-gradient-to-r from-orange-500 to-[#f04129] px-8 py-3 font-semibold text-white transition-all duration-200 hover:from-orange-600 hover:to-[#d63a25] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined mr-2 text-xl">add_circle</span>
-              {isSubmitting ? 'Creating Session...' : 'Create Session'}
+              {isSubmitting 
+                ? (isAddingToExistingClass ? 'Adding Session...' : 'Creating Session...') 
+                : (isAddingToExistingClass ? 'Add Session' : 'Create Session')
+              }
             </button>
           </div>
         </form>

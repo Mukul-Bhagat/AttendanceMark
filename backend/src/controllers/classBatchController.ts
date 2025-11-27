@@ -534,7 +534,7 @@ export const getClassBatchById = async (req: Request, res: Response) => {
 // @access  Private
 export const getSessionsByClassBatch = async (req: Request, res: Response) => {
   try {
-    const { collectionPrefix } = req.user!;
+    const { collectionPrefix, id: userId, role: userRole } = req.user!;
     const { id } = req.params;
 
     // Get the organization-specific models
@@ -547,8 +547,17 @@ export const getSessionsByClassBatch = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'ClassBatch not found' });
     }
 
-    // Find all sessions with this classBatchId, sorted by startDate
-    const sessions = await SessionCollection.find({ classBatchId: id })
+    // Build query - filter by classBatchId
+    const query: any = { classBatchId: id };
+
+    // SECURITY FIX: For EndUsers, only show sessions they are assigned to
+    if (userRole === 'EndUser') {
+      // assignedUsers.userId is stored as String in the Session model
+      query['assignedUsers.userId'] = String(userId);
+    }
+
+    // Find sessions with the appropriate query, sorted by startDate
+    const sessions = await SessionCollection.find(query)
       .sort({ startDate: 1 })
       .lean();
 
@@ -569,7 +578,7 @@ export const getSessionsByClassBatch = async (req: Request, res: Response) => {
     res.json({
       classBatch,
       sessions: sessionsWithClass,
-      count: sessionsWithClass.length,
+      count: sessionsWithClass.length, // Count now reflects filtered list
     });
   } catch (err: any) {
     console.error(err.message);

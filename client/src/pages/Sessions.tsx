@@ -171,6 +171,65 @@ const Sessions: React.FC = () => {
     }
   };
 
+  // Check if a session is currently LIVE (started but not yet ended)
+  const isSessionLive = (session: ISession): boolean => {
+    try {
+      if (!session.startDate || !session.startTime || !session.endTime || session.isCancelled || session.isCompleted) {
+        return false;
+      }
+      
+      const now = new Date();
+      const today = now.toDateString();
+      const sessionDate = new Date(session.startDate).toDateString();
+      
+      // Session must be today to be "Live"
+      if (today !== sessionDate) return false;
+      
+      // Parse start time
+      const [startHours, startMinutes] = session.startTime.split(':').map(Number);
+      const sessionStart = new Date(session.startDate);
+      sessionStart.setHours(startHours, startMinutes, 0, 0);
+      
+      // Parse end time
+      const [endHours, endMinutes] = session.endTime.split(':').map(Number);
+      const sessionEnd = new Date(session.startDate);
+      sessionEnd.setHours(endHours, endMinutes, 0, 0);
+      
+      // Check if current time is between start and end
+      return now >= sessionStart && now <= sessionEnd;
+    } catch {
+      return false;
+    }
+  };
+
+  // Check if a session is truly in the past (end time has passed)
+  const isSessionPast = (session: ISession): boolean => {
+    try {
+      if (session.isCancelled) return false; // Cancelled sessions have their own status
+      if (session.isCompleted) return true; // Completed sessions are past
+      
+      const now = new Date();
+      const sessionDate = new Date(session.startDate);
+      
+      // If session has endTime, use it for accurate comparison
+      if (session.endTime) {
+        const [endHours, endMinutes] = session.endTime.split(':').map(Number);
+        sessionDate.setHours(endHours, endMinutes, 0, 0);
+      } else if (session.startTime) {
+        // If only startTime, assume 1 hour duration
+        const [startHours, startMinutes] = session.startTime.split(':').map(Number);
+        sessionDate.setHours(startHours + 1, startMinutes, 0, 0);
+      } else {
+        // No time info - set to end of day
+        sessionDate.setHours(23, 59, 59, 999);
+      }
+      
+      return now > sessionDate;
+    } catch {
+      return false;
+    }
+  };
+
   // Filter sessions based on selected date or default logic
   const getFilteredSessions = (): ISession[] => {
     if (selectedDate) {
@@ -414,7 +473,8 @@ const Sessions: React.FC = () => {
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full">
                     {displayedSessions.map((session) => {
-                const isPast = !isSessionUpcoming(session);
+                const isPast = isSessionPast(session);
+                const isLive = isSessionLive(session);
                 const isToday = isSessionToday(session);
                 const showScanButton = isEndUser && isToday;
                 
@@ -422,8 +482,8 @@ const Sessions: React.FC = () => {
                 <div
                   key={session._id}
                   className={`flex flex-col w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 md:p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden ${
-                    isPast ? 'opacity-60 grayscale' : ''
-                  }`}
+                    isPast && !isLive ? 'opacity-60 grayscale' : ''
+                  } ${isLive ? 'ring-2 ring-green-500 dark:ring-green-400' : ''}`}
                   onClick={() => {
                     // Don't navigate if session is cancelled
                     if (session.isCancelled) return;
@@ -480,27 +540,49 @@ const Sessions: React.FC = () => {
                       )}
                       {isEndUser && (
                         <>
-                          {isPast && (
+                          {isLive && (
+                            <span className="whitespace-nowrap rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1 text-xs font-medium text-green-600 dark:text-green-400 border border-green-300 dark:border-green-800 flex items-center gap-1">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                              </span>
+                              Live Now
+                            </span>
+                          )}
+                          {isPast && !isLive && (
                             <span className="whitespace-nowrap rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700">
                               Past
                             </span>
                           )}
-                          {isToday && (
-                            <span className="whitespace-nowrap rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1 text-xs font-medium text-green-600 dark:text-green-400 border border-green-300 dark:border-green-800">
+                          {isToday && !isLive && !isPast && (
+                            <span className="whitespace-nowrap rounded-full bg-amber-100 dark:bg-amber-900/30 px-3 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 border border-amber-300 dark:border-amber-800">
                               Today
                             </span>
                           )}
-                          {!isPast && !isToday && (
+                          {!isPast && !isToday && !isLive && (
                             <span className="whitespace-nowrap rounded-full bg-blue-100 dark:bg-blue-900/30 px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-800">
                               Upcoming
                             </span>
                           )}
                         </>
                       )}
-                      {!isEndUser && isPast && (
-                        <span className="whitespace-nowrap rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700">
-                          Past Session
-                        </span>
+                      {!isEndUser && (
+                        <>
+                          {isLive && (
+                            <span className="whitespace-nowrap rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1 text-xs font-medium text-green-600 dark:text-green-400 border border-green-300 dark:border-green-800 flex items-center gap-1">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                              </span>
+                              Live Now
+                            </span>
+                          )}
+                          {isPast && !isLive && (
+                            <span className="whitespace-nowrap rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700">
+                              Past Session
+                            </span>
+                          )}
+                        </>
                       )}
                       <span className="whitespace-nowrap rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">
                         {formatFrequency(session.frequency)}
@@ -553,11 +635,15 @@ const Sessions: React.FC = () => {
                       <>
                         {isEndUser ? (
                           <button
-                            className="flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-3 md:px-4 border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-sm font-medium bg-slate-100 dark:bg-slate-800 cursor-not-allowed"
+                            className={`flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-3 md:px-4 border text-sm font-medium cursor-not-allowed ${
+                              isLive 
+                                ? 'border-green-300 dark:border-green-700 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' 
+                                : 'border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800'
+                            }`}
                             disabled
                           >
                             <span className="truncate whitespace-normal">
-                              {isPast ? 'Past Session' : 'Upcoming'}
+                              {isLive ? '🟢 In Progress' : isPast ? 'Past Session' : 'Upcoming'}
                             </span>
                           </button>
                         ) : (
