@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, Navigate } from 'react-router-dom';
 import api from '../api';
 import { ISession, IClassBatch } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,12 @@ const Sessions: React.FC = () => {
   const navigate = useNavigate();
   const { classId } = useParams<{ classId?: string }>();
   const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser } = useAuth();
+
+  // Safety Check: If no classId in URL, redirect to /classes
+  // This ensures users never land on the "Mixed/Global" list view
+  if (!classId) {
+    return <Navigate to="/classes" replace />;
+  }
   const [sessions, setSessions] = useState<ISession[]>([]);
   const [classBatch, setClassBatch] = useState<IClassBatch | null>(null);
   const [isLoading, setIsLoading] = useState(true);

@@ -145,7 +145,8 @@ function App() {
         {/* Sessions routes - Accessible to all authenticated users (including EndUsers) */}
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
-            <Route path="/sessions" element={<Sessions />} />
+            {/* Redirect /sessions to /classes (remove global sessions list) */}
+            <Route path="/sessions" element={<Navigate to="/classes" replace />} />
             <Route path="/sessions/:id" element={<SessionDetails />} />
           </Route>
         </Route>

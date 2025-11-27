@@ -118,6 +118,14 @@ const SessionDetails: React.FC = () => {
     }
   };
 
+  // Determine back navigation URL based on classBatchId
+  const getBackUrl = () => {
+    if (session?.classBatchId && typeof session.classBatchId === 'object' && session.classBatchId._id) {
+      return `/classes/${session.classBatchId._id}/sessions`;
+    }
+    return '/classes';
+  };
+
   if (isLoading) {
     return (
       <div className="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden bg-background-light dark:bg-background-dark font-display text-[#181511] dark:text-gray-200">
@@ -125,11 +133,11 @@ const SessionDetails: React.FC = () => {
           <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <header className="mb-8">
               <Link
-                to="/sessions"
+                to="/classes"
                 className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#f5f3f0] dark:bg-background-dark/50 text-[#181511] dark:text-gray-200 gap-2 text-sm font-bold leading-normal tracking-[0.015em] border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-background-dark"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="truncate">Back to All Classes/Batches</span>
+                <span className="truncate">Back</span>
               </Link>
             </header>
             <div className="flex items-center justify-center py-12">
@@ -154,11 +162,11 @@ const SessionDetails: React.FC = () => {
           <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <header className="mb-8">
               <Link
-                to="/sessions"
+                to="/classes"
                 className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#f5f3f0] dark:bg-background-dark/50 text-[#181511] dark:text-gray-200 gap-2 text-sm font-bold leading-normal tracking-[0.015em] border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-background-dark"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="truncate">Back to All Classes/Batches</span>
+                <span className="truncate">Back to Classes</span>
               </Link>
             </header>
             <div className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800 p-4 rounded-xl flex items-center mb-4">
@@ -219,11 +227,11 @@ const SessionDetails: React.FC = () => {
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <header className="mb-8">
             <Link
-              to="/sessions"
+              to={getBackUrl()}
               className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#f5f3f0] dark:bg-background-dark/50 text-[#181511] dark:text-gray-200 gap-2 text-sm font-bold leading-normal tracking-[0.015em] border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-background-dark"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="truncate">Back to All Sessions</span>
+              <span className="truncate">Back to Class Sessions</span>
             </Link>
           </header>
 
