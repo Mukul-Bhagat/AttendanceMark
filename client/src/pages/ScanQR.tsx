@@ -28,6 +28,13 @@ const ScanQR: React.FC = () => {
   const [sessionInfo, setSessionInfo] = useState<any>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [showDeviceMismatchModal, setShowDeviceMismatchModal] = useState(false);
+  const [showTooEarlyModal, setShowTooEarlyModal] = useState(false);
+  const [tooEarlyInfo, setTooEarlyInfo] = useState<{
+    sessionStartTime: string;
+    scanWindowStartTime: string;
+    hoursRemaining: number;
+    minutesRemaining: number;
+  } | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const qrCodeRegionId = 'qr-reader';
 
@@ -357,11 +364,22 @@ const ScanQR: React.FC = () => {
     } catch (err: any) {
       // Extract the exact error message from backend
       const errorMsg = err.response?.data?.msg || err.response?.data?.errors?.[0]?.msg || 'Failed to mark attendance';
+      const errorType = err.response?.data?.type;
       
       // Check for 403/Device Mismatch error specifically
       if (err.response?.status === 403 && (errorMsg.includes('Security Alert') || errorMsg.includes('Device Mismatch') || errorMsg.includes('Cloning detected') || errorMsg.includes('device registration'))) {
         // Show Modal with user-friendly explanation
         setShowDeviceMismatchModal(true);
+        setIsProcessing(false);
+      } else if (errorType === 'TOO_EARLY' || errorMsg.includes('Attendance not yet open')) {
+        // Show "Too Early" modal with countdown info
+        setTooEarlyInfo({
+          sessionStartTime: err.response?.data?.sessionStartTime || '',
+          scanWindowStartTime: err.response?.data?.scanWindowStartTime || '',
+          hoursRemaining: err.response?.data?.hoursRemaining || 0,
+          minutesRemaining: err.response?.data?.minutesRemaining || 0,
+        });
+        setShowTooEarlyModal(true);
         setIsProcessing(false);
       } else {
         setMessageType('error');
@@ -811,6 +829,94 @@ const ScanQR: React.FC = () => {
                     handleBackToList();
                   }}
                   className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-500 to-[#f04129] rounded-lg hover:from-orange-600 hover:to-[#d63a25] transition-all"
+                >
+                  Back to Sessions
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Too Early Modal */}
+      {showTooEarlyModal && tooEarlyInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-amber-200 dark:border-amber-700 w-full max-w-md mx-4">
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+                  <span className="material-symbols-outlined text-amber-600 dark:text-amber-400" style={{ fontSize: '32px' }}>schedule</span>
+                </div>
+                <h3 className="text-xl font-bold text-[#181511] dark:text-white">Too Early!</h3>
+              </div>
+
+              {/* Modal Body */}
+              <div className="mb-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                    <span className="text-2xl">⏳</span>
+                    <p className="text-lg font-semibold">Attendance Not Yet Open</p>
+                  </div>
+                  
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                    <div className="space-y-2 text-sm text-[#181511] dark:text-gray-300">
+                      <div className="flex items-center justify-between">
+                        <span className="text-amber-700 dark:text-amber-300">Class starts at:</span>
+                        <span className="font-bold text-[#181511] dark:text-white">{tooEarlyInfo.sessionStartTime}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-amber-700 dark:text-amber-300">You can scan from:</span>
+                        <span className="font-bold text-[#181511] dark:text-white">{tooEarlyInfo.scanWindowStartTime}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-center">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">Time remaining until scan opens:</p>
+                    <div className="flex items-center justify-center gap-2">
+                      {tooEarlyInfo.hoursRemaining > 0 && (
+                        <div className="flex flex-col items-center bg-slate-100 dark:bg-slate-700 rounded-lg px-4 py-2">
+                          <span className="text-2xl font-bold text-[#f04129]">{tooEarlyInfo.hoursRemaining}</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{tooEarlyInfo.hoursRemaining === 1 ? 'hour' : 'hours'}</span>
+                        </div>
+                      )}
+                      <div className="flex flex-col items-center bg-slate-100 dark:bg-slate-700 rounded-lg px-4 py-2">
+                        <span className="text-2xl font-bold text-[#f04129]">{tooEarlyInfo.minutesRemaining}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">{tooEarlyInfo.minutesRemaining === 1 ? 'minute' : 'minutes'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-center text-slate-500 dark:text-slate-400">
+                    Attendance can be marked starting 2 hours before the session begins.
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowTooEarlyModal(false);
+                    setTooEarlyInfo(null);
+                    setIsProcessing(false);
+                    setIsScannerPaused(false);
+                    handleBackToList();
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-[#8a7b60] dark:text-gray-400 hover:text-[#181511] dark:hover:text-white transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setShowTooEarlyModal(false);
+                    setTooEarlyInfo(null);
+                    setIsProcessing(false);
+                    setIsScannerPaused(false);
+                    handleBackToList();
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all"
                 >
                   Back to Sessions
                 </button>

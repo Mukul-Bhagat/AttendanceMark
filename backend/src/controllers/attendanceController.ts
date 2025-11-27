@@ -148,10 +148,8 @@ export const markAttendance = async (req: Request, res: Response) => {
       });
     }
 
-    // 7. *** LATE MARKING LOGIC WITH STRICT MODE ***
-    // Calculate session start time and check if attendance is late
-    let isLate = false;
-    let lateByMinutes: number | undefined = undefined;
+    // 7. *** EARLY ATTENDANCE CHECK (2-Hour Window) ***
+    // Calculate session start time
     let sessionStartDateTime: Date;
 
     if (session.frequency === 'OneTime') {
@@ -163,6 +161,52 @@ export const markAttendance = async (req: Request, res: Response) => {
       sessionStartDateTime = new Date(todayIST);
       sessionStartDateTime.setHours(startHour, startMinute, 0, 0);
     }
+
+    // Calculate the scan window start time (2 hours before session start)
+    const EARLY_WINDOW_HOURS = 2;
+    const scanWindowStart = new Date(sessionStartDateTime.getTime() - (EARLY_WINDOW_HOURS * 60 * 60 * 1000));
+
+    // Check if current time is before the scan window (too early)
+    if (nowInIST < scanWindowStart) {
+      const timeTillWindowMs = scanWindowStart.getTime() - nowInIST.getTime();
+      const hoursRemaining = Math.floor(timeTillWindowMs / (1000 * 60 * 60));
+      const minutesRemaining = Math.floor((timeTillWindowMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      // Format the session start time for display
+      const sessionStartFormatted = sessionStartDateTime.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+      
+      // Format the scan window start time for display
+      const scanWindowFormatted = scanWindowStart.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+      let timeRemainingMsg = '';
+      if (hoursRemaining > 0) {
+        timeRemainingMsg = `${hoursRemaining} hour${hoursRemaining > 1 ? 's' : ''} and ${minutesRemaining} minute${minutesRemaining !== 1 ? 's' : ''}`;
+      } else {
+        timeRemainingMsg = `${minutesRemaining} minute${minutesRemaining !== 1 ? 's' : ''}`;
+      }
+
+      return res.status(400).json({
+        msg: `Attendance not yet open. Class starts at ${sessionStartFormatted}. You can scan starting from ${scanWindowFormatted} (in ${timeRemainingMsg}).`,
+        type: 'TOO_EARLY',
+        sessionStartTime: sessionStartFormatted,
+        scanWindowStartTime: scanWindowFormatted,
+        hoursRemaining,
+        minutesRemaining,
+      });
+    }
+
+    // 8. *** LATE MARKING LOGIC WITH STRICT MODE ***
+    // Check if attendance is late
+    let isLate = false;
+    let lateByMinutes: number | undefined = undefined;
 
     // Compare current time (in IST) with session start time
     const timeDifferenceMs = nowInIST.getTime() - sessionStartDateTime.getTime();
@@ -191,7 +235,7 @@ export const markAttendance = async (req: Request, res: Response) => {
     }
     // If timeDifferenceMinutes <= 0, attendance is on time (isLate remains false)
 
-    // 8. *** SMART GEOLOCATION CHECK BASED ON USER MODE ***
+    // 9. *** SMART GEOLOCATION CHECK BASED ON USER MODE ***
     // Find the user's specific assignment for this session
     const assignment = session.assignedUsers.find(
       (u: any) => u.userId.toString() === userId.toString()
@@ -265,7 +309,7 @@ export const markAttendance = async (req: Request, res: Response) => {
       locationVerified = true;
     }
 
-    // 9. *** ENHANCED DEVICE-LOCKING CHECK WITH USER AGENT ***
+    // 10. *** ENHANCED DEVICE-LOCKING CHECK WITH USER AGENT ***
     // Step 1: Extract deviceId and userAgent from request body (already extracted above)
     // Step 2: Check User's Registration
     
@@ -299,7 +343,7 @@ export const markAttendance = async (req: Request, res: Response) => {
     }
     // IF Both Match: Allow Attendance (check passes, continue to create attendance record)
 
-    // 10. ALL CHECKS PASSED: CREATE ATTENDANCE RECORD
+    // 11. ALL CHECKS PASSED: CREATE ATTENDANCE RECORD
     const newAttendance = new AttendanceCollection({
       userId,
       sessionId,
@@ -313,7 +357,7 @@ export const markAttendance = async (req: Request, res: Response) => {
 
     await newAttendance.save();
 
-    // 11. UPDATE SESSION'S assignedUsers ARRAY TO MARK USER AS PRESENT (and LATE if applicable)
+    // 12. UPDATE SESSION'S assignedUsers ARRAY TO MARK USER AS PRESENT (and LATE if applicable)
     const assignmentIndex = session.assignedUsers.findIndex(
       (u: any) => u.userId.toString() === userId.toString()
     );
