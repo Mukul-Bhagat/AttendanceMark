@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { IMyAttendanceRecord } from '../types';
 
 const MyAttendance: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [records, setRecords] = useState<IMyAttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [isFilterOpen, setIsFilterOpen] = useState<boolean>(false);
+  const [highlightedSessionId, setHighlightedSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMyAttendance = async () => {
@@ -29,6 +32,43 @@ const MyAttendance: React.FC = () => {
 
     fetchMyAttendance();
   }, []);
+
+  // Helper to get session ID from record
+  const getSessionId = (record: IMyAttendanceRecord): string => {
+    if (record.sessionId) {
+      // sessionId could be an object with _id or a string
+      if (typeof record.sessionId === 'object' && record.sessionId._id) {
+        return record.sessionId._id;
+      } else if (typeof record.sessionId === 'string') {
+        return record.sessionId;
+      }
+    }
+    return record._id; // Fallback to record ID
+  };
+
+  // Handle scrollTo query param
+  useEffect(() => {
+    const scrollToSessionId = searchParams.get('scrollTo');
+    if (scrollToSessionId && records.length > 0 && !isLoading) {
+      // Wait a bit for DOM to render
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`session-${scrollToSessionId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Highlight the card
+          setHighlightedSessionId(scrollToSessionId);
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            setHighlightedSessionId(null);
+          }, 3000);
+          // Clean up URL
+          searchParams.delete('scrollTo');
+          setSearchParams(searchParams, { replace: true });
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [records, isLoading, searchParams, setSearchParams]);
 
   const formatDateTime = (dateString: string) => {
     try {
@@ -372,7 +412,15 @@ const MyAttendance: React.FC = () => {
                         </tr>
                       ) : (
                         filteredRecords.map((record) => (
-                        <tr key={record._id} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors">
+                        <tr 
+                          key={record._id} 
+                          id={`session-${getSessionId(record)}`}
+                          className={`hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors ${
+                            highlightedSessionId === getSessionId(record)
+                              ? 'bg-yellow-100 dark:bg-yellow-900/30 ring-2 ring-yellow-400 dark:ring-yellow-600' 
+                              : ''
+                          }`}
+                        >
                           <td className="px-6 py-4 whitespace-nowrap">
                             {record.sessionId ? (
                               <div>
@@ -485,7 +533,12 @@ const MyAttendance: React.FC = () => {
                   filteredRecords.map((record) => (
                   <div
                     key={record._id}
-                    className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 shadow-sm"
+                    id={`session-${getSessionId(record)}`}
+                    className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 shadow-sm transition-all ${
+                      highlightedSessionId === getSessionId(record)
+                        ? 'bg-yellow-100 dark:bg-yellow-900/30 ring-2 ring-yellow-400 dark:ring-yellow-600' 
+                        : ''
+                    }`}
                   >
                     {/* Header with Session Name and Verified Badge */}
                     <div className="flex items-start justify-between mb-3">

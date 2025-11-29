@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { IClassBatch } from '../types';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -39,6 +40,7 @@ interface SessionAttendanceRecord {
 }
 
 const AttendanceReport: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [classes, setClasses] = useState<IClassBatch[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -74,6 +76,20 @@ const AttendanceReport: React.FC = () => {
     };
     fetchClasses();
   }, []);
+
+  // Handle incoming query params (classBatchId, tab)
+  useEffect(() => {
+    const classBatchId = searchParams.get('classBatchId');
+    const tab = searchParams.get('tab');
+    
+    if (classBatchId) {
+      setSelectedClass(classBatchId);
+    }
+    
+    if (tab === 'logs' || tab === 'analytics') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   // Set default date range (last 30 days)
   useEffect(() => {
@@ -130,6 +146,60 @@ const AttendanceReport: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Auto-fetch report when classBatchId is provided via query params
+  useEffect(() => {
+    const classBatchId = searchParams.get('classBatchId');
+    if (classBatchId && selectedClass === classBatchId && startDate && endDate && classes.length > 0) {
+      // Small delay to ensure state is set
+      const timer = setTimeout(() => {
+        if (!selectedClass || !startDate || !endDate) return;
+        
+        setIsLoading(true);
+        setError('');
+        setAnalyticsData(null);
+        setSessionLogs([]);
+
+        const fetchData = async () => {
+          try {
+            if (activeTab === 'analytics') {
+              const { data } = await api.get('/api/reports/analytics', {
+                params: {
+                  classBatchId: selectedClass,
+                  startDate,
+                  endDate,
+                },
+              });
+              setAnalyticsData(data);
+            } else if (activeTab === 'logs') {
+              const { data } = await api.get('/api/reports/logs', {
+                params: {
+                  classBatchId: selectedClass,
+                  startDate,
+                  endDate,
+                },
+              });
+              setSessionLogs(data || []);
+            }
+          } catch (err: any) {
+            if (err.response?.status === 403) {
+              setError('You are not authorized to view reports.');
+            } else if (err.response?.status === 400) {
+              setError(err.response.data.msg || 'Invalid request. Please check your selections.');
+            } else {
+              setError(err.response?.data?.msg || 'Failed to fetch data. Please try again.');
+            }
+            console.error(err);
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        
+        fetchData();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedClass, startDate, endDate, classes.length, searchParams, activeTab]);
 
   // Fetch attendance details for a specific session
   const fetchSessionAttendanceDetails = async (sessionId: string) => {
