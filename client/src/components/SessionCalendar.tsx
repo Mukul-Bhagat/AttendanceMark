@@ -31,25 +31,66 @@ const SessionCalendar: React.FC<SessionCalendarProps> = ({ sessions, selectedDat
     });
   };
 
+  // Helper function to get session end time as a full Date object
+  const getSessionEndTime = (session: ISession): Date => {
+    // Use startDate as the base date (for recurring sessions, this will be the actual date)
+    const d = new Date(session.startDate);
+    
+    if (session.endTime && typeof session.endTime === 'string' && session.endTime.includes(':')) {
+      const [h, m] = session.endTime.split(':').map(Number);
+      d.setHours(h, m, 0, 0);
+    } else {
+      // If no endTime, assume end of day
+      d.setHours(23, 59, 59, 999);
+    }
+    
+    return d;
+  };
+
   // Check if date has sessions and determine dot color
   const getDateIndicator = (date: Date): 'red' | 'green' | 'yellow' | null => {
     const dateSessions = getSessionsForDate(date);
     if (dateSessions.length === 0) return null;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const checkDate = new Date(date);
-    checkDate.setHours(0, 0, 0, 0);
+    const now = new Date();
 
-    // Check if any session was edited (updatedAt > createdAt)
-    const hasEditedSession = dateSessions.some(session => {
-      if (!session.updatedAt || !session.createdAt) return false;
-      return new Date(session.updatedAt) > new Date(session.createdAt);
-    });
+    // For each session on this date, determine its status
+    const sessionStatuses: Array<'red' | 'green' | 'yellow'> = [];
+    
+    for (const session of dateSessions) {
+      // PRIORITY 1: Check if session's endTime has passed (RED)
+      const sessionEndTime = getSessionEndTime(session);
+      if (now > sessionEndTime) {
+        sessionStatuses.push('red');
+        continue; // Skip to next session
+      }
 
-    if (hasEditedSession) return 'yellow';
-    if (checkDate < today) return 'red'; // Past
-    return 'green'; // Upcoming
+      // PRIORITY 2: Check if session was edited (YELLOW) - only if not past
+      if (session.updatedAt && session.createdAt) {
+        const updatedAt = new Date(session.updatedAt);
+        const createdAt = new Date(session.createdAt);
+        if (updatedAt > createdAt) {
+          sessionStatuses.push('yellow');
+          continue; // Skip to next session
+        }
+      }
+
+      // PRIORITY 3: Default to GREEN (Upcoming/Live)
+      sessionStatuses.push('green');
+    }
+
+    // If multiple sessions on this date:
+    // - If ALL sessions are past (red) -> RED
+    // - If ANY session is red -> RED (highest priority)
+    // - Else if ANY session is yellow -> YELLOW
+    // - Else -> GREEN
+    if (sessionStatuses.some(status => status === 'red')) {
+      return 'red';
+    }
+    if (sessionStatuses.some(status => status === 'yellow')) {
+      return 'yellow';
+    }
+    return 'green';
   };
 
   // Navigate months
