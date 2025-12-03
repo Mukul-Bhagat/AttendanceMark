@@ -23,7 +23,7 @@ const EditSession: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    frequency: 'OneTime' as 'OneTime' | 'Daily' | 'Weekly' | 'Monthly',
+    frequency: 'OneTime' as 'OneTime' | 'Daily' | 'Weekly' | 'Monthly' | 'Random',
     startDate: '',
     endDate: '',
     startTime: '',
