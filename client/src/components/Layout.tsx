@@ -22,6 +22,7 @@ const Layout: React.FC = () => {
     if (path.startsWith('/sessions')) return 'Sessions';
     if (path === '/scan') return 'Scan QR Code';
     if (path === '/my-attendance') return 'My Attendance';
+    if (path === '/leaves') return 'Leave Management';
     if (path === '/reports') return 'Attendance Report';
     if (path === '/manage-staff') return 'Manage Staff';
     if (path.startsWith('/manage-users')) return 'Manage Users';
@@ -130,6 +131,11 @@ const Layout: React.FC = () => {
             {/* My Attendance - visible to all authenticated users */}
             <li>
               <NavLinkItem to="/my-attendance" icon="checklist">My Attendance</NavLinkItem>
+            </li>
+
+            {/* Leaves - visible to all authenticated users */}
+            <li>
+              <NavLinkItem to="/leaves" icon="event">Leaves</NavLinkItem>
             </li>
 
             {/* Attendance Report - for Manager and SuperAdmin */}
@@ -283,6 +289,10 @@ const Layout: React.FC = () => {
 
             <li>
               <NavLinkItem to="/my-attendance" icon="checklist">My Attendance</NavLinkItem>
+            </li>
+
+            <li>
+              <NavLinkItem to="/leaves" icon="event">Leaves</NavLinkItem>
             </li>
 
             {(isSuperAdmin || isManager) && (

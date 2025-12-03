@@ -1,0 +1,870 @@
+import React, { useState, useEffect } from 'react';
+import api from '../api';
+import { useAuth } from '../contexts/AuthContext';
+import Toast from '../components/Toast';
+
+interface ILeaveRequest {
+  _id: string;
+  userId: string | {
+    _id: string;
+    email: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+  leaveType: 'Personal' | 'Casual' | 'Sick' | 'Extra';
+  startDate: string;
+  endDate: string;
+  daysCount: number;
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  approvedBy?: string | {
+    _id: string;
+    email: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+  rejectionReason?: string;
+  organizationPrefix: string;
+  createdAt: string;
+}
+
+interface IUser {
+  _id: string;
+  email: string;
+  role: string;
+  profile: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+interface IQuota {
+  yearlyQuotaPL: number;
+  yearlyQuotaCL: number;
+  yearlyQuotaSL: number;
+}
+
+const Leaves: React.FC = () => {
+  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin } = useAuth();
+  const [leaveRequests, setLeaveRequests] = useState<ILeaveRequest[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<ILeaveRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [quota, setQuota] = useState<IQuota>({ yearlyQuotaPL: 12, yearlyQuotaCL: 12, yearlyQuotaSL: 10 });
+  const [staffUsers, setStaffUsers] = useState<IUser[]>([]);
+  const [isLoadingStaff, setIsLoadingStaff] = useState(false);
+  
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  
+  // Rejection modal state
+  const [rejectionModal, setRejectionModal] = useState<{ isOpen: boolean; leaveId: string | null; userName: string }>({
+    isOpen: false,
+    leaveId: null,
+    userName: '',
+  });
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isProcessingRejection, setIsProcessingRejection] = useState(false);
+  
+  // Check if user is Admin/Staff
+  const isAdminOrStaff = isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin;
+
+  // Form state
+  const [formData, setFormData] = useState({
+    subject: '',
+    leaveType: 'Personal' as 'Personal' | 'Casual' | 'Sick' | 'Extra',
+    startDate: '',
+    endDate: '',
+    reason: '',
+    sendTo: '',
+  });
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch leave requests and quota
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch user's leaves
+        const { data: leaves } = await api.get('/api/leaves/my-leaves');
+        setLeaveRequests(leaves || []);
+
+        // If Admin/Staff, fetch organization pending requests
+        if (isAdminOrStaff) {
+          try {
+            const { data: orgLeaves } = await api.get('/api/leaves/organization?status=Pending');
+            setPendingRequests(orgLeaves || []);
+          } catch (err) {
+            console.error('Failed to fetch pending requests:', err);
+          }
+        }
+
+        // Try to fetch organization settings for quota (may fail for non-SuperAdmin)
+        try {
+          const { data: settings } = await api.get('/api/organization/settings');
+          if (settings) {
+            setQuota({
+              yearlyQuotaPL: settings.yearlyQuotaPL || 12,
+              yearlyQuotaCL: settings.yearlyQuotaCL || 12,
+              yearlyQuotaSL: settings.yearlyQuotaSL || 10,
+            });
+          }
+        } catch (err) {
+          // If not SuperAdmin, use defaults
+          console.log('Using default quota values');
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch leaves:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchData();
+    }
+  }, [user, isAdminOrStaff]);
+
+  // Fetch staff users for "Send To" dropdown
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        setIsLoadingStaff(true);
+        const { data: users } = await api.get('/api/users/my-organization');
+        // Filter for Admins/Staff (SuperAdmin, CompanyAdmin, Manager, SessionAdmin)
+        const staff = users.filter((u: IUser) => 
+          ['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin'].includes(u.role)
+        );
+        setStaffUsers(staff);
+        // Set first staff as default if available
+        if (staff.length > 0 && !formData.sendTo) {
+          setFormData(prev => ({ ...prev, sendTo: staff[0]._id }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch staff:', err);
+      } finally {
+        setIsLoadingStaff(false);
+      }
+    };
+
+    if (isModalOpen) {
+      fetchStaff();
+    }
+  }, [isModalOpen]);
+
+  // Calculate used leaves for current year
+  const getUsedLeaves = (type: 'Personal' | 'Casual' | 'Sick') => {
+    const currentYear = new Date().getFullYear();
+    return leaveRequests
+      .filter(leave => {
+        const leaveYear = new Date(leave.startDate).getFullYear();
+        return leave.leaveType === type && 
+               leave.status === 'Approved' && 
+               leaveYear === currentYear;
+      })
+      .reduce((sum, leave) => sum + leave.daysCount, 0);
+  };
+
+  const usedPL = getUsedLeaves('Personal');
+  const usedCL = getUsedLeaves('Casual');
+  const usedSL = getUsedLeaves('Sick');
+
+  const remainingPL = quota.yearlyQuotaPL - usedPL;
+  const remainingCL = quota.yearlyQuotaCL - usedCL;
+  const remainingSL = quota.yearlyQuotaSL - usedSL;
+
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    // Clear error for this field
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  // Validate form
+  const validateForm = () => {
+    const errors: { [key: string]: string } = {};
+
+    if (!formData.subject.trim()) {
+      errors.subject = 'Subject is required';
+    }
+
+    if (!formData.startDate) {
+      errors.startDate = 'Start date is required';
+    }
+
+    if (!formData.endDate) {
+      errors.endDate = 'End date is required';
+    }
+
+    if (formData.startDate && formData.endDate) {
+      const start = new Date(formData.startDate);
+      const end = new Date(formData.endDate);
+      if (start > end) {
+        errors.endDate = 'End date must be after start date';
+      }
+    }
+
+    if (!formData.reason.trim()) {
+      errors.reason = 'Reason is required';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await api.post('/api/leaves', {
+        leaveType: formData.leaveType,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        reason: formData.reason,
+      });
+
+      // Refresh leave requests
+      const { data: leaves } = await api.get('/api/leaves/my-leaves');
+      setLeaveRequests(leaves || []);
+
+      // If Admin/Staff, refresh pending requests
+      if (isAdminOrStaff) {
+        try {
+          const { data: orgLeaves } = await api.get('/api/leaves/organization?status=Pending');
+          setPendingRequests(orgLeaves || []);
+        } catch (err) {
+          console.error('Failed to refresh pending requests:', err);
+        }
+      }
+
+      // Show success toast
+      setToast({ message: 'Leave request submitted successfully', type: 'success' });
+
+      // Reset form and close modal
+      setFormData({
+        subject: '',
+        leaveType: 'Personal',
+        startDate: '',
+        endDate: '',
+        reason: '',
+        sendTo: staffUsers.length > 0 ? staffUsers[0]._id : '',
+      });
+      setFormErrors({});
+      setIsModalOpen(false);
+    } catch (err: any) {
+      console.error('Failed to submit leave request:', err);
+      const errorMsg = err.response?.data?.msg || err.response?.data?.errors?.[0]?.msg || 'Failed to submit leave request';
+      setFormErrors({ submit: errorMsg });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString;
+      }
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Format date range
+  const formatDateRange = (start: string, end: string) => {
+    const startDate = formatDate(start);
+    const endDate = formatDate(end);
+    if (startDate === endDate) {
+      return startDate;
+    }
+    return `${startDate} - ${endDate}`;
+  };
+
+  // Get status badge color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Approved':
+        return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300';
+      case 'Pending':
+        return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300';
+      case 'Rejected':
+        return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300';
+      default:
+        return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300';
+    }
+  };
+
+  // Get user name from leave request
+  const getUserName = (leave: ILeaveRequest): string => {
+    if (typeof leave.userId === 'object' && leave.userId.profile) {
+      return `${leave.userId.profile.firstName} ${leave.userId.profile.lastName}`;
+    }
+    return 'Unknown User';
+  };
+
+  // Handle approve leave
+  const handleApprove = async (leaveId: string) => {
+    try {
+      const { data } = await api.put(`/api/leaves/${leaveId}/status`, {
+        status: 'Approved',
+      });
+
+      // Show success toast
+      const leave = pendingRequests.find(l => l._id === leaveId);
+      const userName = leave ? getUserName(leave) : 'User';
+      setToast({ message: `Leave approved for ${userName}`, type: 'success' });
+
+      // Refresh data
+      const { data: leaves } = await api.get('/api/leaves/my-leaves');
+      setLeaveRequests(leaves || []);
+
+      if (isAdminOrStaff) {
+        const { data: orgLeaves } = await api.get('/api/leaves/organization?status=Pending');
+        setPendingRequests(orgLeaves || []);
+      }
+    } catch (err: any) {
+      console.error('Failed to approve leave:', err);
+      const errorMsg = err.response?.data?.msg || 'Failed to approve leave';
+      setToast({ message: errorMsg, type: 'error' });
+    }
+  };
+
+  // Handle reject leave (open modal)
+  const handleRejectClick = (leaveId: string) => {
+    const leave = pendingRequests.find(l => l._id === leaveId);
+    const userName = leave ? getUserName(leave) : 'User';
+    setRejectionModal({
+      isOpen: true,
+      leaveId,
+      userName,
+    });
+    setRejectionReason('');
+  };
+
+  // Handle reject leave (submit)
+  const handleRejectSubmit = async () => {
+    if (!rejectionModal.leaveId || !rejectionReason.trim()) {
+      setToast({ message: 'Please provide a rejection reason', type: 'error' });
+      return;
+    }
+
+    try {
+      setIsProcessingRejection(true);
+      const { data } = await api.put(`/api/leaves/${rejectionModal.leaveId}/status`, {
+        status: 'Rejected',
+        rejectionReason: rejectionReason.trim(),
+      });
+
+      // Show success toast
+      setToast({ message: `Leave rejected for ${rejectionModal.userName}`, type: 'success' });
+
+      // Close modal
+      setRejectionModal({ isOpen: false, leaveId: null, userName: '' });
+      setRejectionReason('');
+
+      // Refresh data
+      const { data: leaves } = await api.get('/api/leaves/my-leaves');
+      setLeaveRequests(leaves || []);
+
+      if (isAdminOrStaff) {
+        const { data: orgLeaves } = await api.get('/api/leaves/organization?status=Pending');
+        setPendingRequests(orgLeaves || []);
+      }
+    } catch (err: any) {
+      console.error('Failed to reject leave:', err);
+      const errorMsg = err.response?.data?.msg || 'Failed to reject leave';
+      setToast({ message: errorMsg, type: 'error' });
+    } finally {
+      setIsProcessingRejection(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center">
+          <svg className="animate-spin h-8 w-8 text-primary mb-4" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+          </svg>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-10">
+      {/* Header */}
+      <div className="flex flex-wrap justify-between gap-3 mb-6">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-4xl font-black leading-tight tracking-[-0.033em] text-text-primary-light dark:text-text-primary-dark">
+            Leave Management
+          </h1>
+          <p className="text-base font-normal text-text-secondary-light dark:text-text-secondary-dark">
+            Manage your leave requests and track your leave balance.
+          </p>
+        </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="px-6 py-3 bg-[#f04129] hover:bg-[#d63a25] text-white font-bold rounded-lg transition-colors flex items-center gap-2"
+        >
+          <span className="material-symbols-outlined">add</span>
+          Apply Leave
+        </button>
+      </div>
+
+      {/* Quota Summary Cards */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 mb-6">
+        {/* Personal Leave Card */}
+        <div className="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-symbols-outlined text-[#f04129] text-xl">event</span>
+            <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Personal Leave</p>
+          </div>
+          <p className="tracking-light text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            Remaining: {remainingPL} / Total: {quota.yearlyQuotaPL}
+          </p>
+        </div>
+
+        {/* Casual Leave Card */}
+        <div className="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-symbols-outlined text-[#f04129] text-xl">calendar_today</span>
+            <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Casual Leave</p>
+          </div>
+          <p className="tracking-light text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            Remaining: {remainingCL} / Total: {quota.yearlyQuotaCL}
+          </p>
+        </div>
+
+        {/* Sick Leave Card */}
+        <div className="flex min-w-[158px] flex-1 flex-col gap-2 rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-symbols-outlined text-[#f04129] text-xl">local_hospital</span>
+            <p className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">Sick Leave</p>
+          </div>
+          <p className="tracking-light text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            Remaining: {remainingSL} / Total: {quota.yearlyQuotaSL}
+          </p>
+        </div>
+      </div>
+
+      {/* Pending Requests Section - Only for Admins/Staff */}
+      {isAdminOrStaff && (
+        <div className="w-full rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm mb-6">
+          <h2 className="text-xl font-bold mb-4 text-text-primary-light dark:text-text-primary-dark">
+            Pending Requests {pendingRequests.length > 0 && `(${pendingRequests.length})`}
+          </h2>
+          <div className="flex flex-col gap-4">
+            {pendingRequests.length > 0 ? (
+              pendingRequests.map((leave) => (
+              <div
+                key={leave._id}
+                className="flex items-center justify-between p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors"
+              >
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="flex flex-col flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">
+                        {getUserName(leave)}
+                      </p>
+                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                        ({typeof leave.userId === 'object' ? leave.userId.email : 'N/A'})
+                      </span>
+                    </div>
+                    <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
+                      {formatDateRange(leave.startDate, leave.endDate)}
+                    </p>
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                      {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
+                    </p>
+                    {leave.reason && (
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                        {leave.reason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
+                    {leave.status}
+                  </span>
+                  <button
+                    onClick={() => handleApprove(leave._id)}
+                    className="p-2 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-colors"
+                    title="Approve"
+                  >
+                    <span className="material-symbols-outlined text-lg">check</span>
+                  </button>
+                  <button
+                    onClick={() => handleRejectClick(leave._id)}
+                    className="p-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
+                    title="Reject"
+                  >
+                    <span className="material-symbols-outlined text-lg">close</span>
+                  </button>
+                </div>
+              </div>
+              ))
+            ) : (
+              <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm py-4">
+                No pending leave requests.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Leave History */}
+      <div className="w-full rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
+        <h2 className="text-xl font-bold mb-4 text-text-primary-light dark:text-text-primary-dark">Leave History</h2>
+        <div className="flex flex-col gap-4">
+          {leaveRequests.length > 0 ? (
+            leaveRequests.map((leave) => (
+              <div
+                key={leave._id}
+                className="flex items-center justify-between p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors"
+              >
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="flex flex-col">
+                    <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">
+                      {formatDateRange(leave.startDate, leave.endDate)}
+                    </p>
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                      {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
+                    </p>
+                    {leave.reason && (
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                        {leave.reason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
+                    {leave.status}
+                  </span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm py-4">
+              No leave requests found.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Apply Leave Modal */}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div
+            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-border-light dark:border-border-dark">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+                  Apply for Leave
+                </h2>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-4">
+                {/* Subject */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    name="subject"
+                    value={formData.subject}
+                    onChange={handleInputChange}
+                    className={`w-full px-4 py-2 rounded-lg border ${
+                      formErrors.subject
+                        ? 'border-red-500'
+                        : 'border-border-light dark:border-border-dark'
+                    } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary`}
+                    placeholder="Enter subject"
+                  />
+                  {formErrors.subject && (
+                    <p className="text-red-500 text-xs mt-1">{formErrors.subject}</p>
+                  )}
+                </div>
+
+                {/* Leave Type */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                    Leave Type
+                  </label>
+                  <select
+                    name="leaveType"
+                    value={formData.leaveType}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="Personal">Personal Leave (PL)</option>
+                    <option value="Casual">Casual Leave (CL)</option>
+                    <option value="Sick">Sick Leave (SL)</option>
+                    <option value="Extra">Extra</option>
+                  </select>
+                </div>
+
+                {/* Date Range */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      name="startDate"
+                      value={formData.startDate}
+                      onChange={handleInputChange}
+                      min={new Date().toISOString().split('T')[0]}
+                      className={`w-full px-4 py-2 rounded-lg border ${
+                        formErrors.startDate
+                          ? 'border-red-500'
+                          : 'border-border-light dark:border-border-dark'
+                      } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary`}
+                    />
+                    {formErrors.startDate && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.startDate}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      name="endDate"
+                      value={formData.endDate}
+                      onChange={handleInputChange}
+                      min={formData.startDate || new Date().toISOString().split('T')[0]}
+                      className={`w-full px-4 py-2 rounded-lg border ${
+                        formErrors.endDate
+                          ? 'border-red-500'
+                          : 'border-border-light dark:border-border-dark'
+                      } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary`}
+                    />
+                    {formErrors.endDate && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.endDate}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                    Reason
+                  </label>
+                  <textarea
+                    name="reason"
+                    value={formData.reason}
+                    onChange={handleInputChange}
+                    rows={4}
+                    className={`w-full px-4 py-2 rounded-lg border ${
+                      formErrors.reason
+                        ? 'border-red-500'
+                        : 'border-border-light dark:border-border-dark'
+                    } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary resize-none`}
+                    placeholder="Enter reason for leave"
+                  />
+                  {formErrors.reason && (
+                    <p className="text-red-500 text-xs mt-1">{formErrors.reason}</p>
+                  )}
+                </div>
+
+                {/* Send To (Optional - for future use) */}
+                {staffUsers.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                      Send To (Optional)
+                    </label>
+                    <select
+                      name="sendTo"
+                      value={formData.sendTo}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {staffUsers.map((staff) => (
+                        <option key={staff._id} value={staff._id}>
+                          {staff.profile.firstName} {staff.profile.lastName} ({staff.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Submit Error */}
+                {formErrors.submit && (
+                  <div className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
+                    {formErrors.submit}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-border-light dark:border-border-dark">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-6 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-transparent hover:bg-gray-100 dark:hover:bg-surface-dark rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 text-sm font-bold text-white bg-[#f04129] hover:bg-[#d63a25] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-lg">send</span>
+                      Submit Leave Request
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Reason Modal */}
+      {rejectionModal.isOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          onClick={() => setRejectionModal({ isOpen: false, leaveId: null, userName: '' })}
+        >
+          <div
+            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-border-light dark:border-border-dark">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
+                  Reject Leave Request
+                </h2>
+                <button
+                  onClick={() => setRejectionModal({ isOpen: false, leaveId: null, userName: '' })}
+                  className="text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-4">
+                Rejecting leave request for <strong>{rejectionModal.userName}</strong>. Please provide a reason:
+              </p>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                placeholder="Enter rejection reason..."
+                autoFocus
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-border-light dark:border-border-dark">
+              <button
+                type="button"
+                onClick={() => setRejectionModal({ isOpen: false, leaveId: null, userName: '' })}
+                className="px-6 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-transparent hover:bg-gray-100 dark:hover:bg-surface-dark rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRejectSubmit}
+                disabled={isProcessingRejection || !rejectionReason.trim()}
+                className="px-6 py-2 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isProcessingRejection ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                    </svg>
+                    Rejecting...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-lg">close</span>
+                    Reject Leave
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default Leaves;
+

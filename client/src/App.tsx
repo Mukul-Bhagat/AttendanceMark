@@ -17,6 +17,7 @@ import ManageStaff from './pages/ManageStaff';
 import ManageUsers from './pages/ManageUsers';
 import EditSession from './pages/EditSession';
 import Profile from './pages/Profile';
+import Leaves from './pages/Leaves';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
@@ -34,7 +35,8 @@ const PublicNav = () => {
                           location.pathname.startsWith('/my-attendance') ||
                           location.pathname.startsWith('/my-sessions') ||
                           location.pathname.startsWith('/reports') ||
-                          location.pathname.startsWith('/manage-staff');
+                          location.pathname.startsWith('/manage-staff') ||
+                          location.pathname.startsWith('/leaves');
   
   if (isProtectedRoute || location.pathname === '/') {
     return null;
@@ -122,6 +124,7 @@ function App() {
             <Route path="/scan" element={<ScanQR />} />
             <Route path="/my-attendance" element={<MyAttendance />} />
             <Route path="/my-sessions" element={<MySessions />} />
+            <Route path="/leaves" element={<Leaves />} />
           </Route>
         </Route>
         
