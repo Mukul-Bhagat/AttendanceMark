@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
+import { Types } from 'mongoose';
 import createLeaveRequestModel from '../models/LeaveRequest';
 import createUserModel from '../models/User';
 import createOrganizationSettingsModel from '../models/OrganizationSettings';
@@ -207,7 +208,7 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
 
     // Update leave request status
     leaveRequest.status = status;
-    leaveRequest.approvedBy = approverId;
+    leaveRequest.approvedBy = new Types.ObjectId(approverId);
     if (status === 'Rejected' && rejectionReason) {
       leaveRequest.rejectionReason = rejectionReason;
     }

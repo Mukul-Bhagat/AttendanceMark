@@ -30,6 +30,9 @@ const Profile: React.FC = () => {
   const [organizationSettings, setOrganizationSettings] = useState({
     lateAttendanceLimit: 30,
     isStrictAttendance: false,
+    yearlyQuotaPL: 12,
+    yearlyQuotaCL: 12,
+    yearlyQuotaSL: 10,
   });
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -44,6 +47,9 @@ const Profile: React.FC = () => {
           setOrganizationSettings({
             lateAttendanceLimit: data.lateAttendanceLimit || 30,
             isStrictAttendance: data.isStrictAttendance || false,
+            yearlyQuotaPL: data.yearlyQuotaPL || 12,
+            yearlyQuotaCL: data.yearlyQuotaCL || 12,
+            yearlyQuotaSL: data.yearlyQuotaSL || 10,
           });
         } catch (err: any) {
           console.error('Failed to fetch organization settings:', err);
@@ -66,6 +72,9 @@ const Profile: React.FC = () => {
       await api.put('/api/organization/settings', {
         lateAttendanceLimit: organizationSettings.lateAttendanceLimit,
         isStrictAttendance: organizationSettings.isStrictAttendance,
+        yearlyQuotaPL: organizationSettings.yearlyQuotaPL,
+        yearlyQuotaCL: organizationSettings.yearlyQuotaCL,
+        yearlyQuotaSL: organizationSettings.yearlyQuotaSL,
       });
 
       setMessage({ type: 'success', text: 'Organization settings updated successfully!' });
@@ -653,7 +662,85 @@ const Profile: React.FC = () => {
                         </button>
                       </div>
 
-                      <div className="flex justify-end">
+                      {/* Annual Leave Quotas Section */}
+                      <div className="pt-6 border-t border-border-light dark:border-border-dark">
+                        <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">
+                          Annual Leave Quotas
+                        </h3>
+                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6">
+                          Set the maximum number of leave days allowed per year for each leave type.
+                        </p>
+                        
+                        <div className="space-y-4">
+                          {/* Personal Leave */}
+                          <div>
+                            <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                              Personal Leave (Days/Year)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={organizationSettings.yearlyQuotaPL}
+                              onChange={(e) => setOrganizationSettings({
+                                ...organizationSettings,
+                                yearlyQuotaPL: parseInt(e.target.value) || 0,
+                              })}
+                              className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-900 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                              required
+                            />
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                              Maximum personal leave days allowed per year per employee.
+                            </p>
+                          </div>
+
+                          {/* Casual Leave */}
+                          <div>
+                            <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                              Casual Leave (Days/Year)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={organizationSettings.yearlyQuotaCL}
+                              onChange={(e) => setOrganizationSettings({
+                                ...organizationSettings,
+                                yearlyQuotaCL: parseInt(e.target.value) || 0,
+                              })}
+                              className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-900 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                              required
+                            />
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                              Maximum casual leave days allowed per year per employee.
+                            </p>
+                          </div>
+
+                          {/* Sick Leave */}
+                          <div>
+                            <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                              Sick Leave (Days/Year)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={organizationSettings.yearlyQuotaSL}
+                              onChange={(e) => setOrganizationSettings({
+                                ...organizationSettings,
+                                yearlyQuotaSL: parseInt(e.target.value) || 0,
+                              })}
+                              className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-slate-900 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                              required
+                            />
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                              Maximum sick leave days allowed per year per employee.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-6 border-t border-border-light dark:border-border-dark">
                         <button
                           type="submit"
                           disabled={isSavingSettings}
