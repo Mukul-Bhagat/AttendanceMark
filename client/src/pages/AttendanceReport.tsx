@@ -40,7 +40,7 @@ interface SessionAttendanceRecord {
 }
 
 const AttendanceReport: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [classes, setClasses] = useState<IClassBatch[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [startDate, setStartDate] = useState('');

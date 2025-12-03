@@ -60,7 +60,6 @@ const Leaves: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [quota, setQuota] = useState<IQuota>({ yearlyQuotaPL: 12, yearlyQuotaCL: 12, yearlyQuotaSL: 10 });
   const [staffUsers, setStaffUsers] = useState<IUser[]>([]);
-  const [isLoadingStaff, setIsLoadingStaff] = useState(false);
   
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -138,7 +137,6 @@ const Leaves: React.FC = () => {
   useEffect(() => {
     const fetchStaff = async () => {
       try {
-        setIsLoadingStaff(true);
         const { data: users } = await api.get('/api/users/my-organization');
         // Filter for Admins/Staff (SuperAdmin, CompanyAdmin, Manager, SessionAdmin)
         const staff = users.filter((u: IUser) => 
@@ -151,8 +149,6 @@ const Leaves: React.FC = () => {
         }
       } catch (err) {
         console.error('Failed to fetch staff:', err);
-      } finally {
-        setIsLoadingStaff(false);
       }
     };
 
@@ -363,7 +359,7 @@ const Leaves: React.FC = () => {
   // Handle approve leave
   const handleApprove = async (leaveId: string) => {
     try {
-      const { data } = await api.put(`/api/leaves/${leaveId}/status`, {
+      await api.put(`/api/leaves/${leaveId}/status`, {
         status: 'Approved',
       });
 
@@ -408,7 +404,7 @@ const Leaves: React.FC = () => {
 
     try {
       setIsProcessingRejection(true);
-      const { data } = await api.put(`/api/leaves/${rejectionModal.leaveId}/status`, {
+      await api.put(`/api/leaves/${rejectionModal.leaveId}/status`, {
         status: 'Rejected',
         rejectionReason: rejectionReason.trim(),
       });

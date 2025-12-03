@@ -486,7 +486,11 @@ const Sessions: React.FC = () => {
                         navigate(`/my-attendance?scrollTo=${session._id}`);
                       } else {
                         // Admin: go to reports for this class
-                        const classBatchId = session.classBatchId?._id || session.classBatchId || classId;
+                        const classBatchId = typeof session.classBatchId === 'object' && session.classBatchId?._id
+                          ? session.classBatchId._id
+                          : typeof session.classBatchId === 'string'
+                          ? session.classBatchId
+                          : classId;
                         if (classBatchId) {
                           navigate(`/reports?classBatchId=${classBatchId}&tab=logs`);
                         } else {
@@ -641,7 +645,11 @@ const Sessions: React.FC = () => {
                               // Smart navigation based on session status
                               if (isPast) {
                                 // Past sessions: redirect to reports
-                                const classBatchId = session.classBatchId?._id || session.classBatchId || classId;
+                                const classBatchId = typeof session.classBatchId === 'object' && session.classBatchId?._id
+                                  ? session.classBatchId._id
+                                  : typeof session.classBatchId === 'string'
+                                  ? session.classBatchId
+                                  : classId;
                                 if (classBatchId) {
                                   navigate(`/reports?classBatchId=${classBatchId}&tab=logs`);
                                 } else {

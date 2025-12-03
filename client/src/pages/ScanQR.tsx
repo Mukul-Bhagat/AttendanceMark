@@ -93,9 +93,6 @@ const ScanQR: React.FC = () => {
 
   // Filter sessions based on 2-Hour Rule - STRICTLY TODAY ONLY
   const getFilteredSessions = (): ISession[] => {
-    const now = new Date();
-    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours in milliseconds
-
     return sessions.filter(session => {
       if (session.isCancelled) return false;
 
