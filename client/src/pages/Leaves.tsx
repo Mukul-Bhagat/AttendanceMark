@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
+import { X } from 'lucide-react';
 
 interface ILeaveRequest {
   _id: string;
@@ -16,6 +19,7 @@ interface ILeaveRequest {
   leaveType: 'Personal' | 'Casual' | 'Sick' | 'Extra';
   startDate: string;
   endDate: string;
+  dates?: string[]; // Array of specific dates (for non-consecutive dates)
   daysCount: number;
   reason: string;
   status: 'Pending' | 'Approved' | 'Rejected';
@@ -77,11 +81,10 @@ const Leaves: React.FC = () => {
   const [formData, setFormData] = useState({
     subject: '',
     leaveType: 'Personal' as 'Personal' | 'Casual' | 'Sick' | 'Extra',
-    startDate: '',
-    endDate: '',
     reason: '',
     sendTo: '',
   });
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -201,20 +204,8 @@ const Leaves: React.FC = () => {
       errors.subject = 'Subject is required';
     }
 
-    if (!formData.startDate) {
-      errors.startDate = 'Start date is required';
-    }
-
-    if (!formData.endDate) {
-      errors.endDate = 'End date is required';
-    }
-
-    if (formData.startDate && formData.endDate) {
-      const start = new Date(formData.startDate);
-      const end = new Date(formData.endDate);
-      if (start > end) {
-        errors.endDate = 'End date must be after start date';
-      }
+    if (selectedDates.length === 0) {
+      errors.dates = 'Please select at least one date';
     }
 
     if (!formData.reason.trim()) {
@@ -235,10 +226,19 @@ const Leaves: React.FC = () => {
 
     try {
       setIsSubmitting(true);
+      
+      // Convert selected dates to ISO strings (YYYY-MM-DD format)
+      const datesArray = selectedDates
+        .sort((a, b) => a.getTime() - b.getTime())
+        .map(date => {
+          const d = new Date(date);
+          d.setHours(0, 0, 0, 0);
+          return d.toISOString().split('T')[0];
+        });
+
       await api.post('/api/leaves', {
         leaveType: formData.leaveType,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
+        dates: datesArray, // Send dates array (backend will derive startDate/endDate)
         reason: formData.reason,
       });
 
@@ -263,11 +263,10 @@ const Leaves: React.FC = () => {
       setFormData({
         subject: '',
         leaveType: 'Personal',
-        startDate: '',
-        endDate: '',
         reason: '',
         sendTo: staffUsers.length > 0 ? staffUsers[0]._id : '',
       });
+      setSelectedDates([]);
       setFormErrors({});
       setIsModalOpen(false);
     } catch (err: any) {
@@ -297,13 +296,46 @@ const Leaves: React.FC = () => {
   };
 
   // Format date range
-  const formatDateRange = (start: string, end: string) => {
+  const formatDateRange = (start: string, end: string, dates?: string[]) => {
+    // If dates array exists and has multiple non-consecutive dates, show count
+    if (dates && dates.length > 0) {
+      const sortedDates = dates.sort();
+      const startDate = formatDate(sortedDates[0]);
+      const endDate = formatDate(sortedDates[sortedDates.length - 1]);
+      
+      // Check if dates are consecutive
+      const isConsecutive = dates.length === 1 || 
+        (new Date(sortedDates[sortedDates.length - 1]).getTime() - new Date(sortedDates[0]).getTime()) === 
+        ((dates.length - 1) * 24 * 60 * 60 * 1000);
+      
+      if (isConsecutive) {
+        // Consecutive dates - show range
+        if (startDate === endDate) {
+          return startDate;
+        }
+        return `${startDate} - ${endDate}`;
+      } else {
+        // Non-consecutive dates - show range with count
+        return `${startDate} - ${endDate} (${dates.length} days)`;
+      }
+    }
+    
+    // Fallback to start/end date range
     const startDate = formatDate(start);
     const endDate = formatDate(end);
     if (startDate === endDate) {
       return startDate;
     }
     return `${startDate} - ${endDate}`;
+  };
+
+  // Format dates list for tooltip
+  const formatDatesList = (dates?: string[]) => {
+    if (!dates || dates.length === 0) return '';
+    return dates
+      .sort()
+      .map(date => formatDate(date))
+      .join(', ');
   };
 
   // Get status badge color
@@ -499,9 +531,19 @@ const Leaves: React.FC = () => {
                         ({typeof leave.userId === 'object' ? leave.userId.email : 'N/A'})
                       </span>
                     </div>
-                    <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
-                      {formatDateRange(leave.startDate, leave.endDate)}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
+                        {formatDateRange(leave.startDate, leave.endDate, leave.dates)}
+                      </p>
+                      {leave.dates && leave.dates.length > 0 && (
+                        <span 
+                          className="text-xs text-text-secondary-light dark:text-text-secondary-dark cursor-help"
+                          title={formatDatesList(leave.dates)}
+                        >
+                          (Multiple Dates)
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
                     </p>
@@ -554,9 +596,19 @@ const Leaves: React.FC = () => {
               >
                 <div className="flex items-center gap-4 flex-1">
                   <div className="flex flex-col">
-                    <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">
-                      {formatDateRange(leave.startDate, leave.endDate)}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">
+                        {formatDateRange(leave.startDate, leave.endDate, leave.dates)}
+                      </p>
+                      {leave.dates && leave.dates.length > 0 && (
+                        <span 
+                          className="text-xs text-text-secondary-light dark:text-text-secondary-dark cursor-help"
+                          title={formatDatesList(leave.dates)}
+                        >
+                          (Multiple Dates)
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
                     </p>
@@ -650,48 +702,89 @@ const Leaves: React.FC = () => {
                   </select>
                 </div>
 
-                {/* Date Range */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      name="startDate"
-                      value={formData.startDate}
-                      onChange={handleInputChange}
-                      min={new Date().toISOString().split('T')[0]}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        formErrors.startDate
-                          ? 'border-red-500'
-                          : 'border-border-light dark:border-border-dark'
-                      } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary`}
+                {/* Date Selection - Multiple Dates */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                    Select Dates (You can select multiple non-consecutive dates)
+                  </label>
+                  <div className="border border-border-light dark:border-border-dark rounded-lg p-4 bg-white dark:bg-background-dark">
+                    <style>{`
+                      .rdp {
+                        --rdp-cell-size: 40px;
+                        --rdp-accent-color: #f04129;
+                        --rdp-background-color: #f04129;
+                        margin: 0;
+                      }
+                      .dark .rdp {
+                        --rdp-accent-color: #f04129;
+                        --rdp-background-color: #f04129;
+                      }
+                      .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+                        background-color: rgba(240, 65, 41, 0.1);
+                      }
+                      .dark .rdp-caption {
+                        color: #e2e8f0;
+                      }
+                      .dark .rdp-head_cell {
+                        color: #94a3b8;
+                      }
+                      .dark .rdp-day {
+                        color: #e2e8f0;
+                      }
+                      .dark .rdp-day_outside {
+                        color: #475569;
+                      }
+                      .rdp-day_selected {
+                        background-color: #f04129 !important;
+                        color: white !important;
+                      }
+                      .rdp-day_selected:hover {
+                        background-color: #d63a25 !important;
+                      }
+                      .dark .rdp-nav_button {
+                        color: #e2e8f0;
+                      }
+                      .dark .rdp-nav_button:hover {
+                        background-color: rgba(240, 65, 41, 0.2);
+                      }
+                    `}</style>
+                    <DayPicker
+                      mode="multiple"
+                      selected={selectedDates}
+                      onSelect={(dates) => setSelectedDates(dates || [])}
+                      disabled={{ before: new Date() }}
+                      numberOfMonths={2}
+                      showOutsideDays
+                      className="mx-auto"
                     />
-                    {formErrors.startDate && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.startDate}</p>
-                    )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      name="endDate"
-                      value={formData.endDate}
-                      onChange={handleInputChange}
-                      min={formData.startDate || new Date().toISOString().split('T')[0]}
-                      className={`w-full px-4 py-2 rounded-lg border ${
-                        formErrors.endDate
-                          ? 'border-red-500'
-                          : 'border-border-light dark:border-border-dark'
-                      } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary`}
-                    />
-                    {formErrors.endDate && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.endDate}</p>
-                    )}
-                  </div>
+                  {formErrors.dates && (
+                    <p className="text-red-500 text-xs mt-1">{formErrors.dates}</p>
+                  )}
+                  {selectedDates.length === 0 && !formErrors.dates && (
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-2">
+                      Please select at least one date
+                    </p>
+                  )}
+                  {selectedDates.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedDates.sort((a, b) => a.getTime() - b.getTime()).map((date, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-[#f04129]/10 text-[#f04129] text-xs rounded-full"
+                        >
+                          {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDates(selectedDates.filter((_, i) => i !== index))}
+                            className="hover:bg-[#f04129]/20 rounded-full p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Reason */}

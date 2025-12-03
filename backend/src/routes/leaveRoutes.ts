@@ -18,8 +18,29 @@ router.post(
   protect,
   [
     check('leaveType', 'Leave type is required').isIn(['Personal', 'Casual', 'Sick', 'Extra']),
-    check('startDate', 'Start date is required').not().isEmpty(),
-    check('endDate', 'End date is required').not().isEmpty(),
+    // Support both formats: dates array OR startDate/endDate (for backward compatibility)
+    check('dates', 'Dates array must be an array if provided')
+      .optional()
+      .isArray({ min: 1 })
+      .withMessage('Dates array must contain at least one date'),
+    check('startDate', 'Start date is required if dates array is not provided')
+      .optional()
+      .custom((value, { req }) => {
+        // If dates array is not provided, startDate and endDate are required
+        if (!req.body.dates && !value) {
+          throw new Error('Either dates array or startDate is required');
+        }
+        return true;
+      }),
+    check('endDate', 'End date is required if dates array is not provided')
+      .optional()
+      .custom((value, { req }) => {
+        // If dates array is not provided, startDate and endDate are required
+        if (!req.body.dates && !value) {
+          throw new Error('Either dates array or endDate is required');
+        }
+        return true;
+      }),
     check('reason', 'Reason is required').not().isEmpty().trim(),
   ],
   applyLeave

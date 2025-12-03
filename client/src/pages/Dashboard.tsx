@@ -14,6 +14,7 @@ const Dashboard: React.FC = () => {
     upcomingLeave: null as {
       startDate: string;
       endDate: string;
+      dates?: string[]; // Array of specific dates (for non-consecutive dates)
       leaveType: string;
     } | null,
   });
@@ -116,7 +117,31 @@ const Dashboard: React.FC = () => {
   };
 
   // Format leave date range
-  const formatLeaveDateRange = (startDate: string, endDate: string) => {
+  const formatLeaveDateRange = (startDate: string, endDate: string, dates?: string[]) => {
+    // If dates array exists and has multiple non-consecutive dates, show count
+    if (dates && dates.length > 0) {
+      const sortedDates = dates.sort();
+      const start = formatLeaveDate(sortedDates[0]);
+      const end = formatLeaveDate(sortedDates[sortedDates.length - 1]);
+      
+      // Check if dates are consecutive
+      const isConsecutive = dates.length === 1 || 
+        (new Date(sortedDates[sortedDates.length - 1]).getTime() - new Date(sortedDates[0]).getTime()) === 
+        ((dates.length - 1) * 24 * 60 * 60 * 1000);
+      
+      if (isConsecutive) {
+        // Consecutive dates - show range
+        if (start === end) {
+          return start;
+        }
+        return `${start} - ${end}`;
+      } else {
+        // Non-consecutive dates - show range with count
+        return `${start} - ${end} (${dates.length} days)`;
+      }
+    }
+    
+    // Fallback to start/end date range
     const start = formatLeaveDate(startDate);
     const end = formatLeaveDate(endDate);
     if (start === end) {
@@ -300,8 +325,13 @@ const Dashboard: React.FC = () => {
               <div className="flex flex-col gap-2">
                 <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                   <p className="text-lg font-bold text-green-800 dark:text-green-300 mb-1">
-                    {formatLeaveDateRange(stats.upcomingLeave.startDate, stats.upcomingLeave.endDate)}
+                    {formatLeaveDateRange(stats.upcomingLeave.startDate, stats.upcomingLeave.endDate, stats.upcomingLeave.dates)}
                   </p>
+                  {stats.upcomingLeave.dates && stats.upcomingLeave.dates.length > 0 && (
+                    <p className="text-xs text-green-600 dark:text-green-500 mb-1" title={stats.upcomingLeave.dates.sort().map(d => formatLeaveDate(d)).join(', ')}>
+                      Multiple Dates: {stats.upcomingLeave.dates.length} days
+                    </p>
+                  )}
                   <p className="text-sm text-green-700 dark:text-green-400">
                     {stats.upcomingLeave.leaveType} (Approved)
                   </p>

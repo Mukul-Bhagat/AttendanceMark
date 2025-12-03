@@ -138,7 +138,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       })
         .sort({ startDate: 1 }) // Sort by startDate ascending (nearest first)
         .limit(1)
-        .select('startDate endDate leaveType')
+        .select('startDate endDate dates leaveType')
         .lean();
 
       if (upcomingLeaveRequest) {
@@ -152,10 +152,22 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         
         // Validate dates before serializing
         if (!isNaN(startDateValue.getTime()) && !isNaN(endDateValue.getTime())) {
+          // Serialize dates array if it exists
+          let datesArray: string[] | undefined;
+          if (upcomingLeaveRequest.dates && Array.isArray(upcomingLeaveRequest.dates)) {
+            datesArray = upcomingLeaveRequest.dates
+              .map((date: any) => {
+                const d = date instanceof Date ? date : new Date(date);
+                return !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : null;
+              })
+              .filter((d: string | null): d is string => d !== null);
+          }
+
           upcomingLeave = {
             startDate: startDateValue.toISOString(),
             endDate: endDateValue.toISOString(),
             leaveType: upcomingLeaveRequest.leaveType,
+            ...(datesArray && datesArray.length > 0 && { dates: datesArray }),
           };
         }
       }

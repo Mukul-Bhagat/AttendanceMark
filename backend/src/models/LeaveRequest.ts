@@ -4,8 +4,9 @@ import { Schema, model, Document, Model, Types } from 'mongoose';
 export interface ILeaveRequest extends Document {
   userId: Types.ObjectId;
   leaveType: 'Personal' | 'Casual' | 'Sick' | 'Extra';
-  startDate: Date;
-  endDate: Date;
+  startDate: Date; // Derived: min date from dates array (for sorting/filtering)
+  endDate: Date; // Derived: max date from dates array (for sorting/filtering)
+  dates: Date[]; // Array of specific dates selected (supports non-consecutive dates)
   daysCount: number;
   reason: string;
   status: 'Pending' | 'Approved' | 'Rejected';
@@ -35,6 +36,11 @@ const LeaveRequestSchema: Schema = new Schema({
   endDate: {
     type: Date,
     required: true,
+  },
+  dates: {
+    type: [Date],
+    required: false, // Optional for backward compatibility
+    default: [],
   },
   daysCount: {
     type: Number,

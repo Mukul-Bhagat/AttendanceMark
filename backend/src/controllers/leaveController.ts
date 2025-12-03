@@ -6,6 +6,7 @@ import createUserModel from '../models/User';
 import createOrganizationSettingsModel from '../models/OrganizationSettings';
 
 // Helper function to calculate days between two dates (inclusive)
+// Returns the number of days including both start and end dates
 const calculateDaysCount = (startDate: Date, endDate: Date): number => {
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -14,12 +15,13 @@ const calculateDaysCount = (startDate: Date, endDate: Date): number => {
   start.setHours(0, 0, 0, 0);
   end.setHours(0, 0, 0, 0);
   
-  // Calculate difference in milliseconds
+  // Calculate difference in milliseconds, convert to days, and add 1 for inclusive count
   const diffTime = end.getTime() - start.getTime();
   const diffDays = diffTime / (1000 * 60 * 60 * 24);
   
   // Add 1 to include both start and end dates (inclusive)
-  return diffDays + 1;
+  // Using Math.ceil to ensure we round up for any partial days
+  return Math.ceil(diffDays) + 1;
 };
 
 // @route   POST /api/leaves
@@ -33,63 +35,95 @@ export const applyLeave = async (req: Request, res: Response) => {
 
   try {
     const { collectionPrefix, id: userId } = req.user!;
-    const { leaveType, startDate, endDate, reason } = req.body;
+    const { leaveType, dates, startDate, endDate, reason } = req.body;
 
-    // Validate and parse dates - HTML date inputs send YYYY-MM-DD format
+    // Support both new format (dates array) and legacy format (startDate/endDate)
+    let parsedDates: Date[] = [];
     let start: Date;
     let end: Date;
-    
-    try {
-      // HTML date inputs send dates in YYYY-MM-DD format
-      // Parse directly - JavaScript Date constructor handles YYYY-MM-DD correctly
-      start = new Date(startDate);
-      end = new Date(endDate);
-      
-      // Validate the dates are valid
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        console.error('Invalid date format received:', { startDate, endDate });
+    let daysCount: number;
+
+    if (dates && Array.isArray(dates) && dates.length > 0) {
+      // NEW FORMAT: Non-consecutive dates array
+      try {
+        // Parse and normalize all dates
+        parsedDates = dates
+          .map((dateStr: string) => {
+            const date = new Date(dateStr);
+            date.setHours(0, 0, 0, 0);
+            return date;
+          })
+          .filter((date: Date) => !isNaN(date.getTime()))
+          .sort((a: Date, b: Date) => a.getTime() - b.getTime()); // Sort chronologically
+
+        // Validate we have at least one valid date
+        if (parsedDates.length === 0) {
+          return res.status(400).json({ msg: 'Invalid dates array. Please provide at least one valid date.' });
+        }
+
+        // Derive startDate and endDate from the sorted array
+        start = parsedDates[0]; // First date (earliest)
+        end = parsedDates[parsedDates.length - 1]; // Last date (latest)
+        daysCount = parsedDates.length; // Count of specific days selected
+      } catch (parseErr: any) {
+        console.error('Date array parsing error:', parseErr);
         return res.status(400).json({ 
-          msg: 'Invalid date format. Please use YYYY-MM-DD format.',
-          received: { startDate, endDate }
+          msg: 'Invalid dates array format. Please provide an array of date strings.',
+          error: parseErr?.message 
         });
       }
-    } catch (parseErr: any) {
-      console.error('Date parsing error:', parseErr);
+    } else if (startDate && endDate) {
+      // LEGACY FORMAT: startDate and endDate (for backward compatibility)
+      try {
+        start = new Date(startDate);
+        end = new Date(endDate);
+        
+        // Validate the dates are valid
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+          console.error('Invalid date format received:', { startDate, endDate });
+          return res.status(400).json({ 
+            msg: 'Invalid date format. Please use YYYY-MM-DD format.',
+            received: { startDate, endDate }
+          });
+        }
+
+        // Normalize dates to start of day
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+
+        // Check if start date is before end date
+        if (start > end) {
+          return res.status(400).json({ msg: 'Start date must be before or equal to end date' });
+        }
+
+        // Calculate days count for consecutive dates
+        const diffTime = end.getTime() - start.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        daysCount = Math.ceil(diffDays) + 1;
+
+        // Create dates array from range (for backward compatibility)
+        parsedDates = [];
+        const current = new Date(start);
+        while (current <= end) {
+          parsedDates.push(new Date(current));
+          current.setDate(current.getDate() + 1);
+        }
+      } catch (parseErr: any) {
+        console.error('Date parsing error:', parseErr);
+        return res.status(400).json({ 
+          msg: 'Invalid date format. Please use YYYY-MM-DD format.',
+          error: parseErr?.message 
+        });
+      }
+    } else {
       return res.status(400).json({ 
-        msg: 'Invalid date format. Please use YYYY-MM-DD format.',
-        error: parseErr?.message 
+        msg: 'Either provide a dates array or both startDate and endDate.' 
       });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Check if dates are valid
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ msg: 'Invalid date format. Please use YYYY-MM-DD format.' });
-    }
-
-    // Normalize dates to start of day for accurate comparison
-    start.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
-
-    // Check if start date is before end date
-    if (start > end) {
-      return res.status(400).json({ msg: 'Start date must be before or equal to end date' });
-    }
-
-    // Check if start date is in the past (optional validation - you may want to allow past dates)
-    // Uncomment if you want to prevent past date leave applications
-    // if (start < today) {
-    //   return res.status(400).json({ msg: 'Cannot apply for leave with past dates' });
-    // }
-
-    // Calculate days count
-    const daysCount = calculateDaysCount(start, end);
-
     // Validate daysCount
     if (daysCount <= 0) {
-      return res.status(400).json({ msg: 'Invalid date range. End date must be after or equal to start date.' });
+      return res.status(400).json({ msg: 'Invalid date range. Please provide at least one valid date.' });
     }
 
     // Get the organization-specific LeaveRequest model
@@ -104,18 +138,21 @@ export const applyLeave = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Invalid user ID format' });
     }
 
-    // Create new leave request
+    // CRITICAL: Create EXACTLY ONE LeaveRequest document per application
+    // Save dates array, and derive startDate/endDate for sorting/filtering
     const leaveRequest = new LeaveRequestCollection({
       userId: userIdObjectId,
       leaveType,
-      startDate: start,
-      endDate: end,
-      daysCount,
+      dates: parsedDates, // Array of specific dates (supports non-consecutive)
+      startDate: start,   // Derived: min date (for sorting/filtering)
+      endDate: end,       // Derived: max date (for sorting/filtering)
+      daysCount,          // Count of specific days (parsedDates.length for non-consecutive)
       reason: reason.trim(),
       status: 'Pending',
       organizationPrefix: collectionPrefix,
     });
 
+    // Save the single document
     await leaveRequest.save();
 
     // Manually populate user details for response (can't use Mongoose populate with org-specific collections)
@@ -223,6 +260,8 @@ export const getOrganizationLeaves = async (req: Request, res: Response) => {
 
     // Get query parameters for filtering
     const { status, leaveType, userId } = req.query;
+    const { id: currentUserId } = req.user!;
+    const currentUserIdObjectId = new Types.ObjectId(currentUserId.toString());
 
     // Build filter object
     const filter: any = { organizationPrefix: collectionPrefix };
@@ -232,12 +271,27 @@ export const getOrganizationLeaves = async (req: Request, res: Response) => {
     if (leaveType) {
       filter.leaveType = leaveType;
     }
+
+    // Handle userId filter
     if (userId) {
-      // Convert userId to ObjectId if provided
+      // If userId is explicitly provided in query, use it
       try {
-        filter.userId = new Types.ObjectId(userId as string);
+        const requestedUserId = new Types.ObjectId(userId as string);
+        
+        // CRITICAL FIX: Prevent self-approval - if requesting own pending leaves, return empty
+        if (status === 'Pending' && requestedUserId.toString() === currentUserId.toString()) {
+          return res.json([]);
+        }
+        
+        filter.userId = requestedUserId;
       } catch (err) {
         return res.status(400).json({ msg: 'Invalid userId format' });
+      }
+    } else {
+      // CRITICAL FIX: When status is Pending (or not specified), exclude current user
+      // This prevents admins from seeing and approving their own leave requests
+      if (status === 'Pending' || !status) {
+        filter.userId = { $ne: currentUserIdObjectId };
       }
     }
 
