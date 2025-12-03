@@ -35,16 +35,43 @@ export const applyLeave = async (req: Request, res: Response) => {
     const { collectionPrefix, id: userId } = req.user!;
     const { leaveType, startDate, endDate, reason } = req.body;
 
-    // Validate dates
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Validate and parse dates - HTML date inputs send YYYY-MM-DD format
+    let start: Date;
+    let end: Date;
+    
+    try {
+      // HTML date inputs send dates in YYYY-MM-DD format
+      // Parse directly - JavaScript Date constructor handles YYYY-MM-DD correctly
+      start = new Date(startDate);
+      end = new Date(endDate);
+      
+      // Validate the dates are valid
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        console.error('Invalid date format received:', { startDate, endDate });
+        return res.status(400).json({ 
+          msg: 'Invalid date format. Please use YYYY-MM-DD format.',
+          received: { startDate, endDate }
+        });
+      }
+    } catch (parseErr: any) {
+      console.error('Date parsing error:', parseErr);
+      return res.status(400).json({ 
+        msg: 'Invalid date format. Please use YYYY-MM-DD format.',
+        error: parseErr?.message 
+      });
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     // Check if dates are valid
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ msg: 'Invalid date format' });
+      return res.status(400).json({ msg: 'Invalid date format. Please use YYYY-MM-DD format.' });
     }
+
+    // Normalize dates to start of day for accurate comparison
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
 
     // Check if start date is before end date
     if (start > end) {
@@ -60,33 +87,66 @@ export const applyLeave = async (req: Request, res: Response) => {
     // Calculate days count
     const daysCount = calculateDaysCount(start, end);
 
+    // Validate daysCount
+    if (daysCount <= 0) {
+      return res.status(400).json({ msg: 'Invalid date range. End date must be after or equal to start date.' });
+    }
+
     // Get the organization-specific LeaveRequest model
     const LeaveRequestCollection = createLeaveRequestModel(`${collectionPrefix}_leave_requests`);
 
+    // Convert userId to ObjectId
+    let userIdObjectId: Types.ObjectId;
+    try {
+      userIdObjectId = new Types.ObjectId(userId.toString());
+    } catch (err: any) {
+      console.error('Invalid userId format:', userId);
+      return res.status(400).json({ msg: 'Invalid user ID format' });
+    }
+
     // Create new leave request
     const leaveRequest = new LeaveRequestCollection({
-      userId,
+      userId: userIdObjectId,
       leaveType,
       startDate: start,
       endDate: end,
       daysCount,
-      reason,
+      reason: reason.trim(),
       status: 'Pending',
       organizationPrefix: collectionPrefix,
     });
 
     await leaveRequest.save();
 
-    // Populate user details for response
-    await leaveRequest.populate('userId', 'email profile.firstName profile.lastName');
+    // Manually populate user details for response (can't use Mongoose populate with org-specific collections)
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    const user = await UserCollection.findById(userIdObjectId)
+      .select('email profile.firstName profile.lastName')
+      .lean();
+
+    const leaveRequestObj = leaveRequest.toObject();
+    if (user) {
+      leaveRequestObj.userId = {
+        _id: user._id,
+        email: user.email,
+        profile: user.profile,
+      };
+    }
 
     res.status(201).json({
       msg: 'Leave request submitted successfully',
-      leaveRequest,
+      leaveRequest: leaveRequestObj,
     });
   } catch (err: any) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server error', error: err.message });
+    console.error('Error in applyLeave:', {
+      message: err?.message || 'Unknown error',
+      stack: err?.stack,
+      body: req.body,
+    });
+    res.status(500).json({ 
+      msg: 'Server error while applying for leave', 
+      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    });
   }
 };
 
@@ -100,15 +160,51 @@ export const getMyLeaves = async (req: Request, res: Response) => {
     // Get the organization-specific LeaveRequest model
     const LeaveRequestCollection = createLeaveRequestModel(`${collectionPrefix}_leave_requests`);
 
-    // Find all leave requests for this user, sorted by createdAt (newest first)
-    const leaveRequests = await LeaveRequestCollection.find({ userId })
-      .populate('approvedBy', 'email profile.firstName profile.lastName')
-      .sort({ createdAt: -1 });
+    // Convert userId to ObjectId for proper query
+    const userIdObjectId = new Types.ObjectId(userId.toString());
 
-    res.json(leaveRequests);
+    // Find all leave requests for this user, sorted by createdAt (newest first)
+    // Mongoose will return empty array if collection doesn't exist
+    const leaveRequests = await LeaveRequestCollection.find({ userId: userIdObjectId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Manually populate approvedBy user data
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    const populatedLeaves = await Promise.all(
+      (leaveRequests || []).map(async (leave: any) => {
+        if (leave.approvedBy) {
+          try {
+            const approver = await UserCollection.findById(leave.approvedBy)
+              .select('email profile.firstName profile.lastName')
+              .lean();
+            if (approver) {
+              leave.approvedBy = {
+                _id: approver._id,
+                email: approver.email,
+                profile: approver.profile,
+              };
+            }
+          } catch (err) {
+            console.error('Error populating approvedBy:', err);
+          }
+        }
+        return leave;
+      })
+    );
+
+    res.json(populatedLeaves);
   } catch (err: any) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server error', error: err.message });
+    console.error('Error in getMyLeaves:', {
+      message: err?.message || 'Unknown error',
+      stack: err?.stack,
+      collectionPrefix: req.user?.collectionPrefix,
+      userId: req.user?.id,
+    });
+    res.status(500).json({ 
+      msg: 'Server error while fetching leaves', 
+      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    });
   }
 };
 
@@ -137,22 +233,79 @@ export const getOrganizationLeaves = async (req: Request, res: Response) => {
       filter.leaveType = leaveType;
     }
     if (userId) {
-      filter.userId = userId;
+      // Convert userId to ObjectId if provided
+      try {
+        filter.userId = new Types.ObjectId(userId as string);
+      } catch (err) {
+        return res.status(400).json({ msg: 'Invalid userId format' });
+      }
     }
 
     // Get the organization-specific LeaveRequest model
     const LeaveRequestCollection = createLeaveRequestModel(`${collectionPrefix}_leave_requests`);
 
     // Find all leave requests matching the filter, sorted by createdAt (newest first)
+    // Mongoose will return empty array if collection doesn't exist
     const leaveRequests = await LeaveRequestCollection.find(filter)
-      .populate('userId', 'email profile.firstName profile.lastName')
-      .populate('approvedBy', 'email profile.firstName profile.lastName')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json(leaveRequests);
+    // Manually populate userId and approvedBy user data
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    const populatedLeaves = await Promise.all(
+      (leaveRequests || []).map(async (leave: any) => {
+        // Populate userId
+        if (leave.userId) {
+          try {
+            const user = await UserCollection.findById(leave.userId)
+              .select('email profile.firstName profile.lastName')
+              .lean();
+            if (user) {
+              leave.userId = {
+                _id: user._id,
+                email: user.email,
+                profile: user.profile,
+              };
+            }
+          } catch (err) {
+            console.error('Error populating userId:', err);
+          }
+        }
+
+        // Populate approvedBy
+        if (leave.approvedBy) {
+          try {
+            const approver = await UserCollection.findById(leave.approvedBy)
+              .select('email profile.firstName profile.lastName')
+              .lean();
+            if (approver) {
+              leave.approvedBy = {
+                _id: approver._id,
+                email: approver.email,
+                profile: approver.profile,
+              };
+            }
+          } catch (err) {
+            console.error('Error populating approvedBy:', err);
+          }
+        }
+
+        return leave;
+      })
+    );
+
+    res.json(populatedLeaves);
   } catch (err: any) {
-    console.error(err.message);
-    res.status(500).json({ msg: 'Server error', error: err.message });
+    console.error('Error in getOrganizationLeaves:', {
+      message: err?.message || 'Unknown error',
+      stack: err?.stack,
+      collectionPrefix: req.user?.collectionPrefix,
+      role: req.user?.role,
+    });
+    res.status(500).json({ 
+      msg: 'Server error while fetching organization leaves', 
+      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    });
   }
 };
 
@@ -215,9 +368,45 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
 
     await leaveRequest.save();
 
-    // Populate user details for response
-    await leaveRequest.populate('userId', 'email profile.firstName profile.lastName');
-    await leaveRequest.populate('approvedBy', 'email profile.firstName profile.lastName');
+    // Manually populate user details for response
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    const leaveRequestObj = leaveRequest.toObject();
+
+    // Populate userId
+    if (leaveRequestObj.userId) {
+      try {
+        const user = await UserCollection.findById(leaveRequestObj.userId)
+          .select('email profile.firstName profile.lastName')
+          .lean();
+        if (user) {
+          leaveRequestObj.userId = {
+            _id: user._id,
+            email: user.email,
+            profile: user.profile,
+          };
+        }
+      } catch (err) {
+        console.error('Error populating userId:', err);
+      }
+    }
+
+    // Populate approvedBy
+    if (leaveRequestObj.approvedBy) {
+      try {
+        const approver = await UserCollection.findById(leaveRequestObj.approvedBy)
+          .select('email profile.firstName profile.lastName')
+          .lean();
+        if (approver) {
+          leaveRequestObj.approvedBy = {
+            _id: approver._id,
+            email: approver.email,
+            profile: approver.profile,
+          };
+        }
+      } catch (err) {
+        console.error('Error populating approvedBy:', err);
+      }
+    }
 
     // TODO: When Approved, deduct from user's quota
     // This would require tracking leavesTaken in the User model
@@ -226,7 +415,7 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
 
     res.json({
       msg: `Leave request ${status.toLowerCase()} successfully`,
-      leaveRequest,
+      leaveRequest: leaveRequestObj,
     });
   } catch (err: any) {
     console.error(err.message);

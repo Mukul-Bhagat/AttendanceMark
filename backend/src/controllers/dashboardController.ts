@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
+import { Types } from 'mongoose';
 import createClassBatchModel from '../models/ClassBatch';
 import createSessionModel from '../models/Session';
 import createUserModel from '../models/User';
 import createAttendanceModel from '../models/Attendance';
+import createLeaveRequestModel from '../models/LeaveRequest';
 
 // @route   GET /api/dashboard/stats
 // @desc    Get dashboard statistics for the logged-in user's organization
@@ -119,11 +121,62 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       }
     }
 
+    // 5. Get Upcoming Leave (for current user)
+    let upcomingLeave = null;
+    try {
+      const LeaveRequestCollection = createLeaveRequestModel(`${collectionPrefix}_leave_requests`);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to start of day for comparison
+
+      // Convert userId to ObjectId for proper query
+      const userIdObjectId = new Types.ObjectId(userId.toString());
+
+      const upcomingLeaveRequest = await LeaveRequestCollection.findOne({
+        userId: userIdObjectId,
+        status: 'Approved',
+        endDate: { $gte: today }, // Future or ongoing leaves
+      })
+        .sort({ startDate: 1 }) // Sort by startDate ascending (nearest first)
+        .limit(1)
+        .select('startDate endDate leaveType')
+        .lean();
+
+      if (upcomingLeaveRequest) {
+        // Ensure dates are properly serialized
+        const startDateValue = upcomingLeaveRequest.startDate instanceof Date 
+          ? upcomingLeaveRequest.startDate 
+          : new Date(upcomingLeaveRequest.startDate);
+        const endDateValue = upcomingLeaveRequest.endDate instanceof Date 
+          ? upcomingLeaveRequest.endDate 
+          : new Date(upcomingLeaveRequest.endDate);
+        
+        // Validate dates before serializing
+        if (!isNaN(startDateValue.getTime()) && !isNaN(endDateValue.getTime())) {
+          upcomingLeave = {
+            startDate: startDateValue.toISOString(),
+            endDate: endDateValue.toISOString(),
+            leaveType: upcomingLeaveRequest.leaveType,
+          };
+        }
+      }
+    } catch (err: any) {
+      // If leave request collection doesn't exist or error occurs, just continue without it
+      console.error('Error fetching upcoming leave:', {
+        message: err?.message || 'Unknown error',
+        stack: err?.stack,
+        collectionPrefix,
+        userId: userId?.toString(),
+      });
+      // Set to null to ensure the response continues
+      upcomingLeave = null;
+    }
+
     res.json({
       orgName,
       activeClasses,
       totalUsers,
       attendancePercentage,
+      upcomingLeave,
     });
   } catch (err: any) {
     console.error('Error fetching dashboard stats:', err);

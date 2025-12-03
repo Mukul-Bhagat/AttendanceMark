@@ -11,6 +11,11 @@ const Dashboard: React.FC = () => {
     activeClasses: 0,
     totalUsers: 0,
     attendancePercentage: 0,
+    upcomingLeave: null as {
+      startDate: string;
+      endDate: string;
+      leaveType: string;
+    } | null,
   });
   const [upcomingSessions, setUpcomingSessions] = useState<ISession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,6 +31,7 @@ const Dashboard: React.FC = () => {
           activeClasses: data.activeClasses || 0,
           totalUsers: data.totalUsers || 0,
           attendancePercentage: data.attendancePercentage || 0,
+          upcomingLeave: data.upcomingLeave || null,
         });
 
         // Fetch sessions to get upcoming ones
@@ -91,6 +97,32 @@ const Dashboard: React.FC = () => {
     } catch {
       return dateString;
     }
+  };
+
+  // Format date for leave display (MMM dd format)
+  const formatLeaveDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString;
+      }
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Format leave date range
+  const formatLeaveDateRange = (startDate: string, endDate: string) => {
+    const start = formatLeaveDate(startDate);
+    const end = formatLeaveDate(endDate);
+    if (start === end) {
+      return start;
+    }
+    return `${start} - ${end}`;
   };
 
   if (isLoading) {
@@ -257,6 +289,44 @@ const Dashboard: React.FC = () => {
               <p className="text-base text-text-secondary-light dark:text-text-secondary-dark">{user.email}</p>
             </div>
           )}
+
+          {/* Upcoming Leave Card */}
+          <div className="flex flex-col rounded-xl bg-surface-light dark:bg-surface-dark p-6 border border-border-light dark:border-border-dark shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[#f04129] text-xl">flight_takeoff</span>
+              <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">Upcoming Leave</h2>
+            </div>
+            {stats.upcomingLeave ? (
+              <div className="flex flex-col gap-2">
+                <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                  <p className="text-lg font-bold text-green-800 dark:text-green-300 mb-1">
+                    {formatLeaveDateRange(stats.upcomingLeave.startDate, stats.upcomingLeave.endDate)}
+                  </p>
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    {stats.upcomingLeave.leaveType} (Approved)
+                  </p>
+                </div>
+                <Link
+                  to="/leaves"
+                  className="text-sm text-[#f04129] hover:underline font-medium mt-2"
+                >
+                  View all leaves →
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-text-secondary-light dark:text-text-secondary-dark">
+                  No upcoming leaves scheduled.
+                </p>
+                <Link
+                  to="/leaves"
+                  className="text-sm text-[#f04129] hover:underline font-medium"
+                >
+                  Apply Now →
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Account Status Card */}
           {user && (

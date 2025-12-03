@@ -20,8 +20,8 @@ export interface ILeaveRequest extends Document {
 const LeaveRequestSchema: Schema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
     required: true,
+    // Note: No ref - we manually populate user data due to organization-specific collections
   },
   leaveType: {
     type: String,
@@ -53,7 +53,7 @@ const LeaveRequestSchema: Schema = new Schema({
   },
   approvedBy: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    // Note: No ref - we manually populate user data due to organization-specific collections
   },
   rejectionReason: {
     type: String,
