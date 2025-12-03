@@ -24,6 +24,9 @@ export const getOrganizationSettings = async (req: Request, res: Response) => {
       settings = new OrganizationSettings({
         organizationPrefix: collectionPrefix,
         lateAttendanceLimit: 30, // Default: 30 minutes
+        yearlyQuotaPL: 12, // Default: 12 days
+        yearlyQuotaCL: 12, // Default: 12 days
+        yearlyQuotaSL: 10, // Default: 10 days
       });
       await settings.save();
     }
@@ -31,6 +34,9 @@ export const getOrganizationSettings = async (req: Request, res: Response) => {
     res.json({
       lateAttendanceLimit: settings.lateAttendanceLimit,
       isStrictAttendance: settings.isStrictAttendance || false,
+      yearlyQuotaPL: settings.yearlyQuotaPL || 12,
+      yearlyQuotaCL: settings.yearlyQuotaCL || 12,
+      yearlyQuotaSL: settings.yearlyQuotaSL || 10,
     });
   } catch (err: any) {
     console.error(err.message);
@@ -49,7 +55,7 @@ export const updateOrganizationSettings = async (req: Request, res: Response) =>
 
   try {
     const { collectionPrefix, role } = req.user!;
-    const { lateAttendanceLimit, isStrictAttendance } = req.body;
+    const { lateAttendanceLimit, isStrictAttendance, yearlyQuotaPL, yearlyQuotaCL, yearlyQuotaSL } = req.body;
 
     // Only SuperAdmin can update organization settings
     if (role !== 'SuperAdmin') {
@@ -70,6 +76,17 @@ export const updateOrganizationSettings = async (req: Request, res: Response) =>
       return res.status(400).json({ msg: 'isStrictAttendance must be a boolean' });
     }
 
+    // Validate leave quotas (optional)
+    if (yearlyQuotaPL !== undefined && (typeof yearlyQuotaPL !== 'number' || yearlyQuotaPL < 0)) {
+      return res.status(400).json({ msg: 'yearlyQuotaPL must be a non-negative number' });
+    }
+    if (yearlyQuotaCL !== undefined && (typeof yearlyQuotaCL !== 'number' || yearlyQuotaCL < 0)) {
+      return res.status(400).json({ msg: 'yearlyQuotaCL must be a non-negative number' });
+    }
+    if (yearlyQuotaSL !== undefined && (typeof yearlyQuotaSL !== 'number' || yearlyQuotaSL < 0)) {
+      return res.status(400).json({ msg: 'yearlyQuotaSL must be a non-negative number' });
+    }
+
     const OrganizationSettings = createOrganizationSettingsModel();
 
     // Find or create settings for this organization
@@ -81,12 +98,24 @@ export const updateOrganizationSettings = async (req: Request, res: Response) =>
         organizationPrefix: collectionPrefix,
         lateAttendanceLimit,
         isStrictAttendance: isStrictAttendance !== undefined ? isStrictAttendance : false,
+        yearlyQuotaPL: yearlyQuotaPL !== undefined ? yearlyQuotaPL : 12,
+        yearlyQuotaCL: yearlyQuotaCL !== undefined ? yearlyQuotaCL : 12,
+        yearlyQuotaSL: yearlyQuotaSL !== undefined ? yearlyQuotaSL : 10,
       });
     } else {
       // Update existing settings
       settings.lateAttendanceLimit = lateAttendanceLimit;
       if (isStrictAttendance !== undefined) {
         settings.isStrictAttendance = isStrictAttendance;
+      }
+      if (yearlyQuotaPL !== undefined) {
+        settings.yearlyQuotaPL = yearlyQuotaPL;
+      }
+      if (yearlyQuotaCL !== undefined) {
+        settings.yearlyQuotaCL = yearlyQuotaCL;
+      }
+      if (yearlyQuotaSL !== undefined) {
+        settings.yearlyQuotaSL = yearlyQuotaSL;
       }
     }
 
@@ -96,6 +125,9 @@ export const updateOrganizationSettings = async (req: Request, res: Response) =>
       msg: 'Organization settings updated successfully',
       lateAttendanceLimit: settings.lateAttendanceLimit,
       isStrictAttendance: settings.isStrictAttendance,
+      yearlyQuotaPL: settings.yearlyQuotaPL,
+      yearlyQuotaCL: settings.yearlyQuotaCL,
+      yearlyQuotaSL: settings.yearlyQuotaSL,
     });
   } catch (err: any) {
     console.error(err.message);
