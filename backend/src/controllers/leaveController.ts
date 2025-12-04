@@ -71,15 +71,36 @@ export const applyLeave = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Reason is required' });
     }
     
-    // Handle file upload - safe check
+    // Handle file upload - safe check with comprehensive validation
     let attachmentPath: string | undefined = undefined;
     if (req.file) {
       try {
+        // Validate file object has required properties
+        if (!req.file.filename) {
+          console.error('Uploaded file missing filename property');
+          throw new Error('Invalid file upload: missing filename');
+        }
+        
+        // Validate filename is a string and not empty
+        if (typeof req.file.filename !== 'string' || req.file.filename.trim() === '') {
+          console.error('Invalid filename:', req.file.filename);
+          throw new Error('Invalid file upload: empty or invalid filename');
+        }
+        
         // File path relative to /uploads
         attachmentPath = `/uploads/leaves/${req.file.filename}`;
         console.log('File uploaded successfully:', attachmentPath);
       } catch (fileErr: any) {
-        console.error('Error processing uploaded file:', fileErr);
+        console.error('Error processing uploaded file:', {
+          error: fileErr?.message || 'Unknown file error',
+          stack: fileErr?.stack,
+          file: req.file ? {
+            filename: req.file.filename,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size,
+          } : null,
+        });
         // Continue without attachment if file processing fails
         attachmentPath = undefined;
       }
@@ -200,25 +221,75 @@ export const applyLeave = async (req: Request, res: Response) => {
       organizationPrefix: collectionPrefix,
     };
     
-    // Only add attachment if it exists
-    if (attachmentPath) {
-      leaveRequestData.attachment = attachmentPath;
+    // Only add attachment if it exists and is a valid string
+    if (attachmentPath && typeof attachmentPath === 'string' && attachmentPath.trim() !== '') {
+      leaveRequestData.attachment = attachmentPath.trim();
+    }
+    
+    // Validate required fields before creating document
+    if (!leaveRequestData.userId || !leaveRequestData.leaveType || !leaveRequestData.reason) {
+      console.error('Missing required fields in leaveRequestData:', {
+        hasUserId: !!leaveRequestData.userId,
+        hasLeaveType: !!leaveRequestData.leaveType,
+        hasReason: !!leaveRequestData.reason,
+      });
+      return res.status(400).json({ msg: 'Missing required fields for leave request' });
+    }
+    
+    // Validate dates array
+    if (!Array.isArray(parsedDates) || parsedDates.length === 0) {
+      console.error('Invalid dates array:', parsedDates);
+      return res.status(400).json({ msg: 'Invalid dates array. Please provide at least one valid date.' });
     }
     
     console.log('Creating leave request with data:', {
-      ...leaveRequestData,
-      dates: parsedDates.length,
+      userId: leaveRequestData.userId.toString(),
+      leaveType: leaveRequestData.leaveType,
+      datesCount: parsedDates.length,
+      daysCount: leaveRequestData.daysCount,
+      hasAttachment: !!leaveRequestData.attachment,
       attachment: attachmentPath || 'none',
+      organizationPrefix: leaveRequestData.organizationPrefix,
     });
     
     const leaveRequest = new LeaveRequestCollection(leaveRequestData);
 
-    // Save the single document
+    // Save the single document with comprehensive error handling
     try {
+      // Validate the document before saving (Mongoose validation)
+      const validationError = leaveRequest.validateSync();
+      if (validationError) {
+        console.error('Mongoose validation error:', validationError);
+        const validationErrors: any = {};
+        if (validationError.errors) {
+          Object.keys(validationError.errors).forEach((key) => {
+            validationErrors[key] = validationError.errors[key].message;
+          });
+        }
+        return res.status(400).json({ 
+          msg: 'Validation error', 
+          errors: validationErrors,
+          details: validationError.message 
+        });
+      }
+      
       await leaveRequest.save();
       console.log('Leave request saved successfully:', leaveRequest._id);
     } catch (saveErr: any) {
-      console.error('Error saving leave request:', saveErr);
+      console.error('Error saving leave request:', {
+        message: saveErr?.message || 'Unknown save error',
+        name: saveErr?.name,
+        code: saveErr?.code,
+        errors: saveErr?.errors,
+        stack: saveErr?.stack,
+        leaveRequestData: {
+          userId: leaveRequestData.userId?.toString(),
+          leaveType: leaveRequestData.leaveType,
+          daysCount: leaveRequestData.daysCount,
+          hasAttachment: !!leaveRequestData.attachment,
+        },
+      });
+      
       // If save fails and we have a file, we might want to clean it up
       // But for now, just throw the error
       throw saveErr;
@@ -284,10 +355,29 @@ export const getMyLeaves = async (req: Request, res: Response) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    // Manually populate approvedBy user data
+    // Manually populate userId and approvedBy user data
     const UserCollection = createUserModel(`${collectionPrefix}_users`);
     const populatedLeaves = await Promise.all(
       (leaveRequests || []).map(async (leave: any) => {
+        // Populate userId (CRITICAL: This fixes PDF showing "N/A" for name/email)
+        if (leave.userId) {
+          try {
+            const user = await UserCollection.findById(leave.userId)
+              .select('email profile.firstName profile.lastName')
+              .lean();
+            if (user) {
+              leave.userId = {
+                _id: user._id,
+                email: user.email,
+                profile: user.profile,
+              };
+            }
+          } catch (err) {
+            console.error('Error populating userId:', err);
+          }
+        }
+
+        // Populate approvedBy
         if (leave.approvedBy) {
           try {
             const approver = await UserCollection.findById(leave.approvedBy)
