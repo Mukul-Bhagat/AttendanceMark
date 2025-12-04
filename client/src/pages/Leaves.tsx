@@ -747,62 +747,46 @@ const Leaves: React.FC = () => {
               pendingRequests.map((leave) => (
               <div
                 key={leave._id}
-                className="flex items-center justify-between p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors"
+                onClick={() => handleOpenDetails(leave)}
+                className="flex items-center justify-between p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-4 flex-1">
                   <div className="flex flex-col flex-1">
+                    {/* User Name & Email */}
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">
+                      <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                         {getUserName(leave)}
                       </p>
                       <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                        ({typeof leave.userId === 'object' ? leave.userId.email : 'N/A'})
+                        {typeof leave.userId === 'object' ? leave.userId.email : 'N/A'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    {/* Leave Type, Date Range, Duration */}
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                        {leave.leaveType}
+                      </p>
+                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">•</span>
                       <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                         {formatDateRange(leave.startDate, leave.endDate, leave.dates)}
                       </p>
-                      {leave.dates && leave.dates.length > 0 && (
-                        <span 
-                          className="text-xs text-text-secondary-light dark:text-text-secondary-dark cursor-help"
-                          title={formatDatesList(leave.dates)}
-                        >
-                          (Multiple Dates)
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
-                    </p>
-                    {leave.reason && (
-                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-                        {leave.reason}
+                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">•</span>
+                      <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
+                        {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
                       </p>
-                    )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
                     {leave.status}
                   </span>
-                  <button
-                    onClick={() => handleApprove(leave._id)}
-                    className="p-2 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-colors"
-                    title="Approve"
-                  >
-                    <span className="material-symbols-outlined text-lg">check</span>
-                  </button>
-                  <button
-                    onClick={() => handleRejectClick(leave._id)}
-                    className="p-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
-                    title="Reject"
-                  >
-                    <span className="material-symbols-outlined text-lg">close</span>
-                  </button>
+                  <span className="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark text-lg">
+                    chevron_right
+                  </span>
                 </div>
               </div>
-              ))
+            ))
             ) : (
               <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm py-4">
                 No pending leave requests.
@@ -1251,30 +1235,33 @@ const Leaves: React.FC = () => {
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Subject & Description */}
-              <div>
-                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
-                  Reason
-                </h3>
-                <p className="text-base text-text-primary-light dark:text-text-primary-dark">
-                  {selectedLeave.reason || 'No reason provided'}
-                </p>
+              {/* User Information */}
+              <div className="flex items-center gap-4 pb-4 border-b border-border-light dark:border-border-dark">
+                {/* Profile Picture Placeholder */}
+                <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-lg">
+                  {typeof selectedLeave.userId === 'object' && selectedLeave.userId.profile
+                    ? `${selectedLeave.userId.profile.firstName.charAt(0)}${selectedLeave.userId.profile.lastName.charAt(0)}`
+                    : 'U'}
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
+                    {getUserName(selectedLeave)}
+                  </p>
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                    {typeof selectedLeave.userId === 'object' ? selectedLeave.userId.email : 'N/A'}
+                  </p>
+                </div>
               </div>
 
-              {/* Date Range & Total Days */}
+              {/* Leave Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
-                    Date Range
+                    Leave Type
                   </h3>
                   <p className="text-base text-text-primary-light dark:text-text-primary-dark">
-                    {formatDateRange(selectedLeave.startDate, selectedLeave.endDate, selectedLeave.dates)}
+                    {selectedLeave.leaveType}
                   </p>
-                  {selectedLeave.dates && selectedLeave.dates.length > 0 && (
-                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-                      {formatDatesList(selectedLeave.dates)}
-                    </p>
-                  )}
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
@@ -1284,6 +1271,31 @@ const Leaves: React.FC = () => {
                     {selectedLeave.daysCount} {selectedLeave.daysCount === 1 ? 'day' : 'days'}
                   </p>
                 </div>
+              </div>
+
+              {/* Date Range */}
+              <div>
+                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                  Date Range
+                </h3>
+                <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                  {formatDateRange(selectedLeave.startDate, selectedLeave.endDate, selectedLeave.dates)}
+                </p>
+                {selectedLeave.dates && selectedLeave.dates.length > 0 && (
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                    {formatDatesList(selectedLeave.dates)}
+                  </p>
+                )}
+              </div>
+
+              {/* Reason */}
+              <div>
+                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                  Reason
+                </h3>
+                <p className="text-base text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap">
+                  {selectedLeave.reason || 'No reason provided'}
+                </p>
               </div>
 
               {/* Approval Information */}
