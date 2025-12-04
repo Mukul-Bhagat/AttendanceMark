@@ -40,22 +40,44 @@ router.post(
     check('startDate', 'Start date is required if dates array is not provided')
       .optional()
       .custom((value, { req }) => {
-        // If dates array is not provided, startDate and endDate are required
-        const dates = typeof req.body.dates === 'string' ? JSON.parse(req.body.dates) : req.body.dates;
-        if (!dates && !value) {
-          throw new Error('Either dates array or startDate is required');
+        try {
+          // If dates array is not provided, startDate and endDate are required
+          let dates = req.body.dates;
+          if (typeof dates === 'string') {
+            try {
+              dates = JSON.parse(dates);
+            } catch {
+              dates = null;
+            }
+          }
+          if (!dates && !value) {
+            throw new Error('Either dates array or startDate is required');
+          }
+          return true;
+        } catch (err: any) {
+          throw new Error(err.message || 'Invalid startDate validation');
         }
-        return true;
       }),
     check('endDate', 'End date is required if dates array is not provided')
       .optional()
       .custom((value, { req }) => {
-        // If dates array is not provided, startDate and endDate are required
-        const dates = typeof req.body.dates === 'string' ? JSON.parse(req.body.dates) : req.body.dates;
-        if (!dates && !value) {
-          throw new Error('Either dates array or endDate is required');
+        try {
+          // If dates array is not provided, startDate and endDate are required
+          let dates = req.body.dates;
+          if (typeof dates === 'string') {
+            try {
+              dates = JSON.parse(dates);
+            } catch {
+              dates = null;
+            }
+          }
+          if (!dates && !value) {
+            throw new Error('Either dates array or endDate is required');
+          }
+          return true;
+        } catch (err: any) {
+          throw new Error(err.message || 'Invalid endDate validation');
         }
-        return true;
       }),
     check('reason', 'Reason is required').not().isEmpty().trim(),
   ],

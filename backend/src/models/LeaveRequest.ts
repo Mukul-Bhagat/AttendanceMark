@@ -68,6 +68,7 @@ const LeaveRequestSchema: Schema = new Schema({
   },
   attachment: {
     type: String, // File path/URL for attached document
+    required: false, // Optional field
   },
   organizationPrefix: {
     type: String,

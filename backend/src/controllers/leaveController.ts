@@ -28,20 +28,31 @@ const calculateDaysCount = (startDate: Date, endDate: Date): number => {
 // @desc    Apply for leave
 // @access  Private (All authenticated users)
 export const applyLeave = async (req: Request, res: Response) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.error('Validation errors in applyLeave:', errors.array());
+      return res.status(400).json({ errors: errors.array() });
+    }
+
     const { collectionPrefix, id: userId } = req.user!;
+    
+    console.log('Apply Leave Request:', {
+      collectionPrefix,
+      userId,
+      body: req.body,
+      hasFile: !!req.file,
+      fileInfo: req.file ? { filename: req.file.filename, path: req.file.path } : null,
+    });
     
     // Handle FormData - dates might be a string that needs parsing
     let dates = req.body.dates;
     if (typeof dates === 'string') {
       try {
         dates = JSON.parse(dates);
-      } catch {
+        console.log('Parsed dates from string:', dates);
+      } catch (parseErr) {
+        console.error('Failed to parse dates string:', dates, parseErr);
         // If parsing fails, treat as empty
         dates = null;
       }
@@ -49,11 +60,29 @@ export const applyLeave = async (req: Request, res: Response) => {
     
     const { leaveType, startDate, endDate, reason } = req.body;
     
-    // Handle file upload
-    let attachmentPath: string | undefined;
+    // Validate required fields
+    if (!leaveType) {
+      console.error('Missing leaveType in request');
+      return res.status(400).json({ msg: 'Leave type is required' });
+    }
+    
+    if (!reason || !reason.trim()) {
+      console.error('Missing or empty reason in request');
+      return res.status(400).json({ msg: 'Reason is required' });
+    }
+    
+    // Handle file upload - safe check
+    let attachmentPath: string | undefined = undefined;
     if (req.file) {
-      // File path relative to /uploads
-      attachmentPath = `/uploads/leaves/${req.file.filename}`;
+      try {
+        // File path relative to /uploads
+        attachmentPath = `/uploads/leaves/${req.file.filename}`;
+        console.log('File uploaded successfully:', attachmentPath);
+      } catch (fileErr: any) {
+        console.error('Error processing uploaded file:', fileErr);
+        // Continue without attachment if file processing fails
+        attachmentPath = undefined;
+      }
     }
 
     // Support both new format (dates array) and legacy format (startDate/endDate)
@@ -159,7 +188,7 @@ export const applyLeave = async (req: Request, res: Response) => {
 
     // CRITICAL: Create EXACTLY ONE LeaveRequest document per application
     // Save dates array, and derive startDate/endDate for sorting/filtering
-    const leaveRequest = new LeaveRequestCollection({
+    const leaveRequestData: any = {
       userId: userIdObjectId,
       leaveType,
       dates: parsedDates, // Array of specific dates (supports non-consecutive)
@@ -168,12 +197,32 @@ export const applyLeave = async (req: Request, res: Response) => {
       daysCount,          // Count of specific days (parsedDates.length for non-consecutive)
       reason: reason.trim(),
       status: 'Pending',
-      attachment: attachmentPath, // File path if uploaded
       organizationPrefix: collectionPrefix,
+    };
+    
+    // Only add attachment if it exists
+    if (attachmentPath) {
+      leaveRequestData.attachment = attachmentPath;
+    }
+    
+    console.log('Creating leave request with data:', {
+      ...leaveRequestData,
+      dates: parsedDates.length,
+      attachment: attachmentPath || 'none',
     });
+    
+    const leaveRequest = new LeaveRequestCollection(leaveRequestData);
 
     // Save the single document
-    await leaveRequest.save();
+    try {
+      await leaveRequest.save();
+      console.log('Leave request saved successfully:', leaveRequest._id);
+    } catch (saveErr: any) {
+      console.error('Error saving leave request:', saveErr);
+      // If save fails and we have a file, we might want to clean it up
+      // But for now, just throw the error
+      throw saveErr;
+    }
 
     // Manually populate user details for response (can't use Mongoose populate with org-specific collections)
     const UserCollection = createUserModel(`${collectionPrefix}_users`);
@@ -195,11 +244,20 @@ export const applyLeave = async (req: Request, res: Response) => {
       leaveRequest: leaveRequestObj,
     });
   } catch (err: any) {
-    console.error('Error in applyLeave:', {
+    console.error('Apply Leave Error:', {
       message: err?.message || 'Unknown error',
       stack: err?.stack,
+      name: err?.name,
+      code: err?.code,
       body: req.body,
+      hasFile: !!req.file,
+      fileInfo: req.file ? { filename: req.file.filename, path: req.file.path } : null,
+      user: req.user ? { id: req.user.id, collectionPrefix: req.user.collectionPrefix } : null,
     });
+    
+    // If there was a file uploaded but save failed, we might want to clean it up
+    // For now, just log it
+    
     res.status(500).json({ 
       msg: 'Server error while applying for leave', 
       error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
