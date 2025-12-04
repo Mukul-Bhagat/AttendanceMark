@@ -33,6 +33,7 @@ interface ILeaveRequest {
     };
   };
   rejectionReason?: string;
+  attachment?: string; // File path/URL for attached document
   organizationPrefix: string;
   createdAt: string;
   updatedAt?: string;
@@ -375,32 +376,6 @@ const Leaves: React.FC = () => {
     return 'Unknown User';
   };
 
-  // Handle approve leave
-  const handleApprove = async (leaveId: string) => {
-    try {
-      await api.put(`/api/leaves/${leaveId}/status`, {
-        status: 'Approved',
-      });
-
-      // Show success toast
-      const leave = pendingRequests.find(l => l._id === leaveId);
-      const userName = leave ? getUserName(leave) : 'User';
-      setToast({ message: `Leave approved for ${userName}`, type: 'success' });
-
-      // Refresh data
-      const { data: leaves } = await api.get('/api/leaves/my-leaves');
-      setLeaveRequests(leaves || []);
-
-      if (isAdminOrStaff) {
-        const { data: orgLeaves } = await api.get('/api/leaves/organization?status=Pending');
-        setPendingRequests(orgLeaves || []);
-      }
-    } catch (err: any) {
-      console.error('Failed to approve leave:', err);
-      const errorMsg = err.response?.data?.msg || 'Failed to approve leave';
-      setToast({ message: errorMsg, type: 'error' });
-    }
-  };
 
   // Handle reject leave (open modal)
   const handleRejectClick = (leaveId: string) => {
@@ -472,8 +447,8 @@ const Leaves: React.FC = () => {
     let yPos = 20;
 
     // Header - Organization Name (Centered, Large, Bold)
-    // Try to get organization name from user context, then from leave, then fallback
-    const orgName = user?.organizationName || leave.organizationPrefix || 'Leave Application';
+    // Use organizationPrefix from leave, or fallback to 'Leave Application'
+    const orgName = leave.organizationPrefix || 'Leave Application';
     pdf.setFontSize(20);
     pdf.setFont('helvetica', 'bold');
     const orgNameWidth = pdf.getTextWidth(orgName);
