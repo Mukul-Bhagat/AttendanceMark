@@ -6,6 +6,7 @@ import {
   getMyLeaves,
   getOrganizationLeaves,
   updateLeaveStatus,
+  deleteLeave,
 } from '../controllers/leaveController';
 
 const router = Router();
@@ -75,6 +76,11 @@ router.put(
   ],
   updateLeaveStatus
 );
+
+// @route   DELETE /api/leaves/:id
+// @desc    Delete a leave request (only if status is Pending)
+// @access  Private (User can only delete their own leave requests)
+router.delete('/:id', protect, deleteLeave);
 
 export default router;
 

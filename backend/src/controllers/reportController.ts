@@ -83,7 +83,9 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
 
     sessions.forEach(session => {
       const sessionDate = new Date(session.startDate).toISOString().split('T')[0]; // YYYY-MM-DD
-      const assignedCount = session.assignedUsers?.length || 0;
+      // Exclude users on leave from assigned count
+      const assignedCount = (session.assignedUsers?.length || 0) - 
+        (session.assignedUsers?.filter((u: any) => u.attendanceStatus === 'On Leave').length || 0);
       const sessionAttendance = attendanceBySession.get(session._id.toString()) || [];
       const verifiedCount = sessionAttendance.filter((a: any) => a.locationVerified === true).length;
       const lateCount = sessionAttendance.filter((a: any) => a.isLate === true).length;
@@ -118,7 +120,9 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
     let totalAbsent = 0;
 
     sessions.forEach(session => {
-      const assignedCount = session.assignedUsers?.length || 0;
+      // Exclude users on leave from assigned count
+      const onLeaveCount = session.assignedUsers?.filter((u: any) => u.attendanceStatus === 'On Leave').length || 0;
+      const assignedCount = (session.assignedUsers?.length || 0) - onLeaveCount;
       const sessionAttendance = attendanceBySession.get(session._id.toString()) || [];
       const verifiedCount = sessionAttendance.filter((a: any) => a.locationVerified === true).length;
       const lateCount = sessionAttendance.filter((a: any) => a.isLate === true).length;
@@ -161,6 +165,11 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
         session.assignedUsers.forEach((assignedUser: any) => {
           const userId = assignedUser.userId?.toString() || '';
           if (!userId) return;
+
+          // Skip users on leave - they don't count towards attendance stats
+          if (assignedUser.attendanceStatus === 'On Leave') {
+            return;
+          }
 
           if (!userStatsMap.has(userId)) {
             userStatsMap.set(userId, {

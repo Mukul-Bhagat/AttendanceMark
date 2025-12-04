@@ -4,7 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
-import { X } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 interface ILeaveRequest {
   _id: string;
@@ -34,6 +35,7 @@ interface ILeaveRequest {
   rejectionReason?: string;
   organizationPrefix: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 interface IUser {
@@ -72,6 +74,10 @@ const Leaves: React.FC = () => {
   });
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessingRejection, setIsProcessingRejection] = useState(false);
+  
+  // Leave Details Modal state
+  const [selectedLeave, setSelectedLeave] = useState<ILeaveRequest | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   
   // Check if user is Admin/Staff
   const isAdminOrStaff = isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin;
@@ -433,6 +439,198 @@ const Leaves: React.FC = () => {
     }
   };
 
+  // Handle opening leave details modal
+  const handleOpenDetails = (leave: ILeaveRequest) => {
+    setSelectedLeave(leave);
+    setIsDetailsModalOpen(true);
+  };
+
+  // Handle closing leave details modal
+  const handleCloseDetails = () => {
+    setIsDetailsModalOpen(false);
+    setSelectedLeave(null);
+  };
+
+  // Generate PDF for leave application
+  const generateLeavePDF = (leave: ILeaveRequest) => {
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 15;
+    let yPos = 20;
+
+    // Header - Organization Name (Centered, Large, Bold)
+    const orgName = user?.organizationName || 'Leave Application';
+    pdf.setFontSize(20);
+    pdf.setFont('helvetica', 'bold');
+    const orgNameWidth = pdf.getTextWidth(orgName);
+    const orgNameX = (pageWidth - orgNameWidth) / 2;
+    pdf.text(orgName, orgNameX, yPos);
+    yPos += 10;
+
+    // Subtitle - "Leave Application Receipt" (Centered)
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'normal');
+    const subtitle = 'Leave Application Receipt';
+    const subtitleWidth = pdf.getTextWidth(subtitle);
+    const subtitleX = (pageWidth - subtitleWidth) / 2;
+    pdf.text(subtitle, subtitleX, yPos);
+    yPos += 15;
+
+    // Draw line
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, yPos, pageWidth - margin, yPos);
+    yPos += 10;
+
+    // Applicant Information
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Applicant Information', margin, yPos);
+    yPos += 8;
+
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    const applicantName = typeof leave.userId === 'object' 
+      ? `${leave.userId.profile.firstName} ${leave.userId.profile.lastName}`
+      : 'N/A';
+    const applicantEmail = typeof leave.userId === 'object' ? leave.userId.email : 'N/A';
+    pdf.text(`Name: ${applicantName}`, margin, yPos);
+    yPos += 6;
+    pdf.text(`Email: ${applicantEmail}`, margin, yPos);
+    yPos += 10;
+
+    // Leave Details
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Leave Details', margin, yPos);
+    yPos += 8;
+
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Leave Type: ${leave.leaveType}`, margin, yPos);
+    yPos += 6;
+    
+    const dateRange = formatDateRange(leave.startDate, leave.endDate, leave.dates);
+    pdf.text(`Date Range: ${dateRange}`, margin, yPos);
+    yPos += 6;
+    
+    pdf.text(`Duration: ${leave.daysCount} ${leave.daysCount === 1 ? 'day' : 'days'}`, margin, yPos);
+    yPos += 6;
+    
+    // Status Section
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Status', margin, yPos);
+    yPos += 8;
+    
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Status: ${leave.status}`, margin, yPos);
+    yPos += 6;
+    
+    // Approval Date and Approved By (only for Approved status)
+    if (leave.status === 'Approved') {
+      if (leave.updatedAt) {
+        const approvedDate = new Date(leave.updatedAt).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+        pdf.text(`Approved Date: ${approvedDate}`, margin, yPos);
+        yPos += 6;
+      }
+      
+      if (leave.approvedBy) {
+        const approverName = typeof leave.approvedBy === 'object'
+          ? `${leave.approvedBy.profile.firstName} ${leave.approvedBy.profile.lastName}`
+          : 'N/A';
+        pdf.text(`Approved By: ${approverName}`, margin, yPos);
+        yPos += 6;
+      }
+    }
+    yPos += 10;
+
+    // Reason
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Reason', margin, yPos);
+    yPos += 8;
+
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    const reasonLines = pdf.splitTextToSize(leave.reason || 'N/A', pageWidth - 2 * margin);
+    reasonLines.forEach((line: string) => {
+      pdf.text(line, margin, yPos);
+      yPos += 6;
+    });
+    yPos += 10;
+
+    // Rejection Information (only for Rejected status)
+    if (leave.status === 'Rejected' && leave.approvedBy) {
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Rejection Information', margin, yPos);
+      yPos += 8;
+
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      const rejectorName = typeof leave.approvedBy === 'object'
+        ? `${leave.approvedBy.profile.firstName} ${leave.approvedBy.profile.lastName}`
+        : 'N/A';
+      pdf.text(`Rejected By: ${rejectorName}`, margin, yPos);
+      yPos += 6;
+      
+      if (leave.updatedAt) {
+        const rejectedDate = new Date(leave.updatedAt).toLocaleDateString();
+        pdf.text(`Rejected On: ${rejectedDate}`, margin, yPos);
+        yPos += 6;
+      }
+      
+      if (leave.rejectionReason) {
+        pdf.text(`Reason: ${leave.rejectionReason}`, margin, yPos);
+        yPos += 6;
+      }
+      yPos += 10;
+    }
+
+    // Save PDF
+    const fileName = `Leave_Application_${leave._id}_${new Date().toISOString().split('T')[0]}.pdf`;
+    pdf.save(fileName);
+  };
+
+  // Handle delete leave request
+  const handleDeleteLeave = async (leaveId: string) => {
+    // Show confirmation dialog
+    const confirmed = window.confirm('Are you sure you want to delete this leave request? This action cannot be undone.');
+    
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await api.delete(`/api/leaves/${leaveId}`);
+
+      // Show success toast
+      setToast({ message: 'Leave request deleted successfully', type: 'success' });
+
+      // Remove the leave from the UI immediately
+      setLeaveRequests(prevLeaves => prevLeaves.filter(leave => leave._id !== leaveId));
+
+      // If Admin/Staff, also refresh pending requests (in case the deleted leave was pending)
+      if (isAdminOrStaff) {
+        try {
+          const { data: orgLeaves } = await api.get('/api/leaves/organization?status=Pending');
+          setPendingRequests(orgLeaves || []);
+        } catch (err) {
+          console.error('Failed to refresh pending requests:', err);
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to delete leave:', err);
+      const errorMsg = err.response?.data?.msg || 'Failed to delete leave request';
+      setToast({ message: errorMsg, type: 'error' });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -588,7 +786,8 @@ const Leaves: React.FC = () => {
             leaveRequests.map((leave) => (
               <div
                 key={leave._id}
-                className="flex items-center justify-between p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors"
+                onClick={() => handleOpenDetails(leave)}
+                className="flex items-center justify-between p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-4 flex-1">
                   <div className="flex flex-col">
@@ -608,17 +807,25 @@ const Leaves: React.FC = () => {
                     <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
                     </p>
-                    {leave.reason && (
-                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-                        {leave.reason}
-                      </p>
-                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
                     {leave.status}
                   </span>
+                  {/* Delete button - only show for Pending leaves */}
+                  {leave.status === 'Pending' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteLeave(leave._id);
+                      }}
+                      className="p-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
+                      title="Delete Leave Request"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))
@@ -937,6 +1144,172 @@ const Leaves: React.FC = () => {
                     Reject Leave
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leave Details Modal */}
+      {isDetailsModalOpen && selectedLeave && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          onClick={handleCloseDetails}
+        >
+          <div
+            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-border-light dark:border-border-dark">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+                    {selectedLeave.leaveType} Leave
+                  </h2>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedLeave.status)}`}>
+                    {selectedLeave.status}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {(selectedLeave.status === 'Approved' || selectedLeave.status === 'Pending') && (
+                    <button
+                      onClick={() => generateLeavePDF(selectedLeave)}
+                      className="p-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+                      title="Download PDF"
+                    >
+                      <span className="material-symbols-outlined">picture_as_pdf</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={handleCloseDetails}
+                    className="text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Subject & Description */}
+              <div>
+                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                  Reason
+                </h3>
+                <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                  {selectedLeave.reason || 'No reason provided'}
+                </p>
+              </div>
+
+              {/* Date Range & Total Days */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                    Date Range
+                  </h3>
+                  <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                    {formatDateRange(selectedLeave.startDate, selectedLeave.endDate, selectedLeave.dates)}
+                  </p>
+                  {selectedLeave.dates && selectedLeave.dates.length > 0 && (
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                      {formatDatesList(selectedLeave.dates)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                    Duration
+                  </h3>
+                  <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                    {selectedLeave.daysCount} {selectedLeave.daysCount === 1 ? 'day' : 'days'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Approval Information */}
+              <div>
+                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                  Approval Information
+                </h3>
+                {selectedLeave.status === 'Approved' && selectedLeave.approvedBy ? (
+                  <div className="space-y-2">
+                    <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                      <span className="font-medium">Approved By:</span>{' '}
+                      {typeof selectedLeave.approvedBy === 'object'
+                        ? `${selectedLeave.approvedBy.profile.firstName} ${selectedLeave.approvedBy.profile.lastName}`
+                        : 'N/A'}
+                    </p>
+                    {selectedLeave.updatedAt && (
+                      <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                        <span className="font-medium">Approved On:</span>{' '}
+                        {new Date(selectedLeave.updatedAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </p>
+                    )}
+                  </div>
+                ) : selectedLeave.status === 'Rejected' && selectedLeave.approvedBy ? (
+                  <div className="space-y-2">
+                    <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                      <span className="font-medium">Rejected By:</span>{' '}
+                      {typeof selectedLeave.approvedBy === 'object'
+                        ? `${selectedLeave.approvedBy.profile.firstName} ${selectedLeave.approvedBy.profile.lastName}`
+                        : 'N/A'}
+                    </p>
+                    {selectedLeave.updatedAt && (
+                      <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                        <span className="font-medium">Rejected On:</span>{' '}
+                        {new Date(selectedLeave.updatedAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </p>
+                    )}
+                    {selectedLeave.rejectionReason && (
+                      <div>
+                        <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
+                          Reason:
+                        </p>
+                        <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                          {selectedLeave.rejectionReason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                    Pending Approval
+                  </p>
+                )}
+              </div>
+
+              {/* Application Date */}
+              <div>
+                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                  Application Date
+                </h3>
+                <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                  {new Date(selectedLeave.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-border-light dark:border-border-dark">
+              <button
+                onClick={handleCloseDetails}
+                className="w-full px-6 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-transparent hover:bg-gray-100 dark:hover:bg-surface-dark rounded-lg transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

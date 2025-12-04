@@ -6,6 +6,7 @@ import createSessionModel from '../models/Session';
 import createAttendanceModel from '../models/Attendance';
 import createUserModel from '../models/User'; // We need this now
 import createOrganizationSettingsModel from '../models/OrganizationSettings';
+import createLeaveRequestModel from '../models/LeaveRequest';
 
 // @route   POST /api/attendance/scan
 export const markAttendance = async (req: Request, res: Response) => {
@@ -497,7 +498,78 @@ export const getSessionAttendance = async (req: Request, res: Response) => {
       };
     });
 
-    res.json(recordsWithUsers);
+    // Also include users who are marked as "On Leave" in session.assignedUsers
+    // These users won't have Attendance records, but should be shown in the list
+    const LeaveRequestCollection = createLeaveRequestModel(`${collectionPrefix}_leave_requests`);
+    const onLeaveUsers: any[] = [];
+    if (session.assignedUsers && Array.isArray(session.assignedUsers)) {
+      for (const assignedUser of session.assignedUsers) {
+        if (assignedUser.attendanceStatus === 'On Leave') {
+          // Fetch user data for this user
+          try {
+            const user = await UserCollection.findById(assignedUser.userId)
+              .select('email profile')
+              .lean();
+            
+            if (user) {
+              // Find the approved leave request for this user and session date
+              const sessionDate = new Date(session.startDate);
+              sessionDate.setHours(0, 0, 0, 0);
+              
+              const approvedLeave = await LeaveRequestCollection.findOne({
+                userId: new mongoose.Types.ObjectId(assignedUser.userId),
+                status: 'Approved',
+                $or: [
+                  // Check if session date is in the dates array (for non-consecutive dates)
+                  { dates: { $elemMatch: { $eq: sessionDate } } },
+                  // OR check if session date falls within startDate and endDate range
+                  {
+                    startDate: { $lte: sessionDate },
+                    endDate: { $gte: sessionDate },
+                  },
+                ],
+              }).lean();
+              
+              // Fetch approver information if available
+              let approver = null;
+              if (approvedLeave && approvedLeave.approvedBy) {
+                try {
+                  const approverData = await UserCollection.findById(approvedLeave.approvedBy)
+                    .select('email profile')
+                    .lean();
+                  if (approverData) {
+                    approver = {
+                      _id: approverData._id,
+                      email: approverData.email,
+                      profile: approverData.profile,
+                    };
+                  }
+                } catch (err) {
+                  console.error(`Error fetching approver ${approvedLeave.approvedBy}:`, err);
+                }
+              }
+              
+              onLeaveUsers.push({
+                _id: `on-leave-${assignedUser.userId}`, // Unique ID for on-leave records
+                checkInTime: session.startDate, // Use session start date as placeholder
+                locationVerified: false,
+                isLate: false,
+                attendanceStatus: 'On Leave', // Mark as On Leave
+                userId: user,
+                approvedBy: approver, // Include approver information
+              });
+            }
+          } catch (err) {
+            console.error(`Error fetching user ${assignedUser.userId} for On Leave status:`, err);
+          }
+        }
+      }
+    }
+
+    // Combine attendance records with on-leave users
+    const allRecords = [...recordsWithUsers, ...onLeaveUsers];
+
+    res.json(allRecords);
   } catch (err: any) {
     console.error(err.message);
     if (err.kind === 'ObjectId') {

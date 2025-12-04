@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Organization from '../models/Organization';
 import createSessionModel from '../models/Session';
 import createAttendanceModel from '../models/Attendance';
+import createLeaveRequestModel from '../models/LeaveRequest';
 
 /**
  * Process end-of-session attendance marking
@@ -31,6 +32,7 @@ const processEndOfSessionAttendance = async () => {
         // Get organization-specific models
         const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
         const AttendanceCollection = createAttendanceModel(`${collectionPrefix}_attendance`);
+        const LeaveRequestCollection = createLeaveRequestModel(`${collectionPrefix}_leave_requests`);
 
         // Get current time in IST (UTC+5:30)
         const nowUTC = new Date();
@@ -152,30 +154,54 @@ const processEndOfSessionAttendance = async () => {
             });
             
             if (!existingAttendance) {
-              // User hasn't scanned - mark as Absent
-              // Update the assignedUsers array
-              session.assignedUsers[i].attendanceStatus = 'Absent';
-              markedAbsentCount++;
+              // User hasn't scanned - check if they have an approved leave for this date
+              const sessionDate = new Date(session.startDate);
+              sessionDate.setHours(0, 0, 0, 0);
               
-              // Optionally, create an Attendance record to mark them as absent
-              // This helps with reporting and analytics
-              try {
-                const absentAttendance = new AttendanceCollection({
-                  userId: new mongoose.Types.ObjectId(assignedUser.userId),
-                  sessionId: session._id,
-                  checkInTime: sessionEndDateTime, // Use session end time as check-in time
-                  locationVerified: false,
-                  isLate: false,
-                  userLocation: {
-                    latitude: 0,
-                    longitude: 0,
+              // Check if user has an approved leave that covers this session date
+              const approvedLeave = await LeaveRequestCollection.findOne({
+                userId: new mongoose.Types.ObjectId(assignedUser.userId),
+                status: 'Approved',
+                $or: [
+                  // Check if session date is in the dates array (for non-consecutive dates)
+                  { dates: { $elemMatch: { $eq: sessionDate } } },
+                  // OR check if session date falls within startDate and endDate range
+                  {
+                    startDate: { $lte: sessionDate },
+                    endDate: { $gte: sessionDate },
                   },
-                  deviceId: 'AUTO_MARKED_ABSENT', // Special device ID to indicate auto-marked
-                });
-                await absentAttendance.save();
-              } catch (err) {
-                console.error(`[Cron] Error creating absent attendance record for user ${assignedUser.userId} in session ${session._id}:`, err);
-                // Continue processing even if attendance record creation fails
+                ],
+              });
+              
+              if (approvedLeave) {
+                // User is on approved leave - mark as On Leave
+                session.assignedUsers[i].attendanceStatus = 'On Leave';
+                console.log(`[Cron] User ${assignedUser.userId} marked as On Leave for session ${session._id} (approved leave found)`);
+              } else {
+                // User hasn't scanned and is not on leave - mark as Absent
+                session.assignedUsers[i].attendanceStatus = 'Absent';
+                markedAbsentCount++;
+                
+                // Optionally, create an Attendance record to mark them as absent
+                // This helps with reporting and analytics
+                try {
+                  const absentAttendance = new AttendanceCollection({
+                    userId: new mongoose.Types.ObjectId(assignedUser.userId),
+                    sessionId: session._id,
+                    checkInTime: sessionEndDateTime, // Use session end time as check-in time
+                    locationVerified: false,
+                    isLate: false,
+                    userLocation: {
+                      latitude: 0,
+                      longitude: 0,
+                    },
+                    deviceId: 'AUTO_MARKED_ABSENT', // Special device ID to indicate auto-marked
+                  });
+                  await absentAttendance.save();
+                } catch (err) {
+                  console.error(`[Cron] Error creating absent attendance record for user ${assignedUser.userId} in session ${session._id}:`, err);
+                  // Continue processing even if attendance record creation fails
+                }
               }
             } else {
               // User has scanned - mark as Present

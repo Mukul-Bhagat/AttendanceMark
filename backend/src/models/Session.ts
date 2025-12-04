@@ -33,7 +33,7 @@ export interface ISession extends Document {
     lastName: string;
     mode: 'PHYSICAL' | 'REMOTE'; // Specific mode for this user (Physical or Remote)
     isLate?: boolean; // Whether this user marked attendance late
-    attendanceStatus?: 'Present' | 'Absent'; // Attendance status: Present (scanned) or Absent (auto-marked)
+    attendanceStatus?: 'Present' | 'Absent' | 'On Leave'; // Attendance status: Present (scanned), Absent (auto-marked), or On Leave (approved leave)
   }>;
   weeklyDays?: string[]; // For Weekly frequency: ['Monday', 'Tuesday', etc.]
   sessionAdmin?: string; // User ID of the SessionAdmin assigned to this session
@@ -140,7 +140,7 @@ const SessionSchema: Schema = new Schema({
     },
     attendanceStatus: {
       type: String,
-      enum: ['Present', 'Absent'],
+      enum: ['Present', 'Absent', 'On Leave'],
     },
   }],
   weeklyDays: [{

@@ -29,6 +29,7 @@ interface SessionAttendanceRecord {
   locationVerified: boolean;
   isLate: boolean;
   lateByMinutes?: number;
+  attendanceStatus?: 'On Leave'; // Optional field for On Leave status
   userId: {
     _id: string;
     email: string;
@@ -37,6 +38,14 @@ interface SessionAttendanceRecord {
       lastName: string;
     };
   } | null;
+  approvedBy?: {
+    _id: string;
+    email: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  } | null; // Approver information for On Leave status
 }
 
 const AttendanceReport: React.FC = () => {
@@ -234,16 +243,24 @@ const AttendanceReport: React.FC = () => {
       }
 
       // CSV Headers
-      const headers = ['User Name', 'Email', 'Check-in Time', 'Status'];
+      const headers = ['User Name', 'Email', 'Check-in Time', 'Status', 'Approved By'];
 
       // CSV Rows
       const rows = records.map(record => {
         let status = 'Not Verified';
-        if (record.isLate) {
+        if (record.attendanceStatus === 'On Leave') {
+          status = 'On Leave';
+        } else if (record.isLate) {
           status = 'Late';
         } else if (record.locationVerified) {
           status = 'Verified';
         }
+        
+        // Get approver name for On Leave status
+        const approverName = record.attendanceStatus === 'On Leave' && record.approvedBy
+          ? `${record.approvedBy.profile.firstName} ${record.approvedBy.profile.lastName}`
+          : '';
+        
         return [
           record.userId
             ? `${record.userId.profile.firstName} ${record.userId.profile.lastName}`
@@ -251,6 +268,7 @@ const AttendanceReport: React.FC = () => {
           record.userId ? record.userId.email : 'N/A',
           formatDateTime(record.checkInTime),
           status,
+          approverName,
         ];
       });
 
@@ -307,18 +325,19 @@ const AttendanceReport: React.FC = () => {
       yPos += 10;
 
       // Summary
-      const verifiedCount = records.filter(r => r.locationVerified && !r.isLate).length;
-      const lateCount = records.filter(r => r.isLate).length;
-      const notVerifiedCount = records.filter(r => !r.locationVerified).length;
+      const onLeaveCount = records.filter(r => r.attendanceStatus === 'On Leave').length;
+      const verifiedCount = records.filter(r => r.locationVerified && !r.isLate && r.attendanceStatus !== 'On Leave').length;
+      const lateCount = records.filter(r => r.isLate && r.attendanceStatus !== 'On Leave').length;
+      const notVerifiedCount = records.filter(r => !r.locationVerified && r.attendanceStatus !== 'On Leave').length;
       pdf.setFontSize(10);
-      pdf.text(`Total Records: ${records.length} | Verified: ${verifiedCount} | Late: ${lateCount} | Not Verified: ${notVerifiedCount}`, margin, yPos);
+      pdf.text(`Total Records: ${records.length} | Verified: ${verifiedCount} | Late: ${lateCount} | Not Verified: ${notVerifiedCount} | On Leave: ${onLeaveCount}`, margin, yPos);
       yPos += 15;
 
       // Table Headers
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'bold');
-      const colWidths = [60, 60, 50, 30];
-      const headers = ['User Name', 'Email', 'Check-in Time', 'Status'];
+      const colWidths = [50, 50, 45, 30, 40];
+      const headers = ['User Name', 'Email', 'Check-in Time', 'Status', 'Approved By'];
       let xPos = margin;
 
       headers.forEach((header, index) => {
@@ -343,13 +362,20 @@ const AttendanceReport: React.FC = () => {
         const email = record.userId ? record.userId.email : 'N/A';
         const checkInTime = formatDateTime(record.checkInTime);
         let status = 'Not Verified';
-        if (record.isLate) {
+        if (record.attendanceStatus === 'On Leave') {
+          status = 'On Leave';
+        } else if (record.isLate) {
           status = 'Late';
         } else if (record.locationVerified) {
           status = 'Verified';
         }
+        
+        // Get approver name for On Leave status
+        const approverName = record.attendanceStatus === 'On Leave' && record.approvedBy
+          ? `${record.approvedBy.profile.firstName} ${record.approvedBy.profile.lastName}`
+          : '';
 
-        const rowData = [userName, email, checkInTime, status];
+        const rowData = [userName, email, checkInTime, status, approverName];
 
         // Split all cells and find max lines
         const splitCells = rowData.map((cell, cellIndex) =>
@@ -918,6 +944,7 @@ const AttendanceReport: React.FC = () => {
                                               <th className="px-4 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400">Email</th>
                                               <th className="px-4 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400">Check-in Time</th>
                                               <th className="px-4 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400">Status</th>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-400">Approved By</th>
                                             </tr>
                                           </thead>
                                           <tbody className="divide-y divide-[#e6e2db] dark:divide-slate-700">
@@ -935,7 +962,11 @@ const AttendanceReport: React.FC = () => {
                                                   {formatDateTime(record.checkInTime)}
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                  {record.isLate ? (
+                                                  {record.attendanceStatus === 'On Leave' ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                                      🏖️ On Leave
+                                                    </span>
+                                                  ) : record.isLate ? (
                                                     <span 
                                                       className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300"
                                                       title={record.lateByMinutes 
@@ -953,6 +984,11 @@ const AttendanceReport: React.FC = () => {
                                                       Not Verified
                                                     </span>
                                                   )}
+                                                </td>
+                                                <td className="px-4 py-2 text-[#8a7b60] dark:text-gray-400">
+                                                  {record.attendanceStatus === 'On Leave' && record.approvedBy
+                                                    ? `${record.approvedBy.profile.firstName} ${record.approvedBy.profile.lastName}`
+                                                    : '-'}
                                                 </td>
                                               </tr>
                                             ))}

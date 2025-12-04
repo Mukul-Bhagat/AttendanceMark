@@ -477,3 +477,58 @@ export const updateLeaveStatus = async (req: Request, res: Response) => {
   }
 };
 
+// @route   DELETE /api/leaves/:id
+// @desc    Delete a leave request (only if status is Pending)
+// @access  Private (User can only delete their own leave requests)
+export const deleteLeave = async (req: Request, res: Response) => {
+  try {
+    const { collectionPrefix, id: userId } = req.user!;
+    const { id } = req.params;
+
+    // Get the organization-specific LeaveRequest model
+    const LeaveRequestCollection = createLeaveRequestModel(`${collectionPrefix}_leave_requests`);
+
+    // Find the leave request
+    const leaveRequest = await LeaveRequestCollection.findById(id);
+
+    if (!leaveRequest) {
+      return res.status(404).json({ msg: 'Leave request not found' });
+    }
+
+    // Security Check: Ensure the leave request belongs to the current user
+    const userIdObjectId = new Types.ObjectId(userId.toString());
+    if (leaveRequest.userId.toString() !== userIdObjectId.toString()) {
+      return res.status(403).json({ msg: 'Not authorized to delete this leave request' });
+    }
+
+    // Status Check: Only allow deletion if status is 'Pending'
+    if (leaveRequest.status !== 'Pending') {
+      return res.status(400).json({ 
+        msg: `Cannot delete ${leaveRequest.status.toLowerCase()} leave request. Only pending requests can be deleted.` 
+      });
+    }
+
+    // Check if leave request belongs to the same organization
+    if (leaveRequest.organizationPrefix !== collectionPrefix) {
+      return res.status(403).json({ msg: 'Not authorized to delete this leave request' });
+    }
+
+    // Delete the leave request
+    await leaveRequest.deleteOne();
+
+    res.json({ msg: 'Leave request deleted successfully' });
+  } catch (err: any) {
+    console.error('Error in deleteLeave:', {
+      message: err?.message || 'Unknown error',
+      stack: err?.stack,
+      collectionPrefix: req.user?.collectionPrefix,
+      userId: req.user?.id,
+      leaveId: req.params.id,
+    });
+    res.status(500).json({ 
+      msg: 'Server error while deleting leave request', 
+      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+    });
+  }
+};
+
