@@ -1192,7 +1192,7 @@ const Leaves: React.FC = () => {
                   {(selectedLeave.status === 'Approved' || selectedLeave.status === 'Pending') && (
                     <button
                       onClick={() => generateLeavePDF(selectedLeave)}
-                      className="p-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+                      className="p-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
                       title="Download PDF"
                     >
                       <span className="material-symbols-outlined">picture_as_pdf</span>
@@ -1343,9 +1343,9 @@ const Leaves: React.FC = () => {
                     href={`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}${selectedLeave.attachment}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
-                    <span className="material-symbols-outlined">attach_file</span>
+                    <span className="material-symbols-outlined text-red-600">attach_file</span>
                     View Attached Document
                   </a>
                 </div>
@@ -1373,7 +1373,7 @@ const Leaves: React.FC = () => {
                selectedLeave.status === 'Pending' && 
                typeof selectedLeave.userId === 'object' && 
                selectedLeave.userId._id !== user?.id ? (
-                <div className="flex flex-col gap-3">
+                <div className="flex justify-end gap-4 mt-6">
                   <button
                     onClick={async () => {
                       try {
@@ -1396,7 +1396,7 @@ const Leaves: React.FC = () => {
                         setToast({ message: errorMsg, type: 'error' });
                       }
                     }}
-                    className="w-full px-6 py-3 text-sm font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="px-6 py-3 text-sm font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     <span className="material-symbols-outlined">check</span>
                     Approve Leave
@@ -1406,7 +1406,7 @@ const Leaves: React.FC = () => {
                       handleCloseDetails();
                       handleRejectClick(selectedLeave._id);
                     }}
-                    className="w-full px-6 py-3 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="px-6 py-3 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     <span className="material-symbols-outlined">close</span>
                     Reject Leave
