@@ -90,6 +90,7 @@ const Leaves: React.FC = () => {
     sendTo: '',
   });
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -238,10 +239,21 @@ const Leaves: React.FC = () => {
           return d.toISOString().split('T')[0];
         });
 
-      await api.post('/api/leaves', {
-        leaveType: formData.leaveType,
-        dates: datesArray, // Send dates array (backend will derive startDate/endDate)
-        reason: formData.reason,
+      // Create FormData for file upload
+      const formDataToSend = new FormData();
+      formDataToSend.append('leaveType', formData.leaveType);
+      formDataToSend.append('dates', JSON.stringify(datesArray));
+      formDataToSend.append('reason', formData.reason);
+      
+      // Append file if selected
+      if (selectedFile) {
+        formDataToSend.append('attachment', selectedFile);
+      }
+
+      await api.post('/api/leaves', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       // Refresh leave requests
@@ -269,6 +281,7 @@ const Leaves: React.FC = () => {
         sendTo: staffUsers.length > 0 ? staffUsers[0]._id : '',
       });
       setSelectedDates([]);
+      setSelectedFile(null);
       setFormErrors({});
       setIsModalOpen(false);
     } catch (err: any) {
@@ -459,21 +472,13 @@ const Leaves: React.FC = () => {
     let yPos = 20;
 
     // Header - Organization Name (Centered, Large, Bold)
-    const orgName = user?.organizationName || 'Leave Application';
+    // Try to get organization name from user context, then from leave, then fallback
+    const orgName = user?.organizationName || leave.organizationPrefix || 'Leave Application';
     pdf.setFontSize(20);
     pdf.setFont('helvetica', 'bold');
     const orgNameWidth = pdf.getTextWidth(orgName);
     const orgNameX = (pageWidth - orgNameWidth) / 2;
     pdf.text(orgName, orgNameX, yPos);
-    yPos += 10;
-
-    // Subtitle - "Leave Application Receipt" (Centered)
-    pdf.setFontSize(14);
-    pdf.setFont('helvetica', 'normal');
-    const subtitle = 'Leave Application Receipt';
-    const subtitleWidth = pdf.getTextWidth(subtitle);
-    const subtitleX = (pageWidth - subtitleWidth) / 2;
-    pdf.text(subtitle, subtitleX, yPos);
     yPos += 15;
 
     // Draw line
@@ -489,10 +494,39 @@ const Leaves: React.FC = () => {
 
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    const applicantName = typeof leave.userId === 'object' 
-      ? `${leave.userId.profile.firstName} ${leave.userId.profile.lastName}`
-      : 'N/A';
-    const applicantEmail = typeof leave.userId === 'object' ? leave.userId.email : 'N/A';
+    
+    // Get applicant name - handle multiple cases
+    let applicantName: string;
+    if (typeof leave.userId === 'object' && leave.userId.profile) {
+      // userId is populated object
+      applicantName = `${leave.userId.profile.firstName} ${leave.userId.profile.lastName}`;
+    } else if (typeof leave.userId === 'string') {
+      // userId is just an ID string - check if it matches current user
+      if (user && leave.userId === user.id) {
+        // User is viewing their own leave - use AuthContext user data
+        applicantName = `${user.profile.firstName} ${user.profile.lastName}`;
+      } else {
+        // Viewing someone else's leave - show ID
+        applicantName = `Employee ID: ${leave.userId}`;
+      }
+    } else {
+      // Fallback
+      applicantName = user ? `${user.profile.firstName} ${user.profile.lastName}` : 'N/A';
+    }
+    
+    // Get applicant email - handle multiple cases
+    let applicantEmail: string;
+    if (typeof leave.userId === 'object' && leave.userId.email) {
+      // userId is populated object
+      applicantEmail = leave.userId.email;
+    } else if (typeof leave.userId === 'string' && user && leave.userId === user.id) {
+      // userId is ID string matching current user - use AuthContext
+      applicantEmail = user.email;
+    } else {
+      // Fallback
+      applicantEmail = user?.email || 'N/A';
+    }
+    
     pdf.text(`Name: ${applicantName}`, margin, yPos);
     yPos += 6;
     pdf.text(`Email: ${applicantEmail}`, margin, yPos);
@@ -1012,6 +1046,30 @@ const Leaves: React.FC = () => {
                   )}
                 </div>
 
+                {/* File Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                    Attach Document (Optional)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.png,.jpeg"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setSelectedFile(file);
+                    }}
+                    className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#f04129] file:text-white hover:file:bg-[#d63a25] file:cursor-pointer"
+                  />
+                  {selectedFile && (
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-2">
+                      Selected: {selectedFile.name}
+                    </p>
+                  )}
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                    Accepted formats: PDF, JPG, PNG, JPEG (Max 10MB)
+                  </p>
+                </div>
+
                 {/* Send To (Optional - for future use) */}
                 {staffUsers.length > 0 && (
                   <div>
@@ -1288,6 +1346,24 @@ const Leaves: React.FC = () => {
                 )}
               </div>
 
+              {/* Attachment */}
+              {selectedLeave.attachment && (
+                <div>
+                  <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                    Attached Document
+                  </h3>
+                  <a
+                    href={`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}${selectedLeave.attachment}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+                  >
+                    <span className="material-symbols-outlined">attach_file</span>
+                    View Attached Document
+                  </a>
+                </div>
+              )}
+
               {/* Application Date */}
               <div>
                 <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
@@ -1305,12 +1381,58 @@ const Leaves: React.FC = () => {
 
             {/* Footer */}
             <div className="p-6 border-t border-border-light dark:border-border-dark">
-              <button
-                onClick={handleCloseDetails}
-                className="w-full px-6 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-transparent hover:bg-gray-100 dark:hover:bg-surface-dark rounded-lg transition-colors"
-              >
-                Close
-              </button>
+              {/* Show Approve/Reject buttons for Admins/Staff when viewing pending leaves that are not their own */}
+              {isAdminOrStaff && 
+               selectedLeave.status === 'Pending' && 
+               typeof selectedLeave.userId === 'object' && 
+               selectedLeave.userId._id !== user?.id ? (
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.put(`/api/leaves/${selectedLeave._id}/status`, {
+                          status: 'Approved',
+                        });
+                        setToast({ 
+                          message: `Leave approved for ${getUserName(selectedLeave)}`, 
+                          type: 'success' 
+                        });
+                        handleCloseDetails();
+                        // Refresh data
+                        const { data: leaves } = await api.get('/api/leaves/my-leaves');
+                        setLeaveRequests(leaves || []);
+                        const { data: orgLeaves } = await api.get('/api/leaves/organization?status=Pending');
+                        setPendingRequests(orgLeaves || []);
+                      } catch (err: any) {
+                        console.error('Failed to approve leave:', err);
+                        const errorMsg = err.response?.data?.msg || 'Failed to approve leave';
+                        setToast({ message: errorMsg, type: 'error' });
+                      }
+                    }}
+                    className="w-full px-6 py-3 text-sm font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined">check</span>
+                    Approve Leave
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleCloseDetails();
+                      handleRejectClick(selectedLeave._id);
+                    }}
+                    className="w-full px-6 py-3 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined">close</span>
+                    Reject Leave
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleCloseDetails}
+                  className="w-full px-6 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-transparent hover:bg-gray-100 dark:hover:bg-surface-dark rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -44,3 +44,45 @@ export const upload = multer({
   fileFilter,
 });
 
+// Configure storage for leave documents
+const leaveStorage = multer.diskStorage({
+  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+    const leaveUploadsDir = path.join(__dirname, '../../public/uploads/leaves');
+    if (!fs.existsSync(leaveUploadsDir)) {
+      fs.mkdirSync(leaveUploadsDir, { recursive: true });
+    }
+    cb(null, leaveUploadsDir);
+  },
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+    // Generate unique filename: timestamp-random-originalname
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `leave-${uniqueSuffix}${ext}`);
+  },
+});
+
+// File filter for leave documents - allow PDF and images
+const leaveFileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+  const fileExt = path.extname(file.originalname).toLowerCase();
+  const allowedExtensions = ['.pdf', '.jpg', '.jpeg', '.png'];
+  const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+  
+  const isValidExtension = allowedExtensions.includes(fileExt);
+  const isValidMimeType = allowedMimeTypes.includes(file.mimetype);
+
+  if (isValidExtension && isValidMimeType) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF and image files (jpeg, jpg, png) are allowed'));
+  }
+};
+
+// Configure multer for leave document uploads
+export const uploadLeaveDocument = multer({
+  storage: leaveStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for documents
+  },
+  fileFilter: leaveFileFilter,
+});
+

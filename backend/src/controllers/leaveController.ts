@@ -35,7 +35,26 @@ export const applyLeave = async (req: Request, res: Response) => {
 
   try {
     const { collectionPrefix, id: userId } = req.user!;
-    const { leaveType, dates, startDate, endDate, reason } = req.body;
+    
+    // Handle FormData - dates might be a string that needs parsing
+    let dates = req.body.dates;
+    if (typeof dates === 'string') {
+      try {
+        dates = JSON.parse(dates);
+      } catch {
+        // If parsing fails, treat as empty
+        dates = null;
+      }
+    }
+    
+    const { leaveType, startDate, endDate, reason } = req.body;
+    
+    // Handle file upload
+    let attachmentPath: string | undefined;
+    if (req.file) {
+      // File path relative to /uploads
+      attachmentPath = `/uploads/leaves/${req.file.filename}`;
+    }
 
     // Support both new format (dates array) and legacy format (startDate/endDate)
     let parsedDates: Date[] = [];
@@ -149,6 +168,7 @@ export const applyLeave = async (req: Request, res: Response) => {
       daysCount,          // Count of specific days (parsedDates.length for non-consecutive)
       reason: reason.trim(),
       status: 'Pending',
+      attachment: attachmentPath, // File path if uploaded
       organizationPrefix: collectionPrefix,
     });
 

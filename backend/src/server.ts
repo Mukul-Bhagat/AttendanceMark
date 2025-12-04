@@ -80,6 +80,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Handle FormData text fields
 // Serve static files from public/uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 

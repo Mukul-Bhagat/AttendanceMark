@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
+import { uploadLeaveDocument } from '../middleware/uploadMiddleware';
 import {
   applyLeave,
   getMyLeaves,
@@ -17,18 +18,31 @@ const router = Router();
 router.post(
   '/',
   protect,
+  uploadLeaveDocument.single('attachment'), // Handle file upload
   [
     check('leaveType', 'Leave type is required').isIn(['Personal', 'Casual', 'Sick', 'Extra']),
     // Support both formats: dates array OR startDate/endDate (for backward compatibility)
     check('dates', 'Dates array must be an array if provided')
       .optional()
-      .isArray({ min: 1 })
+      .custom((value) => {
+        // If dates is a string (from FormData), try to parse it
+        if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) && parsed.length > 0;
+          } catch {
+            return false;
+          }
+        }
+        return Array.isArray(value) && value.length > 0;
+      })
       .withMessage('Dates array must contain at least one date'),
     check('startDate', 'Start date is required if dates array is not provided')
       .optional()
       .custom((value, { req }) => {
         // If dates array is not provided, startDate and endDate are required
-        if (!req.body.dates && !value) {
+        const dates = typeof req.body.dates === 'string' ? JSON.parse(req.body.dates) : req.body.dates;
+        if (!dates && !value) {
           throw new Error('Either dates array or startDate is required');
         }
         return true;
@@ -37,7 +51,8 @@ router.post(
       .optional()
       .custom((value, { req }) => {
         // If dates array is not provided, startDate and endDate are required
-        if (!req.body.dates && !value) {
+        const dates = typeof req.body.dates === 'string' ? JSON.parse(req.body.dates) : req.body.dates;
+        if (!dates && !value) {
           throw new Error('Either dates array or endDate is required');
         }
         return true;

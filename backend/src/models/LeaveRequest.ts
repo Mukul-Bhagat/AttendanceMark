@@ -12,6 +12,7 @@ export interface ILeaveRequest extends Document {
   status: 'Pending' | 'Approved' | 'Rejected';
   approvedBy?: Types.ObjectId;
   rejectionReason?: string;
+  attachment?: string; // File path/URL for attached document
   organizationPrefix: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -64,6 +65,9 @@ const LeaveRequestSchema: Schema = new Schema({
   rejectionReason: {
     type: String,
     trim: true,
+  },
+  attachment: {
+    type: String, // File path/URL for attached document
   },
   organizationPrefix: {
     type: String,
