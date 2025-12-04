@@ -726,30 +726,23 @@ const Leaves: React.FC = () => {
                 className="flex items-center justify-between p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="flex flex-col flex-1">
-                    {/* User Name & Email */}
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
-                        {getUserName(leave)}
-                      </p>
-                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                        {typeof leave.userId === 'object' ? leave.userId.email : 'N/A'}
-                      </span>
-                    </div>
-                    {/* Leave Type, Date Range, Duration */}
-                    <div className="flex items-center gap-3">
-                      <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                        {leave.leaveType}
-                      </p>
-                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">•</span>
-                      <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">
                         {formatDateRange(leave.startDate, leave.endDate, leave.dates)}
                       </p>
-                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">•</span>
-                      <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
-                        {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
-                      </p>
+                      {leave.dates && leave.dates.length > 0 && (
+                        <span 
+                          className="text-xs text-text-secondary-light dark:text-text-secondary-dark cursor-help"
+                          title={formatDatesList(leave.dates)}
+                        >
+                          (Multiple Dates)
+                        </span>
+                      )}
                     </div>
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                      {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -837,7 +830,7 @@ const Leaves: React.FC = () => {
           onClick={() => setIsModalOpen(false)}
         >
           <div
-            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-2xl w-full max-w-[95vw] mx-4 max-h-[90vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1174,7 +1167,7 @@ const Leaves: React.FC = () => {
           onClick={handleCloseDetails}
         >
           <div
-            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-2xl w-full max-w-[95vw] mx-4 max-h-[90vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
