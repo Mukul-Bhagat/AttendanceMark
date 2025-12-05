@@ -14,10 +14,16 @@ type EndUser = {
     phone?: string;
   };
   registeredDeviceId?: string;
+  customLeaveQuota?: {
+    pl: number;
+    cl: number;
+    sl: number;
+  } | null;
 };
 
 const ManageUsers: React.FC = () => {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, isCompanyAdmin } = useAuth();
+  const canManageQuota = isSuperAdmin || isCompanyAdmin;
   
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -38,6 +44,13 @@ const ManageUsers: React.FC = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Status');
+  
+  // Quota management state
+  const [quotaModalOpen, setQuotaModalOpen] = useState(false);
+  const [selectedUserForQuota, setSelectedUserForQuota] = useState<EndUser | null>(null);
+  const [quotaForm, setQuotaForm] = useState({ pl: 12, cl: 12, sl: 10 });
+  const [isSavingQuota, setIsSavingQuota] = useState(false);
+  const [orgDefaults, setOrgDefaults] = useState({ pl: 12, cl: 12, sl: 10 });
   
   // Bulk import state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -259,6 +272,68 @@ const ManageUsers: React.FC = () => {
         setIsBulkImporting(false);
       },
     });
+  };
+
+  // Handle quota management
+  const handleOpenQuotaModal = async (user: EndUser) => {
+    setSelectedUserForQuota(user);
+    // Pre-fill with current custom quota or org defaults
+    if (user.customLeaveQuota) {
+      setQuotaForm({
+        pl: user.customLeaveQuota.pl,
+        cl: user.customLeaveQuota.cl,
+        sl: user.customLeaveQuota.sl,
+      });
+    } else {
+      setQuotaForm({
+        pl: orgDefaults.pl,
+        cl: orgDefaults.cl,
+        sl: orgDefaults.sl,
+      });
+    }
+    setQuotaModalOpen(true);
+  };
+
+  const handleCloseQuotaModal = () => {
+    setQuotaModalOpen(false);
+    setSelectedUserForQuota(null);
+    setQuotaForm({ pl: 12, cl: 12, sl: 10 });
+  };
+
+  const handleSaveQuota = async () => {
+    if (!selectedUserForQuota) return;
+
+    try {
+      setIsSavingQuota(true);
+      const userId = selectedUserForQuota._id || selectedUserForQuota.id;
+      await api.put(`/api/users/${userId}/quota`, quotaForm);
+      
+      setMessage(`Leave quota updated for ${selectedUserForQuota.profile.firstName} ${selectedUserForQuota.profile.lastName}`);
+      handleCloseQuotaModal();
+      fetchUsers(); // Refresh user list
+    } catch (err: any) {
+      setError(err.response?.data?.msg || 'Failed to update quota');
+    } finally {
+      setIsSavingQuota(false);
+    }
+  };
+
+  const handleResetToDefault = async () => {
+    if (!selectedUserForQuota) return;
+
+    try {
+      setIsSavingQuota(true);
+      const userId = selectedUserForQuota._id || selectedUserForQuota.id;
+      await api.put(`/api/users/${userId}/quota`, { resetToDefault: true });
+      
+      setMessage(`Leave quota reset to default for ${selectedUserForQuota.profile.firstName} ${selectedUserForQuota.profile.lastName}`);
+      handleCloseQuotaModal();
+      fetchUsers(); // Refresh user list
+    } catch (err: any) {
+      setError(err.response?.data?.msg || 'Failed to reset quota');
+    } finally {
+      setIsSavingQuota(false);
+    }
   };
 
   // Handle user deletion (SuperAdmin only)
@@ -541,6 +616,9 @@ const ManageUsers: React.FC = () => {
                               <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Status</th>
                               <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
                               <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
+                              {canManageQuota && (
+                                <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Quota</th>
+                              )}
                               {isSuperAdmin && (
                                 <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col"></th>
                               )}
@@ -613,6 +691,17 @@ const ManageUsers: React.FC = () => {
                                       </button>
                                     )}
                                   </td>
+                                  {canManageQuota && (
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                      <button
+                                        onClick={() => handleOpenQuotaModal(user)}
+                                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                                        title="Manage Leave Quota"
+                                      >
+                                        <span className="material-symbols-outlined text-xl">settings</span>
+                                      </button>
+                                    </td>
+                                  )}
                                   {isSuperAdmin && (
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                       <button
@@ -857,6 +946,97 @@ const ManageUsers: React.FC = () => {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quota Management Modal */}
+      {quotaModalOpen && selectedUserForQuota && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full max-w-[95vw] mx-4">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-[#181511] dark:text-white">
+                  Manage Leave Quota
+                </h2>
+                <button
+                  onClick={handleCloseQuotaModal}
+                  className="text-[#8a7b60] dark:text-gray-400 hover:text-[#181511] dark:hover:text-white"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              
+              <p className="text-sm text-[#8a7b60] dark:text-gray-400 mb-4">
+                Setting custom leave quotas for <strong>{selectedUserForQuota.profile.firstName} {selectedUserForQuota.profile.lastName}</strong>
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#181511] dark:text-white mb-2">
+                    Personal Leave (PL)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quotaForm.pl}
+                    onChange={(e) => setQuotaForm({ ...quotaForm, pl: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 rounded-lg border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#181511] dark:text-white mb-2">
+                    Casual Leave (CL)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quotaForm.cl}
+                    onChange={(e) => setQuotaForm({ ...quotaForm, cl: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 rounded-lg border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#181511] dark:text-white mb-2">
+                    Sick Leave (SL)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quotaForm.sl}
+                    onChange={(e) => setQuotaForm({ ...quotaForm, sl: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 rounded-lg border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                  />
+                </div>
+
+                {selectedUserForQuota.customLeaveQuota && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-xs text-blue-800 dark:text-blue-300">
+                      This user currently has custom quotas. Organization default: PL: {orgDefaults.pl}, CL: {orgDefaults.cl}, SL: {orgDefaults.sl}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleResetToDefault}
+                  disabled={isSavingQuota}
+                  className="flex-1 px-4 py-2 rounded-lg border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 text-[#181511] dark:text-white hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  Reset to Default
+                </button>
+                <button
+                  onClick={handleSaveQuota}
+                  disabled={isSavingQuota}
+                  className="flex-1 px-4 py-2 rounded-lg bg-[#f04129] hover:bg-[#d63a25] text-white transition-colors disabled:opacity-50"
+                >
+                  {isSavingQuota ? 'Saving...' : 'Save Quota'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

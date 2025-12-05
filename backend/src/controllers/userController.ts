@@ -577,6 +577,87 @@ export const changePassword = async (req: Request, res: Response) => {
   }
 };
 
+// @route   PUT /api/users/:userId/quota
+// @desc    Update a user's custom leave quota (or reset to default)
+// @access  Private (SuperAdmin or CompanyAdmin)
+export const updateUserQuota = async (req: Request, res: Response) => {
+  const { collectionPrefix, role: requesterRole } = req.user!;
+  const { userId } = req.params;
+  const { pl, cl, sl, resetToDefault } = req.body;
+
+  // Security Check: Only SuperAdmin or CompanyAdmin can update quotas
+  if (requesterRole !== 'SuperAdmin' && requesterRole !== 'CompanyAdmin') {
+    return res.status(403).json({ msg: 'Not authorized' });
+  }
+
+  // Validate userId is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ msg: 'Invalid user ID format' });
+  }
+
+  try {
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    const user = await UserCollection.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // If resetToDefault is true, set customLeaveQuota to null
+    if (resetToDefault === true) {
+      user.customLeaveQuota = null;
+      await user.save();
+
+      return res.json({
+        msg: 'User quota reset to organization default',
+        user: {
+          id: user._id,
+          email: user.email,
+          customLeaveQuota: null,
+        },
+      });
+    }
+
+    // Validate quota values if provided
+    if (pl !== undefined && (typeof pl !== 'number' || pl < 0)) {
+      return res.status(400).json({ msg: 'PL (Personal Leave) must be a non-negative number' });
+    }
+    if (cl !== undefined && (typeof cl !== 'number' || cl < 0)) {
+      return res.status(400).json({ msg: 'CL (Casual Leave) must be a non-negative number' });
+    }
+    if (sl !== undefined && (typeof sl !== 'number' || sl < 0)) {
+      return res.status(400).json({ msg: 'SL (Sick Leave) must be a non-negative number' });
+    }
+
+    // Update custom quota
+    if (user.customLeaveQuota === null || user.customLeaveQuota === undefined) {
+      user.customLeaveQuota = {
+        pl: pl !== undefined ? pl : 0,
+        cl: cl !== undefined ? cl : 0,
+        sl: sl !== undefined ? sl : 0,
+      };
+    } else {
+      if (pl !== undefined) user.customLeaveQuota.pl = pl;
+      if (cl !== undefined) user.customLeaveQuota.cl = cl;
+      if (sl !== undefined) user.customLeaveQuota.sl = sl;
+    }
+
+    await user.save();
+
+    res.json({
+      msg: 'User quota updated successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        customLeaveQuota: user.customLeaveQuota,
+      },
+    });
+  } catch (err: any) {
+    console.error('Error updating user quota:', err);
+    res.status(500).json({ msg: 'Server error while updating quota' });
+  }
+};
+
 // @route   DELETE /api/users/profile-picture
 // @desc    Remove profile picture for the logged-in user
 // @access  Private

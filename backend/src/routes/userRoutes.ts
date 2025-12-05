@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { getOrganizationUsers, createStaff, createEndUser, resetDevice, deleteUser, uploadProfilePicture, updateProfile, changePassword, removeProfilePicture, bulkCreateUsers } from '../controllers/userController';
+import { getOrganizationUsers, createStaff, createEndUser, resetDevice, deleteUser, uploadProfilePicture, updateProfile, changePassword, removeProfilePicture, bulkCreateUsers, updateUserQuota } from '../controllers/userController';
 import { upload } from '../middleware/uploadMiddleware';
 
 const router = Router();
@@ -98,6 +98,21 @@ router.post(
 // @desc    Reset a user's registered device ID
 // @access  Private (SuperAdmin or CompanyAdmin)
 router.put('/:userId/reset-device', protect, resetDevice);
+
+// @route   PUT /api/users/:userId/quota
+// @desc    Update a user's custom leave quota
+// @access  Private (SuperAdmin or CompanyAdmin)
+router.put(
+  '/:userId/quota',
+  protect,
+  [
+    check('pl', 'PL must be a non-negative number').optional().isFloat({ min: 0 }),
+    check('cl', 'CL must be a non-negative number').optional().isFloat({ min: 0 }),
+    check('sl', 'SL must be a non-negative number').optional().isFloat({ min: 0 }),
+    check('resetToDefault', 'resetToDefault must be a boolean').optional().isBoolean(),
+  ],
+  updateUserQuota
+);
 
 // @route   DELETE /api/users/:userId
 // @desc    Delete a user account - Only SuperAdmin

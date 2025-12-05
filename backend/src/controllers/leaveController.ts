@@ -386,6 +386,23 @@ export const getMyLeaves = async (req: Request, res: Response) => {
 
     // Manually populate userId and approvedBy user data
     const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    
+    // Get current user to fetch custom quota
+    const currentUser = await UserCollection.findById(userIdObjectId)
+      .select('customLeaveQuota')
+      .lean();
+    
+    // Get organization settings for default quotas
+    const OrganizationSettingsCollection = createOrganizationSettingsModel();
+    const orgSettings = await OrganizationSettingsCollection.findOne({ organizationPrefix: collectionPrefix }).lean();
+    
+    // Determine effective quotas (custom or default)
+    const effectiveQuota = {
+      pl: currentUser?.customLeaveQuota?.pl ?? orgSettings?.yearlyQuotaPL ?? 12,
+      cl: currentUser?.customLeaveQuota?.cl ?? orgSettings?.yearlyQuotaCL ?? 12,
+      sl: currentUser?.customLeaveQuota?.sl ?? orgSettings?.yearlyQuotaSL ?? 10,
+    };
+    
     const populatedLeaves = await Promise.all(
       (leaveRequests || []).map(async (leave: any) => {
         // Populate userId (CRITICAL: This fixes PDF showing "N/A" for name/email)
@@ -427,7 +444,11 @@ export const getMyLeaves = async (req: Request, res: Response) => {
       })
     );
 
-    res.json(populatedLeaves);
+    // Return leaves with quota information
+    res.json({
+      leaves: populatedLeaves,
+      quota: effectiveQuota,
+    });
   } catch (err: any) {
     console.error('Error in getMyLeaves:', {
       message: err?.message || 'Unknown error',

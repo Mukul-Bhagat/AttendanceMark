@@ -102,9 +102,22 @@ const Leaves: React.FC = () => {
       try {
         setIsLoading(true);
         
-        // Fetch user's leaves
-        const { data: leaves } = await api.get('/api/leaves/my-leaves');
-        setLeaveRequests(leaves || []);
+        // Fetch user's leaves (now includes quota info)
+        const { data: leavesResponse } = await api.get('/api/leaves/my-leaves');
+        // Handle both old format (array) and new format (object with leaves and quota)
+        if (Array.isArray(leavesResponse)) {
+          setLeaveRequests(leavesResponse || []);
+        } else {
+          setLeaveRequests(leavesResponse?.leaves || []);
+          // Use quota from API response if available
+          if (leavesResponse?.quota) {
+            setQuota({
+              yearlyQuotaPL: leavesResponse.quota.pl || 12,
+              yearlyQuotaCL: leavesResponse.quota.cl || 12,
+              yearlyQuotaSL: leavesResponse.quota.sl || 10,
+            });
+          }
+        }
 
         // If Admin/Staff, fetch organization pending requests
         if (isAdminOrStaff) {
@@ -116,19 +129,21 @@ const Leaves: React.FC = () => {
           }
         }
 
-        // Try to fetch organization settings for quota (may fail for non-SuperAdmin)
-        try {
-          const { data: settings } = await api.get('/api/organization/settings');
-          if (settings) {
-            setQuota({
-              yearlyQuotaPL: settings.yearlyQuotaPL || 12,
-              yearlyQuotaCL: settings.yearlyQuotaCL || 12,
-              yearlyQuotaSL: settings.yearlyQuotaSL || 10,
-            });
+        // Fallback: Try to fetch organization settings for quota if not already set
+        if (!leavesResponse?.quota) {
+          try {
+            const { data: settings } = await api.get('/api/organization/settings');
+            if (settings) {
+              setQuota({
+                yearlyQuotaPL: settings.yearlyQuotaPL || 12,
+                yearlyQuotaCL: settings.yearlyQuotaCL || 12,
+                yearlyQuotaSL: settings.yearlyQuotaSL || 10,
+              });
+            }
+          } catch (err) {
+            // If not SuperAdmin, use defaults
+            console.log('Using default quota values');
           }
-        } catch (err) {
-          // If not SuperAdmin, use defaults
-          console.log('Using default quota values');
         }
       } catch (err: any) {
         console.error('Failed to fetch leaves:', err);

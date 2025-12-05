@@ -17,6 +17,11 @@ export interface IUser extends Document {
   mustResetPassword: boolean;
   registeredDeviceId?: string; // Device ID for device-locking feature
   registeredUserAgent?: string; // Browser/OS signature for device-locking feature
+  customLeaveQuota?: {
+    pl: number; // Personal Leave
+    cl: number; // Casual Leave
+    sl: number; // Sick Leave
+  } | null; // If null, use Organization Defaults
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
   createdAt?: Date;
@@ -64,6 +69,11 @@ const UserSchema: Schema = new Schema({
   registeredUserAgent: {
     type: String,
     select: false, // Don't return by default, only when explicitly requested
+  },
+  customLeaveQuota: {
+    pl: { type: Number, min: 0 },
+    cl: { type: Number, min: 0 },
+    sl: { type: Number, min: 0 },
   },
   resetPasswordToken: {
     type: String,
