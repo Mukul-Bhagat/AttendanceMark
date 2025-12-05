@@ -637,10 +637,9 @@ const ManageUsers: React.FC = () => {
                             <tr>
                               <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Name</th>
                               <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Email</th>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Status</th>
                               <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
                               {(isSuperAdmin || canManageQuota) && (
-                                <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
+                                <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider w-16" scope="col">Actions</th>
                               )}
                             </tr>
                           </thead>
@@ -652,35 +651,30 @@ const ManageUsers: React.FC = () => {
                               const isDeleting = deletingUser === userId;
                               const userName = `${user.profile.firstName} ${user.profile.lastName}`;
                               
-                              // Debug: Log device status
-                              console.log('User Device Status:', user.email, 'registeredDeviceId:', user.registeredDeviceId, 'isDeviceLocked:', isDeviceLocked);
 
                               return (
                                 <tr key={userId} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#181511] dark:text-white">
-                                    {userName}
+                                    <div className="flex items-center gap-2">
+                                      <span>{userName}</span>
+                                      {isDeviceLocked && (
+                                        <span 
+                                          className="material-symbols-outlined text-red-600 dark:text-red-400 text-sm cursor-help" 
+                                          title="Account Locked / Device Bound"
+                                        >
+                                          lock
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8a7b60] dark:text-gray-400">
                                     {user.email}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    {isDeviceLocked ? (
-                                      <span className="inline-flex items-center text-xs leading-5 font-semibold rounded-full border bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400 border-red-200 dark:border-red-500/20 px-2 py-0.5">
-                                        <span className="material-symbols-outlined mr-1 text-sm">lock</span>
-                                        Locked
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center text-xs leading-5 font-semibold rounded-full border bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400 border-green-200 dark:border-green-500/20 px-2 py-0.5">
-                                        <span className="material-symbols-outlined mr-1 text-sm">lock_open</span>
-                                        Unlocked
-                                      </span>
-                                    )}
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8a7b60] dark:text-gray-400">
                                     {user.profile.phone || 'N/A'}
                                   </td>
                                   {(isSuperAdmin || canManageQuota) && (
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium w-16">
                                       <div className="relative" ref={(el) => { menuRefs.current[userId] = el; }}>
                                         <button
                                           onClick={() => setOpenMenuId(openMenuId === userId ? null : userId)}
@@ -693,8 +687,7 @@ const ManageUsers: React.FC = () => {
                                         {openMenuId === userId && (
                                           <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50">
                                             <ul className="py-1">
-                                              {/* TEMPORARILY REMOVED CONDITION FOR DEBUGGING: {isDeviceLocked && ( */}
-                                              {(
+                                              {isDeviceLocked && (
                                                 <li>
                                                   <button
                                                     onClick={() => {
@@ -715,7 +708,7 @@ const ManageUsers: React.FC = () => {
                                                     ) : (
                                                       <>
                                                         <span className="material-symbols-outlined text-lg">restart_alt</span>
-                                                        <span>Reset Device {isDeviceLocked ? '(Locked)' : '(Unlocked)'}</span>
+                                                        <span>Reset Device</span>
                                                       </>
                                                     )}
                                                   </button>

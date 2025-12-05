@@ -550,7 +550,7 @@ const ManageStaff: React.FC = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Role</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
                           {(isSuperAdmin || canManageQuota) && (
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-16" scope="col">Actions</th>
                           )}
                         </tr>
                       </thead>
@@ -563,13 +563,20 @@ const ManageStaff: React.FC = () => {
                           const isDeleting = deletingStaff === staffId;
                           const staffName = `${staff.profile.firstName} ${staff.profile.lastName}`;
                           
-                          // Debug: Log device status
-                          console.log('Staff Device Status:', staff.email, 'registeredDeviceId:', staff.registeredDeviceId, 'isDeviceLocked:', isDeviceLocked);
-                          
                           return (
                             <tr key={staffId} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {staffName}
+                                <div className="flex items-center gap-2">
+                                  <span>{staffName}</span>
+                                  {isDeviceLocked && (
+                                    <span 
+                                      className="material-symbols-outlined text-red-600 dark:text-red-400 text-sm cursor-help" 
+                                      title="Account Locked / Device Bound"
+                                    >
+                                      lock
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                 {staff.email}
@@ -591,7 +598,7 @@ const ManageStaff: React.FC = () => {
                                 {staff.profile.phone || 'N/A'}
                               </td>
                               {(isSuperAdmin || canManageQuota) && (
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium w-16">
                                   <div className="relative" ref={(el) => { menuRefs.current[staffId] = el; }}>
                                     <button
                                       onClick={() => setOpenMenuId(openMenuId === staffId ? null : staffId)}
@@ -604,8 +611,7 @@ const ManageStaff: React.FC = () => {
                                     {openMenuId === staffId && (
                                       <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50">
                                         <ul className="py-1">
-                                          {/* TEMPORARILY REMOVED CONDITION FOR DEBUGGING: {isSuperAdmin && isDeviceLocked && ( */}
-                                          {isSuperAdmin && (
+                                          {isSuperAdmin && isDeviceLocked && (
                                             <li>
                                               <button
                                                 onClick={() => {
@@ -626,7 +632,7 @@ const ManageStaff: React.FC = () => {
                                                 ) : (
                                                   <>
                                                     <span className="material-symbols-outlined text-lg">restart_alt</span>
-                                                    <span>Reset Device {isDeviceLocked ? '(Locked)' : '(Unlocked)'}</span>
+                                                    <span>Reset Device</span>
                                                   </>
                                                 )}
                                               </button>

@@ -804,11 +804,32 @@ const Leaves: React.FC = () => {
               <div
                 key={leave._id}
                 onClick={() => handleOpenDetails(leave)}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between items-start gap-2 sm:gap-0 p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors cursor-pointer"
+                className="relative flex flex-col sm:flex-row gap-2 sm:gap-4 p-3 sm:p-5 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors cursor-pointer"
               >
-                <div className="flex flex-col w-full sm:w-auto sm:flex-1 gap-2">
+                {/* User Avatar */}
+                {typeof leave.userId === 'object' && leave.userId.profile && (
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#f04129]/20 flex items-center justify-center">
+                      <span className="text-[#f04129] text-sm sm:text-base font-bold">
+                        {leave.userId.profile.firstName?.[0]?.toUpperCase() || ''}
+                        {leave.userId.profile.lastName?.[0]?.toUpperCase() || ''}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Main Content */}
+                <div className="flex flex-col gap-1 sm:gap-2 flex-1 min-w-0 pr-12 sm:pr-0">
+                  {/* User Name - if available */}
+                  {typeof leave.userId === 'object' && leave.userId.profile && (
+                    <p className="text-sm sm:text-base font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
+                      {leave.userId.profile.firstName} {leave.userId.profile.lastName}
+                    </p>
+                  )}
+                  
+                  {/* Date Range */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-text-primary-light dark:text-text-primary-dark break-words">
+                    <p className="text-sm sm:text-base font-semibold text-text-primary-light dark:text-text-primary-dark break-words">
                       {formatDateRange(leave.startDate, leave.endDate, leave.dates)}
                     </p>
                     {leave.dates && leave.dates.length > 0 && (
@@ -820,11 +841,15 @@ const Leaves: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  
+                  {/* Leave Type and Days */}
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark break-words">
                     {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
                   </p>
                 </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                
+                {/* Status Badge and Chevron - Top Right on Mobile, Right Side on Desktop */}
+                <div className="absolute top-3 right-3 sm:relative sm:top-0 sm:right-0 flex sm:flex-col sm:items-end items-center gap-2 sm:gap-3 flex-shrink-0">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(leave.status)}`}>
                     {leave.status}
                   </span>
