@@ -1,4 +1,4 @@
-import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import RegisterSuperAdmin from './pages/RegisterSuperAdmin';
 import LoginPage from './pages/LoginPage';
 import ForgotPassword from './pages/ForgotPassword';
@@ -24,32 +24,6 @@ import Layout from './components/Layout';
 import ForceResetPassword from './components/ForceResetPassword';
 import { useAuth } from './contexts/AuthContext';
 
-// Component to conditionally show navigation only on public routes
-const PublicNav = () => {
-  const location = useLocation();
-  const isProtectedRoute = location.pathname.startsWith('/dashboard') || 
-                          location.pathname.startsWith('/sessions') || 
-                          location.pathname.startsWith('/classes') ||
-                          location.pathname.startsWith('/manage-users') ||
-                          location.pathname.startsWith('/scan') ||
-                          location.pathname.startsWith('/my-attendance') ||
-                          location.pathname.startsWith('/my-sessions') ||
-                          location.pathname.startsWith('/reports') ||
-                          location.pathname.startsWith('/manage-staff') ||
-                          location.pathname.startsWith('/leaves');
-  
-  if (isProtectedRoute || location.pathname === '/') {
-    return null;
-  }
-  
-  return (
-    <nav className="flex gap-4 p-4 bg-white border-b border-gray-200">
-      <Link to="/register" className="text-primary hover:underline font-medium">Register Organization</Link>
-      <Link to="/login" className="text-primary hover:underline font-medium">Login</Link>
-    </nav>
-  );
-};
-
 function App() {
   const { user, isLoading } = useAuth();
   const showForceReset = !isLoading && user?.mustResetPassword === true;
@@ -59,7 +33,6 @@ function App() {
       {/* Force Password Reset Modal - Blocks entire app if mustResetPassword is true */}
       {showForceReset && <ForceResetPassword />}
       
-      <PublicNav />
       <Routes>
         {/* Public Routes - Redirect to dashboard if already logged in */}
         <Route 
