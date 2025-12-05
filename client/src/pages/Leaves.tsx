@@ -789,30 +789,28 @@ const Leaves: React.FC = () => {
               <div
                 key={leave._id}
                 onClick={() => handleOpenDetails(leave)}
-                className="flex items-center justify-between p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors cursor-pointer"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between items-start gap-2 sm:gap-0 p-4 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark hover:bg-gray-50 dark:hover:bg-surface-dark/50 transition-colors cursor-pointer"
               >
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-text-primary-light dark:text-text-primary-dark">
-                        {formatDateRange(leave.startDate, leave.endDate, leave.dates)}
-                      </p>
-                      {leave.dates && leave.dates.length > 0 && (
-                        <span 
-                          className="text-xs text-text-secondary-light dark:text-text-secondary-dark cursor-help"
-                          title={formatDatesList(leave.dates)}
-                        >
-                          (Multiple Dates)
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
+                <div className="flex flex-col w-full sm:w-auto sm:flex-1 gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-text-primary-light dark:text-text-primary-dark break-words">
+                      {formatDateRange(leave.startDate, leave.endDate, leave.dates)}
                     </p>
+                    {leave.dates && leave.dates.length > 0 && (
+                      <span 
+                        className="text-xs text-text-secondary-light dark:text-text-secondary-dark cursor-help whitespace-nowrap"
+                        title={formatDatesList(leave.dates)}
+                      >
+                        (Multiple Dates)
+                      </span>
+                    )}
                   </div>
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                    {leave.leaveType} • {leave.daysCount} {leave.daysCount === 1 ? 'day' : 'days'}
+                  </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(leave.status)}`}>
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(leave.status)}`}>
                     {leave.status}
                   </span>
                   <span className="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark text-lg">
@@ -896,7 +894,7 @@ const Leaves: React.FC = () => {
           onClick={() => setIsModalOpen(false)}
         >
           <div
-            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-2xl w-full max-w-[95vw] mx-4 max-h-[90vh] flex flex-col overflow-hidden"
+            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-2xl max-w-[95vw] mx-4 max-h-[90vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -962,29 +960,38 @@ const Leaves: React.FC = () => {
                   <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
                     Select Dates (You can select multiple non-consecutive dates)
                   </label>
-                  <div className="border border-border-light dark:border-border-dark rounded-lg p-4 bg-white dark:bg-background-dark">
+                  <div className="border border-border-light dark:border-border-dark rounded-lg p-4 bg-white dark:bg-background-dark max-w-full overflow-x-auto">
                     <style>{`
                       .rdp {
                         --rdp-cell-size: 40px;
                         --rdp-accent-color: #f04129;
                         --rdp-background-color: #f04129;
                         margin: 0;
+                        color: #1e293b;
+                        background-color: white;
+                      }
+                      @media (max-width: 640px) {
+                        .rdp {
+                          --rdp-cell-size: 35px;
+                        }
                       }
                       .dark .rdp {
                         --rdp-accent-color: #f04129;
                         --rdp-background-color: #f04129;
+                        color: #f1f5f9;
+                        background-color: #1e293b;
                       }
                       .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
                         background-color: rgba(240, 65, 41, 0.1);
                       }
                       .dark .rdp-caption {
-                        color: #e2e8f0;
+                        color: #f1f5f9;
                       }
                       .dark .rdp-head_cell {
                         color: #94a3b8;
                       }
                       .dark .rdp-day {
-                        color: #e2e8f0;
+                        color: #f1f5f9;
                       }
                       .dark .rdp-day_outside {
                         color: #475569;
@@ -997,21 +1004,37 @@ const Leaves: React.FC = () => {
                         background-color: #d63a25 !important;
                       }
                       .dark .rdp-nav_button {
-                        color: #e2e8f0;
+                        color: #f1f5f9;
                       }
                       .dark .rdp-nav_button:hover {
                         background-color: rgba(240, 65, 41, 0.2);
                       }
+                      .rdp-caption_label {
+                        color: #1e293b;
+                        font-weight: 600;
+                      }
+                      .dark .rdp-caption_label {
+                        color: #f1f5f9;
+                      }
+                      .rdp-head_cell {
+                        color: #64748b;
+                        font-weight: 500;
+                      }
+                      .dark .rdp-head_cell {
+                        color: #94a3b8;
+                      }
                     `}</style>
-                    <DayPicker
-                      mode="multiple"
-                      selected={selectedDates}
-                      onSelect={(dates) => setSelectedDates(dates || [])}
-                      disabled={{ before: new Date() }}
-                      numberOfMonths={2}
-                      showOutsideDays
-                      className="mx-auto"
-                    />
+                    <div className="text-left">
+                      <DayPicker
+                        mode="multiple"
+                        selected={selectedDates}
+                        onSelect={(dates) => setSelectedDates(dates || [])}
+                        disabled={{ before: new Date() }}
+                        numberOfMonths={1}
+                        pagedNavigation
+                        showOutsideDays
+                      />
+                    </div>
                   </div>
                   {formErrors.dates && (
                     <p className="text-red-500 text-xs mt-1">{formErrors.dates}</p>
@@ -1302,7 +1325,7 @@ const Leaves: React.FC = () => {
           onClick={handleCloseDetails}
         >
           <div
-            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl max-w-2xl w-full max-w-[95vw] mx-4 max-h-[90vh] flex flex-col overflow-hidden"
+            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-2xl max-w-[95vw] mx-4 max-h-[90vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
