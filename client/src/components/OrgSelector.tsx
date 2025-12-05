@@ -24,7 +24,7 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
   inputRef,
 }) => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [filteredOrgs, setFilteredOrgs] = useState<Organization[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -33,6 +33,17 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
   const internalInputRef = useRef<HTMLInputElement>(null);
   const actualInputRef = inputRef || internalInputRef;
 
+  // Filter organizations based on search term
+  const filteredOrgs = React.useMemo(() => {
+    if (!searchTerm.trim()) {
+      return organizations;
+    }
+    const searchLower = searchTerm.toLowerCase();
+    return organizations.filter((org) =>
+      org.name.toLowerCase().includes(searchLower)
+    );
+  }, [organizations, searchTerm]);
+
   // Fetch organizations on mount
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -40,11 +51,9 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
         setIsLoading(true);
         const { data } = await api.get('/api/auth/organizations');
         setOrganizations(data);
-        setFilteredOrgs(data);
       } catch (err) {
         console.error('Failed to fetch organizations:', err);
         setOrganizations([]);
-        setFilteredOrgs([]);
       } finally {
         setIsLoading(false);
       }
@@ -53,19 +62,15 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
     fetchOrganizations();
   }, []);
 
-  // Filter organizations based on input value
+  // Sync searchTerm with value prop
   useEffect(() => {
-    if (!value.trim()) {
-      setFilteredOrgs(organizations);
-    } else {
-      const searchTerm = value.toLowerCase();
-      const filtered = organizations.filter((org) =>
-        org.name.toLowerCase().includes(searchTerm)
-      );
-      setFilteredOrgs(filtered);
-    }
+    setSearchTerm(value);
+  }, [value]);
+
+  // Reset highlighted index when filtered list changes
+  useEffect(() => {
     setHighlightedIndex(-1);
-  }, [value, organizations]);
+  }, [filteredOrgs]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -90,11 +95,15 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
   }, [highlightedIndex]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value);
-    setIsOpen(true);
+    const newValue = e.target.value;
+    setSearchTerm(newValue);
+    onChange(newValue);
+    // Only open dropdown when user starts typing (input length > 0)
+    setIsOpen(newValue.trim().length > 0);
   }, [onChange]);
 
   const handleSelectOrg = useCallback((orgName: string) => {
+    setSearchTerm(orgName);
     onChange(orgName);
     setIsOpen(false);
     actualInputRef.current?.blur();
@@ -133,8 +142,11 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
   }, [isOpen, filteredOrgs, highlightedIndex, handleSelectOrg]);
 
   const handleFocus = useCallback(() => {
-    setIsOpen(true);
-  }, []);
+    // Only open dropdown if there's text in the input
+    if (searchTerm.trim().length > 0) {
+      setIsOpen(true);
+    }
+  }, [searchTerm]);
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -170,8 +182,8 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
         </div>
       </div>
 
-      {/* Dropdown List */}
-      {isOpen && !disabled && (
+      {/* Dropdown List - Only show when typing (searchTerm has value) */}
+      {isOpen && !disabled && searchTerm.trim().length > 0 && (
         <ul
           ref={listRef}
           className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg"
@@ -183,7 +195,7 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
             </li>
           ) : filteredOrgs.length === 0 ? (
             <li className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 text-center">
-              {value.trim() ? 'No organizations found' : 'No organizations available'}
+              No organizations found
             </li>
           ) : (
             filteredOrgs.map((org, index) => (

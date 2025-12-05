@@ -141,7 +141,7 @@ const LoginPage: React.FC = () => {
   }, [error]);
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-background-light dark:bg-background-dark group/design-root" style={{ fontFamily: 'Manrope, "Noto Sans", sans-serif' }}>
+    <div className="relative flex min-h-screen md:h-screen w-full flex-col bg-background-light dark:bg-background-dark group/design-root overflow-hidden md:overflow-hidden" style={{ fontFamily: 'Manrope, "Noto Sans", sans-serif' }}>
       <div className="flex h-full grow flex-col">
         <div className="flex flex-1">
           <div className="flex w-full flex-col lg:flex-row">
@@ -160,19 +160,21 @@ const LoginPage: React.FC = () => {
             </div>
 
             {/* Form Container */}
-            <div className="flex w-full flex-col items-center justify-center bg-background-light p-6 lg:w-1/2 lg:p-10">
-              <div className="layout-content-container flex w-full max-w-md flex-col">
-                {/* Main AttendMark Logo - Always visible, no dark mode */}
-                <div className="flex justify-center mb-8">
-                  <img
-                    src="/assets/attendmarklogo.png"
-                    alt="AttendMark"
-                    className="h-16 w-auto object-contain"
-                  />
-                </div>
-                
-                <h1 className="text-slate-900 tracking-light text-[32px] font-bold leading-tight pb-3">Welcome back</h1>
-                <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4 py-3">
+            <div className="flex w-full flex-col bg-background-light p-6 lg:w-1/2 lg:p-6 md:h-full md:overflow-hidden">
+              <div className="flex w-full max-w-md mx-auto flex-col h-full justify-between md:py-6">
+                {/* Main Content - Logo + Form (Centered) */}
+                <div className="flex flex-col justify-center flex-grow">
+                  {/* Main AttendMark Logo - Always visible, no dark mode */}
+                  <div className="flex justify-center mb-6">
+                    <img
+                      src="/assets/attendmarklogo.png"
+                      alt="AttendMark"
+                      className="h-24 w-auto object-contain"
+                    />
+                  </div>
+                  
+                  <h1 className="text-slate-900 tracking-light text-[32px] md:text-2xl font-bold leading-tight pb-2">Welcome back</h1>
+                  <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4 md:gap-4 py-2">
                   <label className="flex flex-col flex-1">
                     <p className="text-slate-900 text-base font-medium leading-normal pb-2">Organization Name</p>
                     <OrgSelector
@@ -254,22 +256,23 @@ const LoginPage: React.FC = () => {
                   </button>
                 </form>
 
-                <div className="mt-6">
-                  <p className="text-center text-sm text-slate-600">
-                    Don't have an account? <Link to="/register" className="font-bold text-primary underline hover:text-primary/90">Register here</Link>
-                  </p>
+                  <div className="mt-4">
+                    <p className="text-center text-sm text-slate-600">
+                      Don't have an account? <Link to="/register" className="font-bold text-primary underline hover:text-primary/90">Register here</Link>
+                    </p>
+                  </div>
+
+                  {/* Error Alert */}
+                  {hasError && (
+                    <div className="mt-4 flex items-center gap-3 rounded-lg border border-red-500/50 bg-red-500/10 p-4" role="alert" aria-live="polite">
+                      <span className="material-symbols-outlined text-red-500" style={{ fontSize: '24px' }}>error</span>
+                      <p className="text-sm font-medium text-red-500">{errorText}</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Error Alert */}
-                {hasError && (
-                  <div className="mt-6 flex items-center gap-3 rounded-lg border border-red-500/50 bg-red-500/10 p-4" role="alert" aria-live="polite">
-                    <span className="material-symbols-outlined text-red-500" style={{ fontSize: '24px' }}>error</span>
-                    <p className="text-sm font-medium text-red-500">{errorText}</p>
-                  </div>
-                )}
-
-                {/* Powered By AI ALLY Logo - Always visible, no dark mode */}
-                <div className="flex items-center justify-center mt-8 pt-6 border-t border-slate-200" style={{ gap: '8px' }}>
+                {/* Powered By AI ALLY Logo - Footer (Always visible at bottom) */}
+                <div className="relative z-10 flex items-center justify-center pt-4 border-t border-slate-200 flex-shrink-0">
                   <a 
                     href="https://aially.in" 
                     target="_blank" 

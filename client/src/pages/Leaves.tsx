@@ -551,14 +551,21 @@ const Leaves: React.FC = () => {
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
     
-    // Get applicant name - handle multiple cases
+    // Get applicant name - handle multiple cases with improved fallback
     let applicantName: string;
     if (typeof leave.userId === 'object' && leave.userId.profile) {
-      // userId is populated object
-      applicantName = `${leave.userId.profile.firstName} ${leave.userId.profile.lastName}`;
+      // userId is populated object - check if firstName exists
+      if (leave.userId.profile.firstName && leave.userId.profile.lastName) {
+        applicantName = `${leave.userId.profile.firstName} ${leave.userId.profile.lastName}`;
+      } else if (user?.profile?.firstName && user?.profile?.lastName) {
+        // Fallback to current user if userId profile is incomplete
+        applicantName = `${user.profile.firstName} ${user.profile.lastName}`;
+      } else {
+        applicantName = 'N/A';
+      }
     } else if (typeof leave.userId === 'string') {
       // userId is just an ID string - check if it matches current user
-      if (user && leave.userId === user.id) {
+      if (user && (leave.userId === user.id || leave.userId === user._id)) {
         // User is viewing their own leave - use AuthContext user data
         applicantName = `${user.profile.firstName} ${user.profile.lastName}`;
       } else {
@@ -566,20 +573,30 @@ const Leaves: React.FC = () => {
         applicantName = `Employee ID: ${leave.userId}`;
       }
     } else {
-      // Fallback
-      applicantName = user ? `${user.profile.firstName} ${user.profile.lastName}` : 'N/A';
+      // Fallback to current user
+      applicantName = (user?.profile?.firstName && user?.profile?.lastName) 
+        ? `${user.profile.firstName} ${user.profile.lastName}` 
+        : 'N/A';
     }
     
-    // Get applicant email - handle multiple cases
+    // Get applicant email - handle multiple cases with improved fallback
     let applicantEmail: string;
     if (typeof leave.userId === 'object' && leave.userId.email) {
       // userId is populated object
       applicantEmail = leave.userId.email;
-    } else if (typeof leave.userId === 'string' && user && leave.userId === user.id) {
-      // userId is ID string matching current user - use AuthContext
+    } else if (typeof leave.userId === 'object' && !leave.userId.email && user?.email) {
+      // userId is object but email missing - fallback to current user
       applicantEmail = user.email;
+    } else if (typeof leave.userId === 'string') {
+      // userId is ID string - check if it matches current user
+      if (user && (leave.userId === user.id || leave.userId === user._id)) {
+        applicantEmail = user.email;
+      } else {
+        // Fallback to current user email or N/A
+        applicantEmail = user?.email || 'N/A';
+      }
     } else {
-      // Fallback
+      // Fallback to current user email
       applicantEmail = user?.email || 'N/A';
     }
     
