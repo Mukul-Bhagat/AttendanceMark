@@ -449,9 +449,9 @@ const ManageUsers: React.FC = () => {
                 <div className="lg:col-span-1 lg:sticky lg:top-8 lg:self-start">
                   <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6 sm:p-8">
                     <div className="flex items-center justify-between mb-5">
-                      <h2 className="text-[#181511] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em] flex items-center">
-                        <span className="material-symbols-outlined text-[#f04129] mr-2">person_add</span>
-                        Add New User
+                      <h2 className="text-[#181511] dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">
+                        <span className="material-symbols-outlined text-[#f04129] mr-2 inline-block align-middle">person_add</span>
+                        <span className="align-middle">Add New User</span>
                       </h2>
                       <button
                         type="button"
@@ -462,12 +462,12 @@ const ManageUsers: React.FC = () => {
                         Import CSV
                       </button>
                     </div>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <label className="flex flex-col flex-1">
-                          <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">First Name</p>
+                    <form onSubmit={handleSubmit} className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <label className="block">
+                          <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal mb-1">First Name</p>
                           <input
-                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                            className="form-input w-full rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-10 px-3 text-sm font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
                             placeholder="Ramesh"
                             type="text"
                             value={firstName}
@@ -479,10 +479,10 @@ const ManageUsers: React.FC = () => {
                             disabled={isSubmitting}
                           />
                         </label>
-                        <label className="flex flex-col flex-1">
-                          <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Last Name</p>
+                        <label className="block">
+                          <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal mb-1">Last Name</p>
                           <input
-                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                            className="form-input w-full rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-10 px-3 text-sm font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
                             placeholder="Deo"
                             type="text"
                             value={lastName}
@@ -496,10 +496,10 @@ const ManageUsers: React.FC = () => {
                         </label>
                       </div>
 
-                      <label className="flex flex-col flex-1">
-                        <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Email</p>
+                      <label className="block">
+                        <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal mb-1">Email</p>
                         <input
-                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                          className="form-input w-full rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-10 px-3 text-sm font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
                           placeholder="ramesh.deo@example.com"
                           type="email"
                           value={email}
@@ -512,11 +512,11 @@ const ManageUsers: React.FC = () => {
                         />
                       </label>
 
-                      <label className="flex flex-col flex-1">
-                        <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Temporary Password</p>
+                      <label className="block">
+                        <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal mb-1">Temporary Password</p>
                         <div className="relative">
                           <input
-                            className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 pr-12 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                            className="form-input w-full rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-10 px-3 pr-10 text-sm font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
                             placeholder="Min 6 characters"
                             type={showPassword ? "text" : "password"}
                             value={password}
@@ -533,18 +533,18 @@ const ManageUsers: React.FC = () => {
                             onClick={() => setShowPassword(!showPassword)}
                             className="absolute inset-y-0 right-0 flex items-center pr-3 text-[#8a7b60] dark:text-gray-400 hover:text-[#f04129] z-10 cursor-pointer"
                           >
-                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                            <span className="material-symbols-outlined text-lg">
                               {showPassword ? 'visibility_off' : 'visibility'}
                             </span>
                           </button>
                         </div>
-                        <p className="text-xs text-[#8a7b60] dark:text-gray-500 mt-1.5">Min 6 characters</p>
+                        <p className="text-xs text-[#8a7b60] dark:text-gray-500 mt-1">Min 6 characters</p>
                       </label>
 
-                      <label className="flex flex-col flex-1">
-                        <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">Phone (Optional)</p>
+                      <label className="block">
+                        <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal mb-1">Phone (Optional)</p>
                         <input
-                          className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
+                          className="form-input w-full rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-10 px-3 text-sm font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
                           placeholder="+91 98765 43210"
                           type="tel"
                           value={phone}
@@ -635,11 +635,11 @@ const ManageUsers: React.FC = () => {
                         <table className="min-w-full">
                           <thead className="border-b border-[#e6e2db] dark:border-white/10">
                             <tr>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Name</th>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Email</th>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
+                              <th className="px-6 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Name</th>
+                              <th className="px-6 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Email</th>
+                              <th className="px-6 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
                               {(isSuperAdmin || canManageQuota) && (
-                                <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider w-16" scope="col">Actions</th>
+                                <th className="px-6 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider w-16" scope="col">Actions</th>
                               )}
                             </tr>
                           </thead>
@@ -654,7 +654,7 @@ const ManageUsers: React.FC = () => {
 
                               return (
                                 <tr key={userId} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#181511] dark:text-white">
+                                  <td className="px-6 py-2 whitespace-nowrap text-sm font-medium text-[#181511] dark:text-white">
                                     <div className="flex items-center gap-2">
                                       <span>{userName}</span>
                                       {isDeviceLocked && (
@@ -667,14 +667,14 @@ const ManageUsers: React.FC = () => {
                                       )}
                                     </div>
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8a7b60] dark:text-gray-400">
+                                  <td className="px-6 py-2 whitespace-nowrap text-sm text-[#8a7b60] dark:text-gray-400">
                                     {user.email}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8a7b60] dark:text-gray-400">
+                                  <td className="px-6 py-2 whitespace-nowrap text-sm text-[#8a7b60] dark:text-gray-400">
                                     {user.profile.phone || 'N/A'}
                                   </td>
                                   {(isSuperAdmin || canManageQuota) && (
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium w-16">
+                                    <td className="px-6 py-2 whitespace-nowrap text-sm font-medium w-16">
                                       <div className="relative" ref={(el) => { menuRefs.current[userId] = el; }}>
                                         <button
                                           onClick={() => setOpenMenuId(openMenuId === userId ? null : userId)}

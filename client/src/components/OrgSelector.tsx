@@ -148,6 +148,11 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
     }
   }, [searchTerm]);
 
+  // Determine if className overrides default height/text size
+  const hasHeightOverride = className?.includes('h-');
+  const hasTextOverride = className?.includes('text-');
+  const defaultClasses = `${!hasHeightOverride ? 'h-12 lg:h-14' : ''} ${!hasTextOverride ? 'text-base font-normal leading-normal' : ''}`;
+
   return (
     <div ref={containerRef} className="relative w-full">
       {/* Input Field */}
@@ -162,7 +167,7 @@ const OrgSelector: React.FC<OrgSelectorProps> = ({
           disabled={disabled}
           placeholder={placeholder}
           autoComplete="off"
-          className={`form-input flex w-full min-w-0 resize-none overflow-hidden rounded-lg text-slate-900 dark:text-white focus:outline-0 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 focus:border-[#f04129] focus:ring-2 focus:ring-[#f04129]/20 h-12 lg:h-14 placeholder:text-slate-400 dark:placeholder:text-slate-500 px-4 pr-10 text-base font-normal leading-normal disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+          className={`form-input flex w-full min-w-0 resize-none overflow-hidden rounded-lg text-slate-900 dark:text-white focus:outline-0 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 focus:border-[#f04129] focus:ring-2 focus:ring-[#f04129]/20 placeholder:text-slate-400 dark:placeholder:text-slate-500 px-4 pr-10 disabled:opacity-50 disabled:cursor-not-allowed ${defaultClasses} ${className || ''}`}
         />
         {/* Dropdown Icon */}
         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">

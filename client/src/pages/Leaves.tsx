@@ -951,13 +951,13 @@ const Leaves: React.FC = () => {
           onClick={() => setIsModalOpen(false)}
         >
           <div
-            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-2xl max-w-[95vw] mx-4 max-h-[90vh] flex flex-col overflow-hidden"
+            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-5xl max-w-[95vw] mx-4 max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-6 border-b border-border-light dark:border-border-dark">
+            <div className="p-4 border-b border-border-light dark:border-border-dark flex-shrink-0">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+                <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
                   Apply for Leave
                 </h2>
                 <button
@@ -970,68 +970,70 @@ const Leaves: React.FC = () => {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-4">
-                {/* Subject */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                    Subject
-                  </label>
-                  <input
-                    type="text"
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-2 rounded-lg border ${
-                      formErrors.subject
-                        ? 'border-red-500'
-                        : 'border-border-light dark:border-border-dark'
-                    } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary`}
-                    placeholder="Enter subject"
-                  />
-                  {formErrors.subject && (
-                    <p className="text-red-500 text-xs mt-1">{formErrors.subject}</p>
-                  )}
-                </div>
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* LEFT COLUMN */}
+                <div className="space-y-4">
+                  {/* Subject */}
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1">
+                      Subject
+                    </label>
+                    <input
+                      type="text"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-1.5 h-9 rounded-lg border ${
+                        formErrors.subject
+                          ? 'border-red-500'
+                          : 'border-border-light dark:border-border-dark'
+                      } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary text-sm`}
+                      placeholder="Enter subject"
+                    />
+                    {formErrors.subject && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.subject}</p>
+                    )}
+                  </div>
 
-                {/* Leave Type */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                    Leave Type
-                  </label>
-                  <select
-                    name="leaveType"
-                    value={formData.leaveType}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="Personal">Personal Leave (PL)</option>
-                    <option value="Casual">Casual Leave (CL)</option>
-                    <option value="Sick">Sick Leave (SL)</option>
-                    <option value="Extra">Extra</option>
-                  </select>
-                </div>
+                  {/* Leave Type */}
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1">
+                      Leave Type
+                    </label>
+                    <select
+                      name="leaveType"
+                      value={formData.leaveType}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-1.5 h-9 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                    >
+                      <option value="Personal">Personal Leave (PL)</option>
+                      <option value="Casual">Casual Leave (CL)</option>
+                      <option value="Sick">Sick Leave (SL)</option>
+                      <option value="Extra">Extra</option>
+                    </select>
+                  </div>
 
-                {/* Date Selection - Multiple Dates */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                    Select Dates (You can select multiple non-consecutive dates)
-                  </label>
-                  <div className="border border-border-light dark:border-border-dark rounded-lg p-4 bg-white dark:bg-background-dark max-w-full overflow-x-auto">
-                    <style>{`
-                      .rdp {
-                        --rdp-cell-size: 40px;
-                        --rdp-accent-color: #f04129;
-                        --rdp-background-color: #f04129;
-                        margin: 0;
-                        color: #1e293b;
-                        background-color: white;
-                      }
-                      @media (max-width: 640px) {
+                  {/* Date Selection - Multiple Dates */}
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1">
+                      Select Dates
+                    </label>
+                    <div className="border border-border-light dark:border-border-dark rounded-lg p-3 bg-white dark:bg-background-dark max-w-full overflow-x-auto">
+                      <style>{`
                         .rdp {
-                          --rdp-cell-size: 35px;
+                          --rdp-cell-size: 30px;
+                          --rdp-accent-color: #f04129;
+                          --rdp-background-color: #f04129;
+                          margin: 0;
+                          color: #1e293b;
+                          background-color: white;
                         }
-                      }
+                        @media (max-width: 640px) {
+                          .rdp {
+                            --rdp-cell-size: 30px;
+                          }
+                        }
                       .dark .rdp {
                         --rdp-accent-color: #f04129;
                         --rdp-background-color: #f04129;
@@ -1066,219 +1068,228 @@ const Leaves: React.FC = () => {
                       .dark .rdp-nav_button:hover {
                         background-color: rgba(240, 65, 41, 0.2);
                       }
-                      .rdp-caption_label {
-                        color: #1e293b;
-                        font-weight: 600;
-                      }
-                      .dark .rdp-caption_label {
-                        color: #f1f5f9;
-                      }
-                      .rdp-head_cell {
-                        color: #64748b;
-                        font-weight: 500;
-                      }
-                      .dark .rdp-head_cell {
-                        color: #94a3b8;
-                      }
-                    `}</style>
-                    <div className="text-left">
-                      <DayPicker
-                        mode="multiple"
-                        selected={selectedDates}
-                        onSelect={(dates) => setSelectedDates(dates || [])}
-                        disabled={{ before: new Date() }}
-                        numberOfMonths={1}
-                        pagedNavigation
-                        showOutsideDays
-                      />
+                        .rdp-caption_label {
+                          color: #1e293b;
+                          font-weight: 600;
+                          font-size: 0.875rem;
+                        }
+                        .dark .rdp-caption_label {
+                          color: #f1f5f9;
+                        }
+                        .rdp-head_cell {
+                          color: #64748b;
+                          font-weight: 500;
+                          font-size: 0.75rem;
+                        }
+                        .dark .rdp-head_cell {
+                          color: #94a3b8;
+                        }
+                        .rdp-day {
+                          font-size: 0.75rem;
+                        }
+                      `}</style>
+                      <div className="text-left">
+                        <DayPicker
+                          mode="multiple"
+                          selected={selectedDates}
+                          onSelect={(dates) => setSelectedDates(dates || [])}
+                          disabled={{ before: new Date() }}
+                          numberOfMonths={1}
+                          pagedNavigation
+                          showOutsideDays
+                        />
+                      </div>
                     </div>
-                  </div>
-                  {formErrors.dates && (
-                    <p className="text-red-500 text-xs mt-1">{formErrors.dates}</p>
-                  )}
-                  {selectedDates.length === 0 && !formErrors.dates && (
-                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-2">
-                      Please select at least one date
-                    </p>
-                  )}
-                  {selectedDates.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {selectedDates.sort((a, b) => a.getTime() - b.getTime()).map((date, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-[#f04129]/10 text-[#f04129] text-xs rounded-full"
-                        >
-                          {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          <button
-                            type="button"
-                            onClick={() => setSelectedDates(selectedDates.filter((_, i) => i !== index))}
-                            className="hover:bg-[#f04129]/20 rounded-full p-0.5"
+                    {formErrors.dates && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.dates}</p>
+                    )}
+                    {selectedDates.length === 0 && !formErrors.dates && (
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                        Select at least one date
+                      </p>
+                    )}
+                    {selectedDates.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {selectedDates.sort((a, b) => a.getTime() - b.getTime()).map((date, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#f04129]/10 text-[#f04129] text-xs rounded-full"
                           >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Reason */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                    Reason
-                  </label>
-                  <textarea
-                    name="reason"
-                    value={formData.reason}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className={`w-full px-4 py-2 rounded-lg border ${
-                      formErrors.reason
-                        ? 'border-red-500'
-                        : 'border-border-light dark:border-border-dark'
-                    } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary resize-none`}
-                    placeholder="Enter reason for leave"
-                  />
-                  {formErrors.reason && (
-                    <p className="text-red-500 text-xs mt-1">{formErrors.reason}</p>
-                  )}
-                </div>
-
-                {/* File Upload */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                    Attach Document (Optional)
-                  </label>
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.png,.jpeg"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      setSelectedFile(file);
-                    }}
-                    className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#f04129] file:text-white hover:file:bg-[#d63a25] file:cursor-pointer"
-                  />
-                  {selectedFile && (
-                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-2">
-                      Selected: {selectedFile.name}
-                    </p>
-                  )}
-                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-                    Accepted formats: PDF, JPG, PNG, JPEG (Max 10MB)
-                  </p>
-                </div>
-
-                {/* Send To (Required - Multi-Select) */}
-                {staffUsers.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                      Send To <span className="text-red-500">*</span>
-                    </label>
-                    
-                    {/* Selected Recipients Tags */}
-                    {formData.sendTo && formData.sendTo.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {formData.sendTo.map((userId) => {
-                          const staff = staffUsers.find(s => s._id === userId);
-                          if (!staff) return null;
-                          return (
-                            <span
-                              key={userId}
-                              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-sm font-medium"
+                            {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDates(selectedDates.filter((_, i) => i !== index))}
+                              className="hover:bg-[#f04129]/20 rounded-full p-0.5"
                             >
-                              {staff.profile.firstName} {staff.profile.lastName}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveRecipient(userId)}
-                                className="ml-1 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                              >
-                                <X size={14} />
-                              </button>
-                            </span>
-                          );
-                        })}
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
                       </div>
                     )}
+                  </div>
+                </div>
 
-                    {/* Multi-Select Dropdown */}
-                    <div className="relative send-to-dropdown-container">
-                      <button
-                        type="button"
-                        onClick={() => setIsSendToDropdownOpen(!isSendToDropdownOpen)}
-                        className={`w-full px-4 py-2 rounded-lg border ${
-                          formErrors.sendTo
-                            ? 'border-red-500'
-                            : 'border-border-light dark:border-border-dark'
-                        } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary flex items-center justify-between`}
-                      >
-                        <span className={formData.sendTo && formData.sendTo.length > 0 ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}>
-                          {formData.sendTo && formData.sendTo.length > 0
-                            ? `${formData.sendTo.length} recipient${formData.sendTo.length > 1 ? 's' : ''} selected`
-                            : 'Select recipients...'}
-                        </span>
-                        <span className="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark">
-                          {isSendToDropdownOpen ? 'expand_less' : 'expand_more'}
-                        </span>
-                      </button>
+                {/* RIGHT COLUMN */}
+                <div className="space-y-4">
+                  {/* Reason */}
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1">
+                      Reason
+                    </label>
+                    <textarea
+                      name="reason"
+                      value={formData.reason}
+                      onChange={handleInputChange}
+                      rows={6}
+                      className={`w-full px-3 py-1.5 rounded-lg border ${
+                        formErrors.reason
+                          ? 'border-red-500'
+                          : 'border-border-light dark:border-border-dark'
+                      } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary resize-none text-sm`}
+                      placeholder="Enter reason for leave"
+                    />
+                    {formErrors.reason && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.reason}</p>
+                    )}
+                  </div>
 
-                      {/* Dropdown Menu */}
-                      {isSendToDropdownOpen && (
-                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-background-dark border border-border-light dark:border-border-dark rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                          {staffUsers.map((staff) => {
-                            const isSelected = formData.sendTo?.includes(staff._id);
+                  {/* File Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1">
+                      Attach Document (Optional)
+                    </label>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.png,.jpeg"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setSelectedFile(file);
+                      }}
+                      className="w-full px-3 py-1.5 h-9 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#f04129] file:text-white hover:file:bg-[#d63a25] file:cursor-pointer text-sm"
+                    />
+                    {selectedFile && (
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                        Selected: {selectedFile.name}
+                      </p>
+                    )}
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
+                      PDF, JPG, PNG (Max 10MB)
+                    </p>
+                  </div>
+
+                  {/* Send To (Required - Multi-Select) */}
+                  {staffUsers.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1">
+                        Send To <span className="text-red-500">*</span>
+                      </label>
+                      
+                      {/* Selected Recipients Tags */}
+                      {formData.sendTo && formData.sendTo.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {formData.sendTo.map((userId) => {
+                            const staff = staffUsers.find(s => s._id === userId);
+                            if (!staff) return null;
                             return (
-                              <label
-                                key={staff._id}
-                                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-surface-dark cursor-pointer"
+                              <span
+                                key={userId}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-xs font-medium"
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => handleSendToToggle(staff._id)}
-                                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                                />
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-                                    {staff.profile.firstName} {staff.profile.lastName}
-                                  </p>
-                                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                                    {getRoleDisplayName(staff.role)}
-                                  </p>
-                                </div>
-                              </label>
+                                {staff.profile.firstName} {staff.profile.lastName}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveRecipient(userId)}
+                                  className="ml-1 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
                             );
                           })}
                         </div>
                       )}
-                    </div>
-                    
-                    {formErrors.sendTo && (
-                      <p className="text-red-500 text-xs mt-1">{formErrors.sendTo}</p>
-                    )}
-                  </div>
-                )}
 
-                {/* Submit Error */}
-                {formErrors.submit && (
-                  <div className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
-                    {formErrors.submit}
-                  </div>
-                )}
+                      {/* Multi-Select Dropdown */}
+                      <div className="relative send-to-dropdown-container">
+                        <button
+                          type="button"
+                          onClick={() => setIsSendToDropdownOpen(!isSendToDropdownOpen)}
+                          className={`w-full px-3 py-1.5 h-9 rounded-lg border ${
+                            formErrors.sendTo
+                              ? 'border-red-500'
+                              : 'border-border-light dark:border-border-dark'
+                          } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary flex items-center justify-between text-sm`}
+                        >
+                          <span className={formData.sendTo && formData.sendTo.length > 0 ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}>
+                            {formData.sendTo && formData.sendTo.length > 0
+                              ? `${formData.sendTo.length} recipient${formData.sendTo.length > 1 ? 's' : ''} selected`
+                              : 'Select recipients...'}
+                          </span>
+                          <span className="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark text-lg">
+                            {isSendToDropdownOpen ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {isSendToDropdownOpen && (
+                          <div className="absolute z-10 w-full mt-1 bg-white dark:bg-background-dark border border-border-light dark:border-border-dark rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {staffUsers.map((staff) => {
+                              const isSelected = formData.sendTo?.includes(staff._id);
+                              return (
+                                <label
+                                  key={staff._id}
+                                  className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-surface-dark cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => handleSendToToggle(staff._id)}
+                                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                  />
+                                  <div className="flex-1">
+                                    <p className="text-xs font-medium text-text-primary-light dark:text-text-primary-dark">
+                                      {staff.profile.firstName} {staff.profile.lastName}
+                                    </p>
+                                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                      {getRoleDisplayName(staff.role)}
+                                    </p>
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {formErrors.sendTo && (
+                        <p className="text-red-500 text-xs mt-1">{formErrors.sendTo}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* Submit Error */}
+              {formErrors.submit && (
+                <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-sm mt-4">
+                  {formErrors.submit}
+                </div>
+              )}
+
               {/* Footer */}
-              <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-border-light dark:border-border-dark">
+              <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-border-light dark:border-border-dark flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-transparent hover:bg-gray-100 dark:hover:bg-surface-dark rounded-lg transition-colors"
+                  className="px-4 py-1.5 h-9 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-transparent hover:bg-gray-100 dark:hover:bg-surface-dark rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2 text-sm font-bold text-white bg-[#f04129] hover:bg-[#d63a25] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-1.5 h-9 text-sm font-bold text-white bg-[#f04129] hover:bg-[#d63a25] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (
                     <>
@@ -1382,160 +1393,153 @@ const Leaves: React.FC = () => {
           onClick={handleCloseDetails}
         >
           <div
-            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-2xl max-w-[95vw] mx-4 max-h-[90vh] flex flex-col overflow-hidden"
+            className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-xl w-full max-w-2xl max-w-[95vw] mx-4 max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-6 border-b border-border-light dark:border-border-dark">
+            <div className="p-4 border-b border-border-light dark:border-border-dark flex-shrink-0">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                    {selectedLeave.leaveType} Leave
-                  </h2>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedLeave.status)}`}>
+                <div className="flex items-center gap-3 flex-1">
+                  {/* User Avatar */}
+                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                    {typeof selectedLeave.userId === 'object' && selectedLeave.userId.profile
+                      ? `${selectedLeave.userId.profile.firstName.charAt(0)}${selectedLeave.userId.profile.lastName.charAt(0)}`
+                      : 'U'}
+                  </div>
+                  {/* User Name */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
+                      {getUserName(selectedLeave)}
+                    </p>
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark truncate">
+                      {typeof selectedLeave.userId === 'object' ? selectedLeave.userId.email : 'N/A'}
+                    </p>
+                  </div>
+                  {/* Status Badge */}
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getStatusColor(selectedLeave.status)}`}>
                     {selectedLeave.status}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ml-3">
                   {(selectedLeave.status === 'Approved' || selectedLeave.status === 'Pending') && (
                     <button
                       onClick={() => generateLeavePDF(selectedLeave)}
-                      className="p-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
+                      className="p-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
                       title="Download PDF"
                     >
-                      <span className="material-symbols-outlined">picture_as_pdf</span>
+                      <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
                     </button>
                   )}
                   <button
                     onClick={handleCloseDetails}
                     className="text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
                   >
-                    <X size={24} />
+                    <X size={20} />
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* User Information */}
-              <div className="flex items-center gap-4 pb-4 border-b border-border-light dark:border-border-dark">
-                {/* Profile Picture Placeholder */}
-                <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-lg">
-                  {typeof selectedLeave.userId === 'object' && selectedLeave.userId.profile
-                    ? `${selectedLeave.userId.profile.firstName.charAt(0)}${selectedLeave.userId.profile.lastName.charAt(0)}`
-                    : 'U'}
-                </div>
-                <div className="flex-1">
-                  <p className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
-                    {getUserName(selectedLeave)}
-                  </p>
-                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    {typeof selectedLeave.userId === 'object' ? selectedLeave.userId.email : 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Leave Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Leave Details - 3 Column Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                  <h3 className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                     Leave Type
                   </h3>
-                  <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                  <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                     {selectedLeave.leaveType}
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                  <h3 className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                     Duration
                   </h3>
-                  <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                  <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                     {selectedLeave.daysCount} {selectedLeave.daysCount === 1 ? 'day' : 'days'}
                   </p>
                 </div>
-              </div>
-
-              {/* Date Range */}
-              <div>
-                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
-                  Date Range
-                </h3>
-                <p className="text-base text-text-primary-light dark:text-text-primary-dark">
-                  {formatDateRange(selectedLeave.startDate, selectedLeave.endDate, selectedLeave.dates)}
-                </p>
-                {selectedLeave.dates && selectedLeave.dates.length > 0 && (
-                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
-                    {formatDatesList(selectedLeave.dates)}
+                <div>
+                  <h3 className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
+                    Date Range
+                  </h3>
+                  <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
+                    {formatDateRange(selectedLeave.startDate, selectedLeave.endDate, selectedLeave.dates)}
                   </p>
-                )}
+                  {selectedLeave.dates && selectedLeave.dates.length > 0 && (
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-0.5">
+                      {formatDatesList(selectedLeave.dates)}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Reason */}
-              <div>
-                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+              <div className="pt-2 border-t border-border-light dark:border-border-dark">
+                <h3 className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                   Reason
                 </h3>
-                <p className="text-base text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap">
+                <p className="text-sm text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap">
                   {selectedLeave.reason || 'No reason provided'}
                 </p>
               </div>
 
               {/* Approval Information */}
               <div>
-                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                <h3 className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                   Approval Information
                 </h3>
                 {selectedLeave.status === 'Approved' && selectedLeave.approvedBy ? (
-                  <div className="space-y-2">
-                    <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                  <div className="space-y-1">
+                    <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                       <span className="font-medium">Approved By:</span>{' '}
                       {typeof selectedLeave.approvedBy === 'object'
                         ? `${selectedLeave.approvedBy.profile.firstName} ${selectedLeave.approvedBy.profile.lastName}`
                         : 'N/A'}
                     </p>
                     {selectedLeave.updatedAt && (
-                      <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                      <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                         <span className="font-medium">Approved On:</span>{' '}
                         {new Date(selectedLeave.updatedAt).toLocaleDateString('en-US', {
                           year: 'numeric',
-                          month: 'long',
+                          month: 'short',
                           day: 'numeric',
                         })}
                       </p>
                     )}
                   </div>
                 ) : selectedLeave.status === 'Rejected' && selectedLeave.approvedBy ? (
-                  <div className="space-y-2">
-                    <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                  <div className="space-y-1">
+                    <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                       <span className="font-medium">Rejected By:</span>{' '}
                       {typeof selectedLeave.approvedBy === 'object'
                         ? `${selectedLeave.approvedBy.profile.firstName} ${selectedLeave.approvedBy.profile.lastName}`
                         : 'N/A'}
                     </p>
                     {selectedLeave.updatedAt && (
-                      <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                      <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                         <span className="font-medium">Rejected On:</span>{' '}
                         {new Date(selectedLeave.updatedAt).toLocaleDateString('en-US', {
                           year: 'numeric',
-                          month: 'long',
+                          month: 'short',
                           day: 'numeric',
                         })}
                       </p>
                     )}
                     {selectedLeave.rejectionReason && (
                       <div>
-                        <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
+                        <p className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-0.5">
                           Reason:
                         </p>
-                        <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                        <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                           {selectedLeave.rejectionReason}
                         </p>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                  <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                     Pending Approval
                   </p>
                 )}
@@ -1544,30 +1548,30 @@ const Leaves: React.FC = () => {
               {/* Attachment */}
               {selectedLeave.attachment && (
                 <div>
-                  <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                  <h3 className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                     Attached Document
                   </h3>
                   <a
                     href={`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}${selectedLeave.attachment}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 h-9 rounded-lg border-2 border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm"
                   >
-                    <span className="material-symbols-outlined text-red-600">attach_file</span>
-                    View Attached Document
+                    <span className="material-symbols-outlined text-red-600 text-lg">attach_file</span>
+                    View Document
                   </a>
                 </div>
               )}
 
               {/* Application Date */}
               <div>
-                <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
+                <h3 className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                   Application Date
                 </h3>
-                <p className="text-base text-text-primary-light dark:text-text-primary-dark">
+                <p className="text-sm text-text-primary-light dark:text-text-primary-dark">
                   {new Date(selectedLeave.createdAt).toLocaleDateString('en-US', {
                     year: 'numeric',
-                    month: 'long',
+                    month: 'short',
                     day: 'numeric',
                   })}
                 </p>
@@ -1575,13 +1579,13 @@ const Leaves: React.FC = () => {
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-border-light dark:border-border-dark">
+            <div className="p-4 border-t border-border-light dark:border-border-dark flex-shrink-0">
               {/* Show Approve/Reject buttons for Admins/Staff when viewing pending leaves that are not their own */}
               {isAdminOrStaff && 
                selectedLeave.status === 'Pending' && 
                typeof selectedLeave.userId === 'object' && 
                selectedLeave.userId._id !== user?.id ? (
-                <div className="flex justify-end gap-4 mt-6">
+                <div className="flex justify-end gap-3">
                   <button
                     onClick={async () => {
                       try {
@@ -1604,9 +1608,9 @@ const Leaves: React.FC = () => {
                         setToast({ message: errorMsg, type: 'error' });
                       }
                     }}
-                    className="px-6 py-3 text-sm font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="px-4 py-2 h-10 text-sm font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
-                    <span className="material-symbols-outlined">check</span>
+                    <span className="material-symbols-outlined text-lg">check</span>
                     Approve Leave
                   </button>
                   <button
@@ -1614,16 +1618,16 @@ const Leaves: React.FC = () => {
                       handleCloseDetails();
                       handleRejectClick(selectedLeave._id);
                     }}
-                    className="px-6 py-3 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="px-4 py-2 h-10 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
-                    <span className="material-symbols-outlined">close</span>
+                    <span className="material-symbols-outlined text-lg">close</span>
                     Reject Leave
                   </button>
                 </div>
               ) : (
                 <button
                   onClick={handleCloseDetails}
-                  className="w-full px-6 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-transparent hover:bg-gray-100 dark:hover:bg-surface-dark rounded-lg transition-colors"
+                  className="w-full px-4 py-2 h-10 text-sm font-medium text-text-primary-light dark:text-text-primary-dark bg-transparent hover:bg-gray-100 dark:hover:bg-surface-dark rounded-lg transition-colors"
                 >
                   Close
                 </button>

@@ -141,160 +141,150 @@ const LoginPage: React.FC = () => {
   }, [error]);
 
   return (
-    <div className="relative flex min-h-screen md:h-screen w-full flex-col bg-background-light dark:bg-background-dark group/design-root overflow-hidden md:overflow-hidden" style={{ fontFamily: 'Manrope, "Noto Sans", sans-serif' }}>
-      <div className="flex h-full grow flex-col">
-        <div className="flex flex-1">
-          <div className="flex w-full flex-col lg:flex-row">
-            {/* Branding Panel */}
-            <div className="relative hidden w-1/2 flex-col items-center justify-center bg-slate-900 lg:flex">
-              <div className="flex flex-col items-center gap-6 text-center text-white">
-                <div className="flex items-center gap-3">
-                  <svg className="h-10 w-10 text-primary" fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
-                    <path d="m9 12 2 2 4-4"></path>
-                  </svg>
-                  <h1 className="font-display text-4xl font-bold tracking-tight">AttendMark</h1>
-                </div>
-                <p className="max-w-xs text-lg font-light text-slate-300">Marking presence, perfecting performance. Your success, recorded.</p>
-              </div>
-            </div>
-
-            {/* Form Container */}
-            <div className="flex w-full flex-col bg-background-light p-6 lg:w-1/2 lg:p-6 md:h-full md:overflow-hidden">
-              <div className="flex w-full max-w-md mx-auto flex-col h-full justify-between md:py-6">
-                {/* Main Content - Logo + Form (Centered) */}
-                <div className="flex flex-col justify-center flex-grow">
-                  {/* Main AttendMark Logo - Always visible, no dark mode */}
-                  <div className="flex justify-center mb-6">
-                    <img
-                      src="/assets/attendmarklogo.png"
-                      alt="AttendMark"
-                      className="h-24 w-auto object-contain"
-                    />
-                  </div>
-                  
-                  <h1 className="text-slate-900 tracking-light text-[32px] md:text-2xl font-bold leading-tight pb-2">Welcome back</h1>
-                  <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4 md:gap-4 py-2">
-                  <label className="flex flex-col flex-1">
-                    <p className="text-slate-900 text-base font-medium leading-normal pb-2">Organization Name</p>
-                    <OrgSelector
-                      value={organizationName}
-                      onChange={(value) => {
-                        setFormData(prev => ({ ...prev, organizationName: value }));
-                        if (error || errorPersistRef.current || getStoredError()) {
-                          clearError();
-                        }
-                      }}
-                      inputRef={orgNameInputRef}
-                      placeholder="Search for your organization..."
-                    />
-                  </label>
-
-                  <label className="flex flex-col flex-1">
-                    <p className="text-slate-900 text-base font-medium leading-normal pb-2">Email</p>
-                    <input
-                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-900 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-14 placeholder:text-gray-400 p-[15px] text-base font-normal leading-normal"
-                      placeholder="you@example.com"
-                      type="email"
-                      name="email"
-                      value={email}
-                      onChange={onChange}
-                      required
-                      autoComplete="email"
-                    />
-                  </label>
-
-                  <label className="flex flex-col flex-1">
-                    <p className="text-slate-900 text-base font-medium leading-normal pb-2">Password</p>
-                    <div className="relative flex w-full flex-1 items-stretch">
-                      <input
-                        className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-900 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-14 placeholder:text-gray-400 p-[15px] pr-12 text-base font-normal leading-normal"
-                        placeholder="Enter your password"
-                        type={showPassword ? "text" : "password"}
-                        name="password"
-                        value={password}
-                        onChange={onChange}
-                        required
-                        autoComplete="current-password"
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-500 hover:text-primary z-10 cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>
-                          {showPassword ? 'visibility_off' : 'visibility'}
-                        </span>
-                      </button>
-                    </div>
-                  </label>
-
-                  <div className="flex justify-end pt-1 pb-3">
-                    <Link to="/forgot-password" className="text-slate-900 text-sm font-medium leading-normal underline hover:text-primary cursor-pointer">
-                      Forgot Password?
-                    </Link>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || isLoading}
-                    className={`flex items-center justify-center text-center font-bold text-base h-14 w-full rounded-lg bg-primary text-white hover:bg-[#d63a25] transition-colors duration-200 mt-4 ${
-                      isSubmitting || isLoading ? 'opacity-70 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    {isSubmitting || isLoading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-                        </svg>
-                        Logging in...
-                      </>
-                    ) : (
-                      'Login'
-                    )}
-                  </button>
-                </form>
-
-                  <div className="mt-4">
-                    <p className="text-center text-sm text-slate-600">
-                      Don't have an account? <Link to="/register" className="font-bold text-primary underline hover:text-primary/90">Register here</Link>
-                    </p>
-                  </div>
-
-                  {/* Error Alert */}
-                  {hasError && (
-                    <div className="mt-4 flex items-center gap-3 rounded-lg border border-red-500/50 bg-red-500/10 p-4" role="alert" aria-live="polite">
-                      <span className="material-symbols-outlined text-red-500" style={{ fontSize: '24px' }}>error</span>
-                      <p className="text-sm font-medium text-red-500">{errorText}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Powered By AI ALLY Logo - Footer (Always visible at bottom) */}
-                <div className="relative z-10 flex items-center justify-center pt-4 border-t border-slate-200 flex-shrink-0">
-                  <a 
-                    href="https://aially.in" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ gap: '8px' }}
-                  >
-                    <p className="text-xs text-slate-500 font-medium">Powered By</p>
-                    <img 
-                      src="/assets/image01.png" 
-                      alt="AI ALLY Logo" 
-                      style={{ 
-                        height: '24px', 
-                        width: 'auto',
-                        objectFit: 'contain'
-                      }}
-                    />
-                  </a>
-                </div>
-              </div>
-            </div>
+    <div className="h-screen w-screen overflow-hidden flex bg-background-light dark:bg-background-dark" style={{ fontFamily: 'Manrope, "Noto Sans", sans-serif' }}>
+      {/* Left Side - Branding Panel */}
+      <div className="hidden md:flex md:w-1/2 h-full bg-slate-900 flex-col items-center justify-center text-center p-12">
+        <div className="flex flex-col items-center gap-6 text-white">
+          <div className="flex items-center gap-3">
+            <svg className="h-10 w-10 text-primary" fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+              <path d="m9 12 2 2 4-4"></path>
+            </svg>
+            <h1 className="font-display text-4xl font-bold tracking-tight">AttendMark</h1>
           </div>
+          <p className="max-w-xs text-lg font-light text-slate-300">Marking presence, perfecting performance. Your success, recorded.</p>
+        </div>
+      </div>
+
+      {/* Right Side - Form Container */}
+      <div className="w-full md:w-1/2 h-full flex flex-col bg-background-light dark:bg-background-dark">
+        {/* Top - Logo */}
+        <div className="flex-none pt-6 pb-2 flex justify-center">
+          <img
+            src="/assets/attendmarklogo.png"
+            alt="AttendMark"
+            className="h-16 w-auto object-contain"
+          />
+        </div>
+
+        {/* Middle - Form */}
+        <div className="flex-grow flex flex-col justify-center px-8 max-w-md mx-auto w-full overflow-y-auto">
+          <div className="flex flex-col">
+            <h1 className="text-slate-900 tracking-light text-2xl font-bold leading-tight mb-4">Welcome back</h1>
+            <form onSubmit={onSubmit} noValidate className="flex flex-col space-y-3">
+            <label className="flex flex-col flex-1">
+              <p className="text-slate-900 text-sm font-medium leading-normal pb-1">Organization Name</p>
+              <OrgSelector
+                value={organizationName}
+                onChange={(value) => {
+                  setFormData(prev => ({ ...prev, organizationName: value }));
+                  if (error || errorPersistRef.current || getStoredError()) {
+                    clearError();
+                  }
+                }}
+                inputRef={orgNameInputRef}
+                placeholder="Search for your organization..."
+                className="h-11 text-sm"
+              />
+            </label>
+
+            <label className="flex flex-col flex-1">
+              <p className="text-slate-900 text-sm font-medium leading-normal pb-1">Email</p>
+              <input
+                className="w-full rounded-lg text-slate-900 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 text-sm font-normal leading-normal placeholder:text-gray-400"
+                placeholder="you@example.com"
+                type="email"
+                name="email"
+                value={email}
+                onChange={onChange}
+                required
+                autoComplete="email"
+              />
+            </label>
+
+            <label className="flex flex-col flex-1">
+              <p className="text-slate-900 text-sm font-medium leading-normal pb-1">Password</p>
+              <div className="relative w-full">
+                <input
+                  className="w-full rounded-lg text-slate-900 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 pr-10 text-sm font-normal leading-normal placeholder:text-gray-400"
+                  placeholder="Enter your password"
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={password}
+                  onChange={onChange}
+                  required
+                  autoComplete="current-password"
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-primary z-10 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    {showPassword ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </div>
+            </label>
+
+            <div className="flex justify-end pt-1">
+              <Link to="/forgot-password" className="text-slate-900 text-sm font-medium leading-normal underline hover:text-primary cursor-pointer">
+                Forgot Password?
+              </Link>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || isLoading}
+              className={`flex items-center justify-center text-center font-bold text-sm h-11 w-full rounded-lg bg-primary text-white hover:bg-[#d63a25] transition-colors duration-200 mt-2 ${
+                isSubmitting || isLoading ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
+            >
+              {isSubmitting || isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                  </svg>
+                  Logging in...
+                </>
+              ) : (
+                'Login'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-3">
+            <p className="text-center text-sm text-slate-600">
+              Don't have an account? <Link to="/register" className="font-bold text-primary underline hover:text-primary/90">Register here</Link>
+            </p>
+          </div>
+
+            {/* Error Alert */}
+            {hasError && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3" role="alert" aria-live="polite">
+                <span className="material-symbols-outlined text-red-500 text-lg">error</span>
+                <p className="text-sm font-medium text-red-500">{errorText}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom - Footer */}
+        <div className="flex-none py-4 text-center border-t border-slate-200">
+          <a 
+            href="https://aially.in" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            <p className="text-xs text-slate-500 font-medium">Powered By</p>
+            <img 
+              src="/assets/image01.png" 
+              alt="AI ALLY Logo" 
+              className="h-5 w-auto object-contain"
+            />
+          </a>
         </div>
       </div>
     </div>
