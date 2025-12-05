@@ -238,7 +238,7 @@ const Profile: React.FC = () => {
   const getRoleDisplay = () => {
     if (!user) return 'User';
     const roleMap: { [key: string]: string } = {
-      'SuperAdmin': 'Super Administrator',
+      'SuperAdmin': 'Company Administrator',
       'CompanyAdmin': 'Company Administrator',
       'Manager': 'Manager',
       'SessionAdmin': 'Session Administrator',

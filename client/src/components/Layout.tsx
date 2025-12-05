@@ -49,6 +49,19 @@ const Layout: React.FC = () => {
     return null;
   };
 
+  // Get role display name
+  const getRoleDisplay = () => {
+    if (!user?.role) return 'Guest';
+    const roleMap: { [key: string]: string } = {
+      'SuperAdmin': 'Company Administrator',
+      'CompanyAdmin': 'Company Administrator',
+      'Manager': 'Manager',
+      'SessionAdmin': 'Session Administrator',
+      'EndUser': 'End User',
+    };
+    return roleMap[user.role] || user.role;
+  };
+
   // Get full user name
   const getUserName = () => {
     if (user?.profile?.firstName && user?.profile?.lastName) {
@@ -180,7 +193,7 @@ const Layout: React.FC = () => {
               )}
               <div>
                 <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{getUserName()}</p>
-                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{getRoleDisplay()}</p>
               </div>
             </div>
           </div>
@@ -334,7 +347,7 @@ const Layout: React.FC = () => {
               )}
               <div>
                 <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{getUserName()}</p>
-                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{user?.role || 'Guest'}</p>
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{getRoleDisplay()}</p>
               </div>
             </div>
           </div>
@@ -399,7 +412,7 @@ const Layout: React.FC = () => {
             <ProfileMenu
               userInitials={getUserInitials()}
               userName={getUserName()}
-              userRole={user?.role || 'Guest'}
+              userRole={getRoleDisplay()}
               profilePicture={user?.profilePicture}
             />
           </div>
@@ -412,7 +425,7 @@ const Layout: React.FC = () => {
             <ProfileMenu
               userInitials={getUserInitials()}
               userName={getUserName()}
-              userRole={user?.role || 'Guest'}
+              userRole={getRoleDisplay()}
               profilePicture={user?.profilePicture}
             />
           </div>

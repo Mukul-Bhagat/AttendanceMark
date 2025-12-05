@@ -88,8 +88,9 @@ const Leaves: React.FC = () => {
     subject: '',
     leaveType: 'Personal' as 'Personal' | 'Casual' | 'Sick' | 'Extra',
     reason: '',
-    sendTo: '',
+    sendTo: [] as string[], // Array of user IDs
   });
+  const [isSendToDropdownOpen, setIsSendToDropdownOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
@@ -151,10 +152,6 @@ const Leaves: React.FC = () => {
           ['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin'].includes(u.role)
         );
         setStaffUsers(staff);
-        // Set first staff as default if available
-        if (staff.length > 0 && !formData.sendTo) {
-          setFormData(prev => ({ ...prev, sendTo: staff[0]._id }));
-        }
       } catch (err) {
         console.error('Failed to fetch staff:', err);
       }
@@ -164,6 +161,24 @@ const Leaves: React.FC = () => {
       fetchStaff();
     }
   }, [isModalOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (isSendToDropdownOpen && !target.closest('.send-to-dropdown-container')) {
+        setIsSendToDropdownOpen(false);
+      }
+    };
+
+    if (isSendToDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSendToDropdownOpen]);
 
   // Calculate used leaves for current year
   const getUsedLeaves = (type: 'Personal' | 'Casual' | 'Sick') => {
@@ -216,6 +231,10 @@ const Leaves: React.FC = () => {
       errors.reason = 'Reason is required';
     }
 
+    if (!formData.sendTo || formData.sendTo.length === 0) {
+      errors.sendTo = 'Please select at least one recipient';
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -245,6 +264,11 @@ const Leaves: React.FC = () => {
       formDataToSend.append('leaveType', formData.leaveType);
       formDataToSend.append('dates', JSON.stringify(datesArray));
       formDataToSend.append('reason', formData.reason);
+      
+      // Append sendTo as array
+      if (formData.sendTo && formData.sendTo.length > 0) {
+        formDataToSend.append('sendTo', JSON.stringify(formData.sendTo));
+      }
       
       // Append file if selected
       if (selectedFile) {
@@ -279,7 +303,7 @@ const Leaves: React.FC = () => {
         subject: '',
         leaveType: 'Personal',
         reason: '',
-        sendTo: staffUsers.length > 0 ? staffUsers[0]._id : '',
+        sendTo: [],
       });
       setSelectedDates([]);
       setSelectedFile(null);
@@ -292,6 +316,48 @@ const Leaves: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Get role display name
+  const getRoleDisplayName = (role: string): string => {
+    const roleMap: { [key: string]: string } = {
+      'SuperAdmin': 'Company Administrator',
+      'CompanyAdmin': 'Company Administrator',
+      'SessionAdmin': 'Company Admin',
+      'Manager': 'Manager',
+      'EndUser': 'End User',
+    };
+    return roleMap[role] || role;
+  };
+
+  // Handle sendTo selection
+  const handleSendToToggle = (userId: string) => {
+    setFormData(prev => {
+      const currentSendTo = prev.sendTo || [];
+      if (currentSendTo.includes(userId)) {
+        // Remove from selection
+        return { ...prev, sendTo: currentSendTo.filter(id => id !== userId) };
+      } else {
+        // Add to selection
+        return { ...prev, sendTo: [...currentSendTo, userId] };
+      }
+    });
+    // Clear error when user makes a selection
+    if (formErrors.sendTo) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.sendTo;
+        return newErrors;
+      });
+    }
+  };
+
+  // Remove a selected recipient
+  const handleRemoveRecipient = (userId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      sendTo: (prev.sendTo || []).filter(id => id !== userId)
+    }));
   };
 
   // Format date for display
@@ -1022,24 +1088,93 @@ const Leaves: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Send To (Optional - for future use) */}
+                {/* Send To (Required - Multi-Select) */}
                 {staffUsers.length > 0 && (
                   <div>
                     <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
-                      Send To (Optional)
+                      Send To <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      name="sendTo"
-                      value={formData.sendTo}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      {staffUsers.map((staff) => (
-                        <option key={staff._id} value={staff._id}>
-                          {staff.profile.firstName} {staff.profile.lastName} ({staff.role})
-                        </option>
-                      ))}
-                    </select>
+                    
+                    {/* Selected Recipients Tags */}
+                    {formData.sendTo && formData.sendTo.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {formData.sendTo.map((userId) => {
+                          const staff = staffUsers.find(s => s._id === userId);
+                          if (!staff) return null;
+                          return (
+                            <span
+                              key={userId}
+                              className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-sm font-medium"
+                            >
+                              {staff.profile.firstName} {staff.profile.lastName}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveRecipient(userId)}
+                                className="ml-1 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                              >
+                                <X size={14} />
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Multi-Select Dropdown */}
+                    <div className="relative send-to-dropdown-container">
+                      <button
+                        type="button"
+                        onClick={() => setIsSendToDropdownOpen(!isSendToDropdownOpen)}
+                        className={`w-full px-4 py-2 rounded-lg border ${
+                          formErrors.sendTo
+                            ? 'border-red-500'
+                            : 'border-border-light dark:border-border-dark'
+                        } bg-white dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary flex items-center justify-between`}
+                      >
+                        <span className={formData.sendTo && formData.sendTo.length > 0 ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}>
+                          {formData.sendTo && formData.sendTo.length > 0
+                            ? `${formData.sendTo.length} recipient${formData.sendTo.length > 1 ? 's' : ''} selected`
+                            : 'Select recipients...'}
+                        </span>
+                        <span className="material-symbols-outlined text-text-secondary-light dark:text-text-secondary-dark">
+                          {isSendToDropdownOpen ? 'expand_less' : 'expand_more'}
+                        </span>
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {isSendToDropdownOpen && (
+                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-background-dark border border-border-light dark:border-border-dark rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {staffUsers.map((staff) => {
+                            const isSelected = formData.sendTo?.includes(staff._id);
+                            return (
+                              <label
+                                key={staff._id}
+                                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-surface-dark cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleSendToToggle(staff._id)}
+                                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                />
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+                                    {staff.profile.firstName} {staff.profile.lastName}
+                                  </p>
+                                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                                    {getRoleDisplayName(staff.role)}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {formErrors.sendTo && (
+                      <p className="text-red-500 text-xs mt-1">{formErrors.sendTo}</p>
+                    )}
                   </div>
                 )}
 

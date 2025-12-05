@@ -58,7 +58,7 @@ export const applyLeave = async (req: Request, res: Response) => {
       }
     }
     
-    const { leaveType, startDate, endDate, reason } = req.body;
+    const { leaveType, startDate, endDate, reason, sendTo } = req.body;
     
     // Validate required fields
     if (!leaveType) {
@@ -207,6 +207,30 @@ export const applyLeave = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Invalid user ID format' });
     }
 
+    // Handle sendTo - convert to array of ObjectIds if provided
+    let sendToArray: Types.ObjectId[] = [];
+    if (sendTo) {
+      try {
+        // Handle both array and single value (for backward compatibility)
+        const sendToList = Array.isArray(sendTo) ? sendTo : [sendTo];
+        sendToArray = sendToList
+          .filter((id: any) => id && id.toString().trim() !== '')
+          .map((id: any) => {
+            try {
+              return new Types.ObjectId(id.toString());
+            } catch (err) {
+              console.warn('Invalid sendTo ID format:', id);
+              return null;
+            }
+          })
+          .filter((id: Types.ObjectId | null): id is Types.ObjectId => id !== null);
+      } catch (err: any) {
+        console.error('Error processing sendTo:', err);
+        // Continue without sendTo if parsing fails
+        sendToArray = [];
+      }
+    }
+
     // CRITICAL: Create EXACTLY ONE LeaveRequest document per application
     // Save dates array, and derive startDate/endDate for sorting/filtering
     const leaveRequestData: any = {
@@ -220,6 +244,11 @@ export const applyLeave = async (req: Request, res: Response) => {
       status: 'Pending',
       organizationPrefix: collectionPrefix,
     };
+    
+    // Add sendTo array if it has values
+    if (sendToArray.length > 0) {
+      leaveRequestData.sendTo = sendToArray;
+    }
     
     // Only add attachment if it exists and is a valid string
     if (attachmentPath && typeof attachmentPath === 'string' && attachmentPath.trim() !== '') {

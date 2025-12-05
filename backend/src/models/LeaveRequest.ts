@@ -13,6 +13,7 @@ export interface ILeaveRequest extends Document {
   approvedBy?: Types.ObjectId;
   rejectionReason?: string;
   attachment?: string; // File path/URL for attached document
+  sendTo?: Types.ObjectId[]; // Array of user IDs to send the leave request to
   organizationPrefix: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -69,6 +70,12 @@ const LeaveRequestSchema: Schema = new Schema({
   attachment: {
     type: String, // File path/URL for attached document
     required: false, // Optional field
+  },
+  sendTo: {
+    type: [Schema.Types.ObjectId],
+    required: false, // Optional field
+    default: [],
+    // Note: No ref - we manually populate user data due to organization-specific collections
   },
   organizationPrefix: {
     type: String,
