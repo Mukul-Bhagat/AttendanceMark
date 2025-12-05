@@ -92,9 +92,9 @@ const Layout: React.FC = () => {
   return (
     <div className="flex h-screen bg-background-light dark:bg-background-dark">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex flex-col h-screen w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark shadow-sm overflow-y-auto">
+      <aside className="hidden md:flex flex-col h-screen sticky top-0 w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark shadow-sm">
         {/* Logo Header */}
-        <div className="p-6 border-b border-border-light dark:border-border-dark flex items-center justify-center">
+        <div className="py-4 border-b border-border-light dark:border-border-dark flex items-center justify-center flex-shrink-0">
           <img 
             src="/assets/attendmarklogo.png" 
             alt="AttendMark Logo" 
@@ -117,8 +117,8 @@ const Layout: React.FC = () => {
           />
         </div>
 
-        {/* Navigation Links - Takes available space */}
-        <nav className="flex-1 mt-6 overflow-y-auto">
+        {/* Navigation Links - Scrollable middle section */}
+        <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1">
             <li>
               <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
@@ -175,9 +175,9 @@ const Layout: React.FC = () => {
         </nav>
 
         {/* Bottom Section: User Card + Footer */}
-        <div className="mt-auto border-t border-border-light dark:border-border-dark">
+        <div className="mt-auto border-t border-border-light dark:border-border-dark flex-shrink-0">
           {/* User Profile Card */}
-          <div className="p-6">
+          <div className="py-4 px-4">
             <div className="flex items-center space-x-3">
               {user?.profilePicture && user.profilePicture.trim() !== '' ? (
                 <img
@@ -199,7 +199,7 @@ const Layout: React.FC = () => {
           </div>
           
           {/* Powered By AI ALLY Logo - Close to User Card */}
-          <div className="px-6 pb-6">
+          <div className="px-4 pb-4">
             <a 
               href="https://aially.in" 
               target="_blank" 
@@ -246,7 +246,7 @@ const Layout: React.FC = () => {
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-6 border-b border-border-light dark:border-border-dark flex items-center justify-between">
+        <div className="py-4 border-b border-border-light dark:border-border-dark flex items-center justify-between flex-shrink-0 px-4">
           <div className="flex items-center justify-center flex-1">
             <img 
               src="/assets/attendmarklogo.png" 
@@ -277,8 +277,8 @@ const Layout: React.FC = () => {
           </button>
         </div>
 
-        {/* Navigation Links - Takes available space */}
-        <nav className="flex-1 mt-6 overflow-y-auto">
+        {/* Navigation Links - Scrollable middle section */}
+        <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1">
             <li>
               <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
@@ -329,9 +329,9 @@ const Layout: React.FC = () => {
         </nav>
 
         {/* Bottom Section: User Card + Footer */}
-        <div className="mt-auto border-t border-border-light dark:border-border-dark">
+        <div className="mt-auto border-t border-border-light dark:border-border-dark flex-shrink-0">
           {/* User Profile Card */}
-          <div className="p-6">
+          <div className="py-4 px-4">
             <div className="flex items-center space-x-3">
               {user?.profilePicture && user.profilePicture.trim() !== '' ? (
                 <img
@@ -353,7 +353,7 @@ const Layout: React.FC = () => {
           </div>
           
           {/* Powered By AI ALLY Logo - Close to User Card */}
-          <div className="px-6 pb-6">
+          <div className="px-4 pb-4">
             <a 
               href="https://aially.in" 
               target="_blank" 

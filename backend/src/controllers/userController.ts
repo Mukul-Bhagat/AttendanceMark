@@ -19,8 +19,9 @@ export const getOrganizationUsers = async (req: Request, res: Response) => {
     // 2. Find all users in that collection
     // We only select fields the admin needs to see
     // Include registeredDeviceId explicitly using + prefix (it's marked select: false in schema)
+    // Include customLeaveQuota for quota management
     const users = await UserCollection.find().select(
-      'profile.firstName profile.lastName profile.phone email role +registeredDeviceId'
+      'profile.firstName profile.lastName profile.phone email role +registeredDeviceId customLeaveQuota'
     );
 
     res.json(users);

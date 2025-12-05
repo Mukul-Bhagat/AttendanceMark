@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -12,10 +12,17 @@ type StaffUser = {
     lastName: string;
     phone?: string;
   };
+  registeredDeviceId?: string;
+  customLeaveQuota?: {
+    pl: number;
+    cl: number;
+    sl: number;
+  } | null;
 };
 
 const ManageStaff: React.FC = () => {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, isCompanyAdmin } = useAuth();
+  const canManageQuota = isSuperAdmin || isCompanyAdmin;
   
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -31,11 +38,23 @@ const ManageStaff: React.FC = () => {
   const [staffList, setStaffList] = useState<StaffUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resettingDevice, setResettingDevice] = useState<string | null>(null);
   const [deletingStaff, setDeletingStaff] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('All Roles');
+
+  // Quota management state
+  const [quotaModalOpen, setQuotaModalOpen] = useState(false);
+  const [selectedStaffForQuota, setSelectedStaffForQuota] = useState<StaffUser | null>(null);
+  const [quotaForm, setQuotaForm] = useState({ pl: 12, cl: 12, sl: 10 });
+  const [isSavingQuota, setIsSavingQuota] = useState(false);
+  const [orgDefaults, setOrgDefaults] = useState({ pl: 12, cl: 12, sl: 10 });
+
+  // Dropdown menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Fetch existing staff
   const fetchStaff = async () => {
@@ -63,7 +82,24 @@ const ManageStaff: React.FC = () => {
   // Fetch on component mount
   useEffect(() => {
     fetchStaff();
-  }, []);
+    // Fetch organization defaults for quota
+    if (canManageQuota) {
+      const fetchOrgDefaults = async () => {
+        try {
+          const { data } = await api.get('/api/organization/settings');
+          setOrgDefaults({
+            pl: data.yearlyQuotaPL || 12,
+            cl: data.yearlyQuotaCL || 12,
+            sl: data.yearlyQuotaSL || 10,
+          });
+        } catch (err) {
+          // Use defaults if fetch fails
+          console.error('Failed to fetch organization defaults:', err);
+        }
+      };
+      fetchOrgDefaults();
+    }
+  }, [canManageQuota]);
 
   // Auto-dismiss success message after 5 seconds
   useEffect(() => {
@@ -74,6 +110,26 @@ const ManageStaff: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [message]);
+
+  // Click outside handler for dropdown menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId) {
+        const menuElement = menuRefs.current[openMenuId];
+        if (menuElement && !menuElement.contains(event.target as Node)) {
+          setOpenMenuId(null);
+        }
+      }
+    };
+
+    if (openMenuId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenuId]);
 
   const clearForm = () => {
     setFirstName('');
@@ -121,6 +177,95 @@ const ManageStaff: React.FC = () => {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Handle quota management
+  const handleOpenQuotaModal = async (staff: StaffUser) => {
+    setSelectedStaffForQuota(staff);
+    // Pre-fill with current custom quota or org defaults
+    if (staff.customLeaveQuota) {
+      setQuotaForm({
+        pl: staff.customLeaveQuota.pl,
+        cl: staff.customLeaveQuota.cl,
+        sl: staff.customLeaveQuota.sl,
+      });
+    } else {
+      setQuotaForm({
+        pl: orgDefaults.pl,
+        cl: orgDefaults.cl,
+        sl: orgDefaults.sl,
+      });
+    }
+    setQuotaModalOpen(true);
+  };
+
+  const handleCloseQuotaModal = () => {
+    setQuotaModalOpen(false);
+    setSelectedStaffForQuota(null);
+    setQuotaForm({ pl: 12, cl: 12, sl: 10 });
+  };
+
+  const handleSaveQuota = async () => {
+    if (!selectedStaffForQuota) return;
+
+    try {
+      setIsSavingQuota(true);
+      const staffId = selectedStaffForQuota._id || selectedStaffForQuota.id;
+      await api.put(`/api/users/${staffId}/quota`, quotaForm);
+      
+      setMessage(`Leave quota updated for ${selectedStaffForQuota.profile.firstName} ${selectedStaffForQuota.profile.lastName}`);
+      handleCloseQuotaModal();
+      fetchStaff(); // Refresh staff list
+    } catch (err: any) {
+      setError(err.response?.data?.msg || 'Failed to update quota');
+    } finally {
+      setIsSavingQuota(false);
+    }
+  };
+
+  const handleResetToDefault = async () => {
+    if (!selectedStaffForQuota) return;
+
+    try {
+      setIsSavingQuota(true);
+      const staffId = selectedStaffForQuota._id || selectedStaffForQuota.id;
+      await api.put(`/api/users/${staffId}/quota`, { resetToDefault: true });
+      
+      setMessage(`Leave quota reset to default for ${selectedStaffForQuota.profile.firstName} ${selectedStaffForQuota.profile.lastName}`);
+      handleCloseQuotaModal();
+      fetchStaff(); // Refresh staff list
+    } catch (err: any) {
+      setError(err.response?.data?.msg || 'Failed to reset quota');
+    } finally {
+      setIsSavingQuota(false);
+    }
+  };
+
+  // Handle device reset (SuperAdmin only)
+  const handleResetDevice = async (staffId: string) => {
+    if (!window.confirm('Are you sure you want to reset this staff member\'s device? They will need to register a new device on their next scan.')) {
+      return;
+    }
+
+    setResettingDevice(staffId);
+    setError('');
+    setMessage('');
+
+    try {
+      await api.put(`/api/users/${staffId}/reset-device`);
+      
+      setMessage('Staff device reset successfully. New credentials have been emailed.');
+      // Refresh the list to show updated device status
+      await fetchStaff();
+    } catch (err: any) {
+      if (err.response?.status === 403) {
+        setError('You do not have permission to reset devices.');
+      } else {
+        setError(err.response?.data?.msg || 'Failed to reset device. Please try again.');
+      }
+    } finally {
+      setResettingDevice(null);
     }
   };
 
@@ -404,7 +549,7 @@ const ManageStaff: React.FC = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Email</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Role</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
-                          {isSuperAdmin && (
+                          {(isSuperAdmin || canManageQuota) && (
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
                           )}
                         </tr>
@@ -413,8 +558,13 @@ const ManageStaff: React.FC = () => {
                         {filteredStaff.map((staff) => {
                           const staffId = staff._id || staff.id || '';
                           const roleDisplay = staff.role === 'SessionAdmin' ? 'Session Admin' : staff.role;
+                          const isDeviceLocked = !!staff.registeredDeviceId;
+                          const isResetting = resettingDevice === staffId;
                           const isDeleting = deletingStaff === staffId;
                           const staffName = `${staff.profile.firstName} ${staff.profile.lastName}`;
+                          
+                          // Debug: Log device status
+                          console.log('Staff Device Status:', staff.email, 'registeredDeviceId:', staff.registeredDeviceId, 'isDeviceLocked:', isDeviceLocked);
                           
                           return (
                             <tr key={staffId} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
@@ -440,23 +590,93 @@ const ManageStaff: React.FC = () => {
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                 {staff.profile.phone || 'N/A'}
                               </td>
-                              {isSuperAdmin && (
+                              {(isSuperAdmin || canManageQuota) && (
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                  <button
-                                    onClick={() => handleDeleteStaff(staffId, staffName)}
-                                    disabled={isDeleting}
-                                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Delete staff member"
-                                  >
-                                    {isDeleting ? (
-                                      <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-                                      </svg>
-                                    ) : (
-                                      <span className="material-symbols-outlined text-xl">delete</span>
+                                  <div className="relative" ref={(el) => { menuRefs.current[staffId] = el; }}>
+                                    <button
+                                      onClick={() => setOpenMenuId(openMenuId === staffId ? null : staffId)}
+                                      className="text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 p-2 rounded-full transition-colors"
+                                      title="Settings"
+                                    >
+                                      <span className="material-symbols-outlined text-xl">more_vert</span>
+                                    </button>
+                                    
+                                    {openMenuId === staffId && (
+                                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50">
+                                        <ul className="py-1">
+                                          {/* TEMPORARILY REMOVED CONDITION FOR DEBUGGING: {isSuperAdmin && isDeviceLocked && ( */}
+                                          {isSuperAdmin && (
+                                            <li>
+                                              <button
+                                                onClick={() => {
+                                                  setOpenMenuId(null);
+                                                  handleResetDevice(staffId);
+                                                }}
+                                                disabled={isResetting}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                              >
+                                                {isResetting ? (
+                                                  <>
+                                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                      <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                                                    </svg>
+                                                    <span>Resetting...</span>
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <span className="material-symbols-outlined text-lg">restart_alt</span>
+                                                    <span>Reset Device {isDeviceLocked ? '(Locked)' : '(Unlocked)'}</span>
+                                                  </>
+                                                )}
+                                              </button>
+                                            </li>
+                                          )}
+                                          {canManageQuota && (
+                                            <li>
+                                              <button
+                                                onClick={() => {
+                                                  setOpenMenuId(null);
+                                                  handleOpenQuotaModal(staff);
+                                                }}
+                                                className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2"
+                                              >
+                                                <span className="material-symbols-outlined text-lg">bar_chart</span>
+                                                <span>Manage Leave Quota</span>
+                                              </button>
+                                            </li>
+                                          )}
+                                          {isSuperAdmin && (
+                                            <li>
+                                              <button
+                                                onClick={() => {
+                                                  setOpenMenuId(null);
+                                                  handleDeleteStaff(staffId, staffName);
+                                                }}
+                                                disabled={isDeleting}
+                                                className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                              >
+                                                {isDeleting ? (
+                                                  <>
+                                                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                      <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                                                    </svg>
+                                                    <span>Deleting...</span>
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <span className="material-symbols-outlined text-lg">delete</span>
+                                                    <span>Delete Staff</span>
+                                                  </>
+                                                )}
+                                              </button>
+                                            </li>
+                                          )}
+                                        </ul>
+                                      </div>
                                     )}
-                                  </button>
+                                  </div>
                                 </td>
                               )}
                             </tr>
@@ -471,6 +691,97 @@ const ManageStaff: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Quota Management Modal */}
+      {quotaModalOpen && selectedStaffForQuota && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full max-w-[95vw] mx-4">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-[#181511] dark:text-white">
+                  Manage Leave Quota
+                </h2>
+                <button
+                  onClick={handleCloseQuotaModal}
+                  className="text-[#8a7b60] dark:text-gray-400 hover:text-[#181511] dark:hover:text-white"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              
+              <p className="text-sm text-[#8a7b60] dark:text-gray-400 mb-4">
+                Setting custom leave quotas for <strong>{selectedStaffForQuota.profile.firstName} {selectedStaffForQuota.profile.lastName}</strong>
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#181511] dark:text-white mb-2">
+                    Personal Leave (PL)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quotaForm.pl}
+                    onChange={(e) => setQuotaForm({ ...quotaForm, pl: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 rounded-lg border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#181511] dark:text-white mb-2">
+                    Casual Leave (CL)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quotaForm.cl}
+                    onChange={(e) => setQuotaForm({ ...quotaForm, cl: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 rounded-lg border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#181511] dark:text-white mb-2">
+                    Sick Leave (SL)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quotaForm.sl}
+                    onChange={(e) => setQuotaForm({ ...quotaForm, sl: parseInt(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 rounded-lg border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#f04129]"
+                  />
+                </div>
+
+                {selectedStaffForQuota.customLeaveQuota && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-xs text-blue-800 dark:text-blue-300">
+                      This staff member currently has custom quotas. Organization default: PL: {orgDefaults.pl}, CL: {orgDefaults.cl}, SL: {orgDefaults.sl}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleResetToDefault}
+                  disabled={isSavingQuota}
+                  className="flex-1 px-4 py-2 rounded-lg border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 text-[#181511] dark:text-white hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  Reset to Default
+                </button>
+                <button
+                  onClick={handleSaveQuota}
+                  disabled={isSavingQuota}
+                  className="flex-1 px-4 py-2 rounded-lg bg-[#f04129] hover:bg-[#d63a25] text-white transition-colors disabled:opacity-50"
+                >
+                  {isSavingQuota ? 'Saving...' : 'Save Quota'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

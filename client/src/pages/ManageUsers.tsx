@@ -60,6 +60,10 @@ const ManageUsers: React.FC = () => {
   const [csvPreview, setCsvPreview] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Dropdown menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
   // Fetch existing EndUsers
   const fetchUsers = async () => {
     try {
@@ -95,6 +99,26 @@ const ManageUsers: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [message]);
+
+  // Click outside handler for dropdown menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId) {
+        const menuElement = menuRefs.current[openMenuId];
+        if (menuElement && !menuElement.contains(event.target as Node)) {
+          setOpenMenuId(null);
+        }
+      }
+    };
+
+    if (openMenuId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenuId]);
 
   const clearForm = () => {
     setFirstName('');
@@ -615,12 +639,8 @@ const ManageUsers: React.FC = () => {
                               <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Email</th>
                               <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Status</th>
                               <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
-                              <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
-                              {canManageQuota && (
-                                <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Quota</th>
-                              )}
-                              {isSuperAdmin && (
-                                <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col"></th>
+                              {(isSuperAdmin || canManageQuota) && (
+                                <th className="px-6 py-4 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Actions</th>
                               )}
                             </tr>
                           </thead>
@@ -631,6 +651,9 @@ const ManageUsers: React.FC = () => {
                               const isResetting = resettingDevice === userId;
                               const isDeleting = deletingUser === userId;
                               const userName = `${user.profile.firstName} ${user.profile.lastName}`;
+                              
+                              // Debug: Log device status
+                              console.log('User Device Status:', user.email, 'registeredDeviceId:', user.registeredDeviceId, 'isDeviceLocked:', isDeviceLocked);
 
                               return (
                                 <tr key={userId} className="hover:bg-red-50 dark:hover:bg-[#f04129]/10 transition-colors duration-150">
@@ -656,69 +679,93 @@ const ManageUsers: React.FC = () => {
                                   <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8a7b60] dark:text-gray-400">
                                     {user.profile.phone || 'N/A'}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    {isDeviceLocked ? (
-                                      <button
-                                        onClick={() => handleResetDevice(userId)}
-                                        disabled={isResetting}
-                                        className={`inline-flex items-center text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400 transition-colors duration-200 text-xs py-1 px-2 rounded-md border border-transparent hover:bg-red-500/10 dark:hover:bg-red-500/10 ${
-                                          isResetting ? 'opacity-50 cursor-not-allowed' : ''
-                                        }`}
-                                        title="Reset Device Lock"
-                                      >
-                                        {isResetting ? (
-                                          <>
-                                            <svg className="animate-spin -ml-1 mr-1.5 h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                              <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-                                            </svg>
-                                            Resetting...
-                                          </>
-                                        ) : (
-                                          <>
-                                            <span className="material-symbols-outlined mr-1 text-sm">restart_alt</span>
-                                            Reset Device
-                                          </>
-                                        )}
-                                      </button>
-                                    ) : (
-                                      <button
-                                        disabled
-                                        className="inline-flex items-center text-red-600 hover:text-red-800 dark:text-red-500 dark:hover:text-red-400 transition-colors duration-200 text-xs py-1 px-2 rounded-md border border-transparent opacity-50 cursor-not-allowed"
-                                      >
-                                        <span className="material-symbols-outlined mr-1 text-sm">restart_alt</span>
-                                        Reset Device
-                                      </button>
-                                    )}
-                                  </td>
-                                  {canManageQuota && (
+                                  {(isSuperAdmin || canManageQuota) && (
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                      <button
-                                        onClick={() => handleOpenQuotaModal(user)}
-                                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                                        title="Manage Leave Quota"
-                                      >
-                                        <span className="material-symbols-outlined text-xl">settings</span>
-                                      </button>
-                                    </td>
-                                  )}
-                                  {isSuperAdmin && (
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                      <button
-                                        onClick={() => handleDeleteUser(userId, userName)}
-                                        disabled={isDeleting}
-                                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="Delete user"
-                                      >
-                                        {isDeleting ? (
-                                          <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
-                                          </svg>
-                                        ) : (
-                                          <span className="material-symbols-outlined text-xl">delete</span>
+                                      <div className="relative" ref={(el) => { menuRefs.current[userId] = el; }}>
+                                        <button
+                                          onClick={() => setOpenMenuId(openMenuId === userId ? null : userId)}
+                                          className="text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 p-2 rounded-full transition-colors"
+                                          title="Settings"
+                                        >
+                                          <span className="material-symbols-outlined text-xl">more_vert</span>
+                                        </button>
+                                        
+                                        {openMenuId === userId && (
+                                          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50">
+                                            <ul className="py-1">
+                                              {/* TEMPORARILY REMOVED CONDITION FOR DEBUGGING: {isDeviceLocked && ( */}
+                                              {(
+                                                <li>
+                                                  <button
+                                                    onClick={() => {
+                                                      setOpenMenuId(null);
+                                                      handleResetDevice(userId);
+                                                    }}
+                                                    disabled={isResetting}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                  >
+                                                    {isResetting ? (
+                                                      <>
+                                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                          <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                                                        </svg>
+                                                        <span>Resetting...</span>
+                                                      </>
+                                                    ) : (
+                                                      <>
+                                                        <span className="material-symbols-outlined text-lg">restart_alt</span>
+                                                        <span>Reset Device {isDeviceLocked ? '(Locked)' : '(Unlocked)'}</span>
+                                                      </>
+                                                    )}
+                                                  </button>
+                                                </li>
+                                              )}
+                                              {canManageQuota && (
+                                                <li>
+                                                  <button
+                                                    onClick={() => {
+                                                      setOpenMenuId(null);
+                                                      handleOpenQuotaModal(user);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2"
+                                                  >
+                                                    <span className="material-symbols-outlined text-lg">bar_chart</span>
+                                                    <span>Manage Leave Quota</span>
+                                                  </button>
+                                                </li>
+                                              )}
+                                              {isSuperAdmin && (
+                                                <li>
+                                                  <button
+                                                    onClick={() => {
+                                                      setOpenMenuId(null);
+                                                      handleDeleteUser(userId, userName);
+                                                    }}
+                                                    disabled={isDeleting}
+                                                    className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                  >
+                                                    {isDeleting ? (
+                                                      <>
+                                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                          <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                                                        </svg>
+                                                        <span>Deleting...</span>
+                                                      </>
+                                                    ) : (
+                                                      <>
+                                                        <span className="material-symbols-outlined text-lg">delete</span>
+                                                        <span>Delete User</span>
+                                                      </>
+                                                    )}
+                                                  </button>
+                                                </li>
+                                              )}
+                                            </ul>
+                                          </div>
                                         )}
-                                      </button>
+                                      </div>
                                     </td>
                                   )}
                                 </tr>
