@@ -565,7 +565,7 @@ const Leaves: React.FC = () => {
       }
     } else if (typeof leave.userId === 'string') {
       // userId is just an ID string - check if it matches current user
-      if (user && (leave.userId === user.id || leave.userId === user._id)) {
+      if (user && leave.userId === user.id) {
         // User is viewing their own leave - use AuthContext user data
         applicantName = `${user.profile.firstName} ${user.profile.lastName}`;
       } else {
@@ -589,7 +589,7 @@ const Leaves: React.FC = () => {
       applicantEmail = user.email;
     } else if (typeof leave.userId === 'string') {
       // userId is ID string - check if it matches current user
-      if (user && (leave.userId === user.id || leave.userId === user._id)) {
+      if (user && leave.userId === user.id) {
         applicantEmail = user.email;
       } else {
         // Fallback to current user email or N/A

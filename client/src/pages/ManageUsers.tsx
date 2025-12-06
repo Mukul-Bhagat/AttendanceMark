@@ -50,7 +50,7 @@ const ManageUsers: React.FC = () => {
   const [selectedUserForQuota, setSelectedUserForQuota] = useState<EndUser | null>(null);
   const [quotaForm, setQuotaForm] = useState({ pl: 12, cl: 12, sl: 10 });
   const [isSavingQuota, setIsSavingQuota] = useState(false);
-  const [orgDefaults, setOrgDefaults] = useState({ pl: 12, cl: 12, sl: 10 });
+  const orgDefaults = { pl: 12, cl: 12, sl: 10 };
   
   // Bulk import state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
