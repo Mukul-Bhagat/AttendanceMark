@@ -136,24 +136,6 @@ const Sessions: React.FC = () => {
     }
   };
 
-  // Filter sessions: only show upcoming/live sessions by default (using getSessionStatus with buffer)
-  const isSessionUpcoming = (session: ISession): boolean => {
-    try {
-      // Exclude completed sessions from active list
-      if (session.isCompleted) {
-        return false;
-      }
-      
-      // Use the robust getSessionStatus function which includes the 10-minute buffer
-      const status = getSessionStatus(session);
-      // Session is "upcoming" if it's not past (i.e., it's Live or Upcoming)
-      return status !== 'Past';
-    } catch {
-      // If date parsing fails, include the session to be safe
-      return true;
-    }
-  };
-
   // Check if a session is scheduled for today (date-only comparison)
   // Button should be available from 00:00 Midnight (IST) on the day of the session
   const isSessionToday = (session: ISession): boolean => {

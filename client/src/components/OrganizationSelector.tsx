@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api';
 
 interface Organization {
@@ -21,7 +20,6 @@ const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   tempToken,
   onError,
 }) => {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = React.useState<string | null>(null);
 
   const handleSelectOrganization = async (org: Organization) => {
@@ -32,9 +30,9 @@ const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
         prefix: org.prefix,
       });
 
-      const { token, user } = response.data;
+      const { token } = response.data;
 
-      // Store token and user data
+      // Store token - AuthContext will handle user state update
       localStorage.setItem('token', token);
       
       // Navigate to dashboard - AuthContext will handle user state update
