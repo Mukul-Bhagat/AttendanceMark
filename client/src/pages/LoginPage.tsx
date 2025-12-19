@@ -193,6 +193,7 @@ const LoginPage: React.FC = () => {
             <OrganizationSelector
               organizations={organizations}
               tempToken={tempToken}
+              email={email}
               onError={(errorMsg) => {
                 setError(errorMsg);
                 setOrganizations([]);

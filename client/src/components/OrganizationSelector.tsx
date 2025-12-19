@@ -12,12 +12,14 @@ interface Organization {
 interface OrganizationSelectorProps {
   organizations: Organization[];
   tempToken: string;
+  email: string;
   onError: (error: string) => void;
 }
 
 const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   organizations,
   tempToken,
+  email,
   onError,
 }) => {
   const [isLoading, setIsLoading] = React.useState<string | null>(null);
@@ -80,16 +82,19 @@ const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
         <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-2">
           Select Your Workspace
         </h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
+          Logged in as: <strong>{email}</strong>
+        </p>
         <p className="text-slate-600 dark:text-slate-400">
           You have access to {organizations.length} organization{organizations.length !== 1 ? 's' : ''}. Choose one to continue.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-5xl mx-auto">
         {organizations.map((org) => (
           <div
             key={org.prefix}
-            className="relative flex flex-col rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-lg hover:border-primary/50 transition-all duration-200 p-6 cursor-pointer group min-h-[180px] w-full md:min-w-[280px]"
+            className="relative flex flex-col justify-between rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-lg hover:border-primary/50 transition-all duration-200 hover:scale-105 p-6 cursor-pointer group h-full"
             onClick={() => !isLoading && handleSelectOrganization(org)}
           >
             {/* Organization Name - Centered */}
