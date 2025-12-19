@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import Organization from '../models/Organization';
 import createUserModel from '../models/User'; // Import the factory
+import UserOrganizationMap from '../models/UserOrganizationMap';
 import { sendEmail } from '../utils/email';
 
 // Utility to create a safe collection name
@@ -86,7 +87,21 @@ export const registerSuperAdmin = async (req: Request, res: Response) => {
 
     await user.save();
 
-    // 7. TODO: Generate and return a JWT token (we'll do this next)
+    // 7. Add user to UserOrganizationMap
+    await UserOrganizationMap.findOneAndUpdate(
+      { email: email.toLowerCase() },
+      {
+        $push: {
+          organizations: {
+            orgName: organizationName,
+            prefix: collectionPrefix,
+            role: 'SuperAdmin',
+            userId: user._id.toString(),
+          },
+        },
+      },
+      { upsert: true, new: true }
+    );
 
     res.status(201).json({
       msg: `Organization '${organizationName}' and Super Admin created.`,
@@ -99,45 +114,160 @@ export const registerSuperAdmin = async (req: Request, res: Response) => {
 };
 
 // @route   POST /api/auth/login
-// @desc    Login user - finds the correct collection using organizationName
+// @desc    Login user - finds organizations by email, verifies password, returns org list
 export const login = async (req: Request, res: Response) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const { organizationName, email, password } = req.body;
+  const { email, password } = req.body;
+
+  // Ensure organizationName is not required (ignore if present)
+  if (req.body.organizationName) {
+    // Silently ignore organizationName if provided (for backward compatibility)
+    delete req.body.organizationName;
+  }
 
   try {
-    // 1. Find the organization in the MASTER list to get the collectionPrefix
-    const org = await Organization.findOne({ name: organizationName });
-    if (!org) {
-      return res.status(401).json({ msg: 'Invalid organization name' });
+    // 1. Look up email in UserOrganizationMap
+    const userMap = await UserOrganizationMap.findOne({ email: email.toLowerCase() });
+    
+    // CRITICAL: Check if userMap exists and has organizations
+    if (!userMap) {
+      return res.status(401).json({ 
+        msg: 'User not found. Please run the migration script to populate user data.',
+        requiresMigration: true 
+      });
     }
 
-    // 2. Use the collectionPrefix to get the correct user collection
-    const UserCollection = createUserModel(`${org.collectionPrefix}_users`);
+    if (!userMap.organizations || userMap.organizations.length === 0) {
+      return res.status(401).json({ 
+        msg: 'User has no associated organizations. Please contact your administrator.',
+        requiresMigration: true 
+      });
+    }
 
-    // 3. Find the user by email - MUST select password since it's select: false by default
-    const user = await UserCollection.findOne({ email }).select('+password');
+    // 2. Get the first organization to verify password
+    const firstOrg = userMap.organizations[0];
+    if (!firstOrg || !firstOrg.prefix || !firstOrg.userId) {
+      return res.status(401).json({ 
+        msg: 'Invalid user organization data. Please run the migration script.',
+        requiresMigration: true 
+      });
+    }
+
+    const UserCollection = createUserModel(`${firstOrg.prefix}_users`);
+
+    // 3. Find the user by userId - MUST select password since it's select: false by default
+    const user = await UserCollection.findById(firstOrg.userId).select('+password');
     if (!user) {
       return res.status(401).json({ msg: 'Invalid credentials' });
     }
 
-    // 4. Check if password matches
+    // 4. Verify password against the first organization's user account
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({ msg: 'Invalid credentials' });
     }
 
-    // 5. Generate JWT token
-    // The token includes collectionPrefix so we know which collection to use for future requests
+    // 5. Get organization details for all organizations
+    const orgDetails = await Promise.all(
+      userMap.organizations.map(async (orgEntry) => {
+        const org = await Organization.findOne({ collectionPrefix: orgEntry.prefix });
+        return {
+          orgName: orgEntry.orgName,
+          prefix: orgEntry.prefix,
+          role: orgEntry.role,
+          userId: orgEntry.userId,
+          organizationName: org?.name || orgEntry.orgName, // Fallback to orgName if org not found
+        };
+      })
+    );
+
+    // 6. Generate temporary token (short-lived, 5 minutes) for organization selection
+    const tempPayload = {
+      email: email.toLowerCase(),
+      verified: true,
+    };
+
+    jwt.sign(
+      tempPayload,
+      process.env.JWT_SECRET as string,
+      { expiresIn: '5m' }, // Short-lived token for security
+      (err, tempToken) => {
+        if (err) throw err;
+        res.json({
+          tempToken, // Temporary token for organization selection
+          organizations: orgDetails, // List of organizations user belongs to
+        });
+      }
+    );
+  } catch (err: any) {
+    console.error('Login error:', err.message);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ 
+      msg: 'Server error during login',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// @route   POST /api/auth/select-organization
+// @desc    Complete login by selecting an organization - requires tempToken and prefix
+export const selectOrganization = async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { tempToken, prefix } = req.body;
+
+  try {
+    // 1. Verify temporary token
+    let decoded: any;
+    try {
+      decoded = jwt.verify(tempToken, process.env.JWT_SECRET as string) as any;
+    } catch (err) {
+      return res.status(401).json({ msg: 'Invalid or expired token. Please log in again.' });
+    }
+
+    if (!decoded.email || !decoded.verified) {
+      return res.status(401).json({ msg: 'Invalid token' });
+    }
+
+    // 2. Find user in UserOrganizationMap
+    const userMap = await UserOrganizationMap.findOne({ email: decoded.email.toLowerCase() });
+    if (!userMap) {
+      return res.status(401).json({ msg: 'User not found' });
+    }
+
+    // 3. Find the organization entry
+    const orgEntry = userMap.organizations.find((org) => org.prefix === prefix);
+    if (!orgEntry) {
+      return res.status(403).json({ msg: 'You do not have access to this organization' });
+    }
+
+    // 4. Get the organization details
+    const org = await Organization.findOne({ collectionPrefix: prefix });
+    if (!org) {
+      return res.status(404).json({ msg: 'Organization not found' });
+    }
+
+    // 5. Get the user from the organization-specific collection
+    const UserCollection = createUserModel(`${prefix}_users`);
+    const user = await UserCollection.findById(orgEntry.userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found in organization' });
+    }
+
+    // 6. Generate final JWT token with organization context
     const payload = {
       user: {
         id: user._id,
         email: user.email,
         role: user.role,
-        collectionPrefix: org.collectionPrefix,
+        collectionPrefix: prefix,
         organizationName: org.name,
       },
     };
@@ -335,6 +465,107 @@ export const forgotPassword = async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error(err.message);
     res.status(500).send('Server error');
+  }
+};
+
+// @route   GET /api/auth/run-migration
+// @desc    Run migration to populate UserOrganizationMap from existing organization collections
+// @access  Public (should be protected in production)
+export const runMigration = async (_req: Request, res: Response) => {
+  try {
+    console.log('🚀 Starting UserOrganizationMap migration via API...');
+
+    // 1. Get all organizations
+    const organizations = await Organization.find({}).sort({ name: 1 });
+    
+    if (organizations.length === 0) {
+      return res.json({
+        msg: 'No organizations found. Nothing to migrate.',
+        totalUsers: 0,
+        totalMapped: 0,
+        errors: [],
+      });
+    }
+
+    let totalUsers = 0;
+    let totalMapped = 0;
+    const errors: string[] = [];
+    const logs: string[] = [];
+
+    logs.push(`Found ${organizations.length} organization(s)`);
+
+    // 2. Iterate through each organization
+    for (const org of organizations) {
+      try {
+        logs.push(`Processing organization: ${org.name} (${org.collectionPrefix})`);
+        
+        const UserCollection = createUserModel(`${org.collectionPrefix}_users`);
+        const users = await UserCollection.find({}).select('email role');
+
+        logs.push(`  Found ${users.length} user(s) in this organization`);
+
+        if (users.length === 0) {
+          logs.push(`  ⏭️  Skipping (no users found)`);
+          continue;
+        }
+
+        // 3. For each user, update UserOrganizationMap
+        for (const user of users) {
+          try {
+            const userEmail = user.email.toLowerCase();
+            
+            await UserOrganizationMap.findOneAndUpdate(
+              { email: userEmail },
+              {
+                $addToSet: {
+                  // Use $addToSet to avoid duplicates
+                  organizations: {
+                    orgName: org.name,
+                    prefix: org.collectionPrefix,
+                    role: user.role,
+                    userId: user._id.toString(),
+                  },
+                },
+              },
+              { upsert: true, new: true }
+            );
+            
+            totalMapped++;
+            logs.push(`  ✅ Mapped user: ${userEmail} -> ${org.name} (${user.role})`);
+          } catch (userErr: any) {
+            const errorMsg = `Error mapping user ${user.email} in ${org.name}: ${userErr.message}`;
+            errors.push(errorMsg);
+            logs.push(`  ❌ ${errorMsg}`);
+          }
+        }
+        totalUsers += users.length;
+      } catch (orgErr: any) {
+        const errorMsg = `Error processing organization ${org.name}: ${orgErr.message}`;
+        errors.push(errorMsg);
+        logs.push(`❌ ${errorMsg}`);
+      }
+    }
+
+    const summary = {
+      msg: 'Migration completed',
+      totalOrganizations: organizations.length,
+      totalUsers,
+      totalMapped,
+      errors: errors.length > 0 ? errors : undefined,
+      logs: logs.slice(0, 100), // Limit logs to first 100 entries to avoid huge response
+    };
+
+    console.log('✅ Migration completed:', summary);
+
+    res.json(summary);
+  } catch (err: any) {
+    console.error('Migration error:', err.message);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ 
+      msg: 'Migration failed', 
+      error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { getOrganizations, registerSuperAdmin, login, getMe, forceResetPassword, forgotPassword, resetPassword } from '../controllers/authController';
+import { getOrganizations, registerSuperAdmin, login, selectOrganization, getMe, forceResetPassword, forgotPassword, resetPassword, runMigration } from '../controllers/authController';
 
 const router = Router();
 
@@ -26,16 +26,27 @@ router.post(
 );
 
 // @route   POST /api/auth/login
-// @desc    Login user - requires organizationName, email, and password
+// @desc    Login user - requires email and password, returns organizations list
 // @access  Public
 router.post(
   '/login',
   [
-    check('organizationName', 'Organization name is required').not().isEmpty(),
     check('email', 'Please include a valid email').isEmail(),
     check('password', 'Password is required').exists(),
   ],
   login
+);
+
+// @route   POST /api/auth/select-organization
+// @desc    Complete login by selecting an organization
+// @access  Public
+router.post(
+  '/select-organization',
+  [
+    check('tempToken', 'Temporary token is required').not().isEmpty(),
+    check('prefix', 'Organization prefix is required').not().isEmpty(),
+  ],
+  selectOrganization
 );
 
 // @route   GET /api/auth/me
@@ -78,6 +89,11 @@ router.put(
   ],
   resetPassword
 );
+
+// @route   GET /api/auth/run-migration
+// @desc    Run migration to populate UserOrganizationMap from existing users
+// @access  Public (should be protected in production)
+router.get('/run-migration', runMigration);
 
 export default router;
 

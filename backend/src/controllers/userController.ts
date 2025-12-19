@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import createUserModel from '../models/User';
+import UserOrganizationMap from '../models/UserOrganizationMap';
+import Organization from '../models/Organization';
 import path from 'path';
 import fs from 'fs';
 import mongoose from 'mongoose';
@@ -78,6 +80,25 @@ export const createStaff = async (req: Request, res: Response) => {
     });
 
     await newStaff.save();
+
+    // Add user to UserOrganizationMap
+    const org = await Organization.findOne({ collectionPrefix });
+    if (org) {
+      await UserOrganizationMap.findOneAndUpdate(
+        { email: email.toLowerCase() },
+        {
+          $push: {
+            organizations: {
+              orgName: org.name,
+              prefix: collectionPrefix,
+              role: role,
+              userId: newStaff._id.toString(),
+            },
+          },
+        },
+        { upsert: true, new: true }
+      );
+    }
 
     // Send welcome email with login credentials
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -191,6 +212,26 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
       });
 
       await newEndUser.save();
+      
+      // Add user to UserOrganizationMap
+      const org = await Organization.findOne({ collectionPrefix });
+      if (org) {
+        await UserOrganizationMap.findOneAndUpdate(
+          { email: email.toLowerCase() },
+          {
+            $push: {
+              organizations: {
+                orgName: org.name,
+                prefix: collectionPrefix,
+                role: 'EndUser',
+                userId: newEndUser._id.toString(),
+              },
+            },
+          },
+          { upsert: true, new: true }
+        );
+      }
+      
       successCount++;
 
       // Queue welcome email (don't await - collect for Promise.all)
@@ -276,6 +317,25 @@ export const createEndUser = async (req: Request, res: Response) => {
     });
 
     await newEndUser.save();
+
+    // Add user to UserOrganizationMap
+    const org = await Organization.findOne({ collectionPrefix });
+    if (org) {
+      await UserOrganizationMap.findOneAndUpdate(
+        { email: email.toLowerCase() },
+        {
+          $push: {
+            organizations: {
+              orgName: org.name,
+              prefix: collectionPrefix,
+              role: 'EndUser',
+              userId: newEndUser._id.toString(),
+            },
+          },
+        },
+        { upsert: true, new: true }
+      );
+    }
 
     // Send welcome email with login credentials
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';

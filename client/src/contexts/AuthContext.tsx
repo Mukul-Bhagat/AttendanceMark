@@ -77,12 +77,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initAuth();
   }, []);
 
-  // Login function
-  const login = async (formData: any) => {
+  // Login function - can accept formData (for old flow) or { token, user } (for new flow)
+  const login = async (formDataOrAuth: any) => {
     setIsLoading(true);
     try {
-      // This hits the API endpoint from Step 2
-      const response = await api.post('/api/auth/login', formData);
+      // If formDataOrAuth already has token and user, it's from the new flow
+      if (formDataOrAuth.token && formDataOrAuth.user) {
+        setToken(formDataOrAuth.token);
+        setUser(formDataOrAuth.user);
+        localStorage.setItem('token', formDataOrAuth.token);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Otherwise, it's the old flow (shouldn't happen with new login, but kept for compatibility)
+      const response = await api.post('/api/auth/login', formDataOrAuth);
       
       // Get token and user from response
       const { token, user } = response.data;

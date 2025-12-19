@@ -5,6 +5,7 @@ import { ISession, IClassBatch } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, Edit, ArrowLeft } from 'lucide-react';
 import SessionCalendar from '../components/SessionCalendar';
+import { addMinutes } from 'date-fns';
 
 const Sessions: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const Sessions: React.FC = () => {
   const [showPastSessions, setShowPastSessions] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date()); // Track current time for status calculations
   const calendarRef = useRef<HTMLDivElement>(null);
   
   // SuperAdmin, CompanyAdmin, Manager, and SessionAdmin can create sessions
@@ -85,6 +87,17 @@ const Sessions: React.FC = () => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [classId]);
 
+  // Refresh session status periodically to keep "Live" and "Past" badges accurate
+  // This ensures sessions transition from Live to Past correctly after the 10-minute buffer
+  useEffect(() => {
+    // Update current time every minute to trigger re-calculation of session statuses
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
+
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -123,7 +136,7 @@ const Sessions: React.FC = () => {
     }
   };
 
-  // Filter sessions: only show upcoming sessions (endDate >= today) by default
+  // Filter sessions: only show upcoming/live sessions by default (using getSessionStatus with buffer)
   const isSessionUpcoming = (session: ISession): boolean => {
     try {
       // Exclude completed sessions from active list
@@ -131,24 +144,10 @@ const Sessions: React.FC = () => {
         return false;
       }
       
-      // Use endDate if available, otherwise use startDate
-      const sessionDate = session.endDate ? new Date(session.endDate) : new Date(session.startDate);
-      
-      // If session has endTime, combine it with the date for accurate comparison
-      if (session.endTime) {
-        const [hours, minutes] = session.endTime.split(':');
-        sessionDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-      } else {
-        // Set to end of day if no endTime
-        sessionDate.setHours(23, 59, 59, 999);
-      }
-      
-      // Get today's date at start of day for comparison
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      // Session is upcoming if its end date/time is >= today
-      return sessionDate >= today;
+      // Use the robust getSessionStatus function which includes the 10-minute buffer
+      const status = getSessionStatus(session);
+      // Session is "upcoming" if it's not past (i.e., it's Live or Upcoming)
+      return status !== 'Past';
     } catch {
       // If date parsing fails, include the session to be safe
       return true;
@@ -173,15 +172,17 @@ const Sessions: React.FC = () => {
 
   // ROBUST STATUS HELPER: Returns 'Past', 'Live', or 'Upcoming'
   // Handles both "HH:mm" time strings and full Date objects
+  // Sessions are marked as 'Past' only 10 minutes AFTER the end time
   const getSessionStatus = (session: ISession): 'Past' | 'Live' | 'Upcoming' => {
     try {
       // Handle cancelled/completed sessions
       if (session.isCancelled) return 'Upcoming'; // Let cancelled badge handle display
       if (session.isCompleted) return 'Past';
       
-      const now = new Date();
+      // Use currentTime state to ensure consistent status calculations and trigger re-renders
+      const now = currentTime;
       
-      // 1. Parse Start DateTime
+      // 1. Parse Start DateTime - Combine startDate with startTime
       let startDateTime = new Date(session.startDate);
       
       // If startTime is a string "HH:mm", combine it with the date
@@ -190,7 +191,7 @@ const Sessions: React.FC = () => {
         startDateTime.setHours(sHours, sMinutes, 0, 0);
       }
       
-      // 2. Parse End DateTime
+      // 2. Parse End DateTime - Combine endDate (or startDate) with endTime
       // Use endDate if available, otherwise use startDate for the date part
       let endDateTime = new Date(session.endDate || session.startDate);
       
@@ -208,9 +209,15 @@ const Sessions: React.FC = () => {
         endDateTime.setHours(23, 59, 59, 999);
       }
       
-      // 3. Compare and return status
-      if (now > endDateTime) return 'Past';
-      if (now >= startDateTime && now <= endDateTime) return 'Live';
+      // 3. Create buffered end time (end time + 10 minutes)
+      const bufferedEndTime = addMinutes(endDateTime, 10);
+      
+      // 4. Compare and return status with buffer logic
+      // Past: Only if now > bufferedEndTime (10 minutes after end)
+      if (now > bufferedEndTime) return 'Past';
+      // Live: If now is between start and buffered end time
+      if (now >= startDateTime && now <= bufferedEndTime) return 'Live';
+      // Upcoming: Otherwise
       return 'Upcoming';
     } catch (error) {
       console.error('Error parsing session status:', error);
@@ -235,14 +242,21 @@ const Sessions: React.FC = () => {
       if (showPastSessions) {
         return sessions; // Show all if toggle is on
       }
-      return sessions.filter(isSessionUpcoming); // Show only upcoming if toggle is off
+      // Use getSessionStatus to filter - only show sessions that are NOT past (Live or Upcoming)
+      return sessions.filter(session => {
+        const status = getSessionStatus(session);
+        return status !== 'Past';
+      });
     }
   };
 
   const filteredSessions = getFilteredSessions();
   
-  // Separate sessions into past (for past sessions toggle)
-  const pastSessions = sessions.filter(session => !isSessionUpcoming(session));
+  // Separate sessions into past (for past sessions toggle) - using getSessionStatus with buffer
+  const pastSessions = sessions.filter(session => {
+    const status = getSessionStatus(session);
+    return status === 'Past';
+  });
   
   // Determine which sessions to display (with limit if no date selected)
   const SESSION_LIMIT = 7;

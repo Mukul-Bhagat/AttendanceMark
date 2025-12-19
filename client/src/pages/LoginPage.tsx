@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import OrgSelector from '../components/OrgSelector';
+import OrganizationSelector from '../components/OrganizationSelector';
+import api from '../api';
 
 // Helper functions for sessionStorage (moved outside component to avoid recreation)
 const getStoredError = (): string => {
@@ -26,7 +27,6 @@ const setStoredError = (errorMsg: string): void => {
 
 const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({
-    organizationName: '',
     email: '',
     password: '',
   });
@@ -34,16 +34,18 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [tempToken, setTempToken] = useState<string | null>(null);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
-  const orgNameInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+  const emailInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const errorPersistRef = useRef<string>('');
 
-  const { organizationName, email, password } = formData;
+  const { email, password } = formData;
 
-  // Auto-focus first input on mount
+  // Auto-focus email input on mount
   useEffect(() => {
-    orgNameInputRef.current?.focus();
+    emailInputRef.current?.focus();
   }, []);
 
   // Restore error from sessionStorage/ref on mount (in case component was remounted)
@@ -84,16 +86,34 @@ const LoginPage: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Call the login function from the context
-      await login(formData);
+      // Call the new login endpoint that returns organizations
+      const response = await api.post('/api/auth/login', formData);
       
-      // Only navigate if login was successful (no error thrown)
-      // Wait a brief moment to ensure state has updated before navigating
-      // This prevents race conditions where navigation happens before user state is set
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const { tempToken: token, organizations: orgs } = response.data;
       
-      // On success, redirect to dashboard
-      navigate('/dashboard'); 
+      // If only one organization, auto-select it
+      if (orgs && orgs.length === 1) {
+        // Auto-select the single organization
+        const selectResponse = await api.post('/api/auth/select-organization', {
+          tempToken: token,
+          prefix: orgs[0].prefix,
+        });
+        
+        const { token: finalToken, user } = selectResponse.data;
+        localStorage.setItem('token', finalToken);
+        
+        // Use the login function to update context
+        await login({ token: finalToken, user });
+        
+        // Navigate to dashboard
+        navigate('/dashboard');
+      } else if (orgs && orgs.length > 1) {
+        // Show organization selector
+        setOrganizations(orgs);
+        setTempToken(token);
+      } else {
+        throw new Error('No organizations found for this user');
+      }
     } catch (err: any) {
       // Don't navigate on error - stay on login page and show error
       const status = err.response?.status;
@@ -167,31 +187,27 @@ const LoginPage: React.FC = () => {
           />
         </div>
 
-        {/* Middle - Form */}
-        <div className="flex-grow flex flex-col justify-center px-8 max-w-md mx-auto w-full overflow-y-auto">
-          <div className="flex flex-col">
-            <h1 className="text-slate-900 tracking-light text-2xl font-bold leading-tight mb-4">Welcome back</h1>
-            <form onSubmit={onSubmit} noValidate className="flex flex-col space-y-3">
-            <label className="flex flex-col flex-1">
-              <p className="text-slate-900 text-sm font-medium leading-normal pb-1">Organization Name</p>
-              <OrgSelector
-                value={organizationName}
-                onChange={(value) => {
-                  setFormData(prev => ({ ...prev, organizationName: value }));
-                  if (error || errorPersistRef.current || getStoredError()) {
-                    clearError();
-                  }
-                }}
-                inputRef={orgNameInputRef}
-                placeholder="Search for your organization..."
-                className="h-11 text-sm"
-              />
-            </label>
-
-            <label className="flex flex-col flex-1">
+        {/* Middle - Form or Organization Selector */}
+        <div className={`flex-grow flex flex-col justify-center px-4 sm:px-8 ${organizations.length > 0 && tempToken ? 'max-w-6xl' : 'max-w-md'} mx-auto w-full overflow-y-auto`}>
+          {organizations.length > 0 && tempToken ? (
+            <OrganizationSelector
+              organizations={organizations}
+              tempToken={tempToken}
+              onError={(errorMsg) => {
+                setError(errorMsg);
+                setOrganizations([]);
+                setTempToken(null);
+              }}
+            />
+          ) : (
+            <div className="flex flex-col">
+              <h1 className="text-slate-900 dark:text-white tracking-light text-2xl font-bold leading-tight mb-4">Welcome back</h1>
+              <form onSubmit={onSubmit} noValidate className="flex flex-col space-y-3">
+              <label className="flex flex-col flex-1">
               <p className="text-slate-900 text-sm font-medium leading-normal pb-1">Email</p>
               <input
-                className="w-full rounded-lg text-slate-900 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 text-sm font-normal leading-normal placeholder:text-gray-400"
+                ref={emailInputRef}
+                className="w-full rounded-lg text-slate-900 dark:text-white dark:bg-slate-900 dark:border-slate-600 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 text-sm font-normal leading-normal placeholder:text-gray-400 dark:placeholder:text-slate-500"
                 placeholder="you@example.com"
                 type="email"
                 name="email"
@@ -206,7 +222,7 @@ const LoginPage: React.FC = () => {
               <p className="text-slate-900 text-sm font-medium leading-normal pb-1">Password</p>
               <div className="relative w-full">
                 <input
-                  className="w-full rounded-lg text-slate-900 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 pr-10 text-sm font-normal leading-normal placeholder:text-gray-400"
+                  className="w-full rounded-lg text-slate-900 dark:text-white dark:bg-slate-900 dark:border-slate-600 focus:outline-0 border border-slate-300 bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 h-11 px-3 pr-10 text-sm font-normal leading-normal placeholder:text-gray-400 dark:placeholder:text-slate-500"
                   placeholder="Enter your password"
                   type={showPassword ? "text" : "password"}
                   name="password"
@@ -228,7 +244,7 @@ const LoginPage: React.FC = () => {
             </label>
 
             <div className="flex justify-end pt-1">
-              <Link to="/forgot-password" className="text-slate-900 text-sm font-medium leading-normal underline hover:text-primary cursor-pointer">
+              <Link to="/forgot-password" className="text-slate-900 dark:text-slate-300 text-sm font-medium leading-normal underline hover:text-primary cursor-pointer">
                 Forgot Password?
               </Link>
             </div>
@@ -254,20 +270,23 @@ const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-3">
-            <p className="text-center text-sm text-slate-600">
-              Don't have an account? <Link to="/register" className="font-bold text-primary underline hover:text-primary/90">Register here</Link>
-            </p>
-          </div>
+          {!organizations.length && (
+            <div className="mt-3">
+              <p className="text-center text-sm text-slate-600 dark:text-slate-400">
+                Don't have an account? <Link to="/register" className="font-bold text-primary underline hover:text-primary/90">Register here</Link>
+              </p>
+            </div>
+          )}
 
-            {/* Error Alert */}
-            {hasError && (
-              <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3" role="alert" aria-live="polite">
-                <span className="material-symbols-outlined text-red-500 text-lg">error</span>
-                <p className="text-sm font-medium text-red-500">{errorText}</p>
-              </div>
-            )}
-          </div>
+              {/* Error Alert */}
+              {hasError && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-500/50 bg-red-500/10 p-3" role="alert" aria-live="polite">
+                  <span className="material-symbols-outlined text-red-500 text-lg">error</span>
+                  <p className="text-sm font-medium text-red-500">{errorText}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bottom - Footer */}
