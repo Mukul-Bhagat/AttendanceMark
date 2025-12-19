@@ -73,7 +73,18 @@ router.post(
   protect,
   [
     check('users', 'Users array is required').isArray(),
-    check('temporaryPassword', 'Temporary password is required').isLength({ min: 6 }),
+    // temporaryPassword is optional if useRandomPassword is true
+    check('temporaryPassword')
+      .optional()
+      .custom((value, { req }) => {
+        if (req.body.useRandomPassword === true) {
+          return true; // Skip validation if useRandomPassword is true
+        }
+        if (!value || value.length < 6) {
+          throw new Error('Temporary password is required and must be at least 6 characters when not using random passwords');
+        }
+        return true;
+      }),
   ],
   bulkCreateUsers
 );

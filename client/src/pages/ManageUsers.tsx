@@ -56,6 +56,7 @@ const ManageUsers: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [temporaryPassword, setTemporaryPassword] = useState('');
+  const [useRandomPassword, setUseRandomPassword] = useState(false);
   const [isBulkImporting, setIsBulkImporting] = useState(false);
   const [csvPreview, setCsvPreview] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -223,8 +224,13 @@ const ManageUsers: React.FC = () => {
 
   // Handle bulk import
   const handleBulkImport = async () => {
-    if (!csvFile || !temporaryPassword || temporaryPassword.length < 6) {
-      setError('Please select a CSV file and enter a temporary password (min 6 characters)');
+    if (!csvFile) {
+      setError('Please select a CSV file');
+      return;
+    }
+
+    if (!useRandomPassword && (!temporaryPassword || temporaryPassword.length < 6)) {
+      setError('Please enter a temporary password (min 6 characters) or enable random password generation');
       return;
     }
 
@@ -271,7 +277,8 @@ const ManageUsers: React.FC = () => {
         try {
           const { data: response } = await api.post('/api/users/bulk', {
             users,
-            temporaryPassword,
+            temporaryPassword: useRandomPassword ? undefined : temporaryPassword,
+            useRandomPassword,
           });
 
           setMessage(response.msg || `Successfully imported ${response.successCount} users`);
@@ -791,6 +798,7 @@ const ManageUsers: React.FC = () => {
                   setIsImportModalOpen(false);
                   setCsvFile(null);
                   setTemporaryPassword('');
+                  setUseRandomPassword(false);
                   setCsvPreview([]);
                   setError('');
                   if (fileInputRef.current) fileInputRef.current.value = '';
@@ -925,26 +933,49 @@ const ManageUsers: React.FC = () => {
               <div className="space-y-4">
                 <h4 className="text-lg font-semibold text-[#181511] dark:text-white">Credentials</h4>
                 
-                <label className="flex flex-col">
-                  <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">
-                    Temporary Password for All Users
-                  </p>
-                  <input
-                    type="password"
-                    value={temporaryPassword}
-                    onChange={(e) => {
-                      setTemporaryPassword(e.target.value);
-                      if (error) setError('');
-                    }}
-                    className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400"
-                    placeholder="Min 6 characters"
-                    minLength={6}
-                    required
-                  />
-                  <p className="text-xs text-[#8a7b60] dark:text-gray-500 mt-1.5">
-                    This password will be applied to every account in the uploaded file. Users will be required to change it on first login.
-                  </p>
-                </label>
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useRandomPassword}
+                      onChange={(e) => {
+                        setUseRandomPassword(e.target.checked);
+                        if (e.target.checked) {
+                          setTemporaryPassword('');
+                        }
+                        if (error) setError('');
+                      }}
+                      className="w-4 h-4 text-primary bg-white border-[#e6e2db] dark:border-slate-700 rounded focus:ring-2 focus:ring-primary dark:bg-slate-900 dark:checked:bg-primary"
+                    />
+                    <span className="text-sm font-medium text-[#181511] dark:text-gray-200">
+                      Auto-generate random 6-character password for each user
+                    </span>
+                  </label>
+                  
+                  <label className="flex flex-col">
+                    <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">
+                      Temporary Password for All Users
+                    </p>
+                    <input
+                      type="password"
+                      value={temporaryPassword}
+                      onChange={(e) => {
+                        setTemporaryPassword(e.target.value);
+                        if (error) setError('');
+                      }}
+                      disabled={useRandomPassword}
+                      className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800"
+                      placeholder="Min 6 characters"
+                      minLength={6}
+                      required={!useRandomPassword}
+                    />
+                    <p className="text-xs text-[#8a7b60] dark:text-gray-500 mt-1.5">
+                      {useRandomPassword 
+                        ? 'Each user will receive a unique random 6-character password via email. Users will be required to change it on first login.'
+                        : 'This password will be applied to every account in the uploaded file. Users will be required to change it on first login.'}
+                    </p>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -956,6 +987,7 @@ const ManageUsers: React.FC = () => {
                   setIsImportModalOpen(false);
                   setCsvFile(null);
                   setTemporaryPassword('');
+                  setUseRandomPassword(false);
                   setCsvPreview([]);
                   setError('');
                   if (fileInputRef.current) fileInputRef.current.value = '';
@@ -968,7 +1000,7 @@ const ManageUsers: React.FC = () => {
               <button
                 type="button"
                 onClick={handleBulkImport}
-                disabled={!csvFile || !temporaryPassword || temporaryPassword.length < 6 || isBulkImporting}
+                disabled={!csvFile || (!useRandomPassword && (!temporaryPassword || temporaryPassword.length < 6)) || isBulkImporting}
                 className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 to-[#f04129] text-white rounded-lg font-semibold transition-all duration-200 hover:from-orange-600 hover:to-[#d63a25] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isBulkImporting ? (

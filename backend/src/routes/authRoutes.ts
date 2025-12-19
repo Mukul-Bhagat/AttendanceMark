@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { getOrganizations, registerSuperAdmin, login, selectOrganization, getMe, forceResetPassword, forgotPassword, resetPassword, runMigration } from '../controllers/authController';
+import { getOrganizations, registerSuperAdmin, login, selectOrganization, switchOrganization, getMyOrganizations, getMe, forceResetPassword, forgotPassword, resetPassword, runMigration } from '../controllers/authController';
 
 const router = Router();
 
@@ -48,6 +48,23 @@ router.post(
   ],
   selectOrganization
 );
+
+// @route   POST /api/auth/switch-organization
+// @desc    Switch to a different organization
+// @access  Private
+router.post(
+  '/switch-organization',
+  protect,
+  [
+    check('targetPrefix', 'Target organization prefix is required').not().isEmpty(),
+  ],
+  switchOrganization
+);
+
+// @route   GET /api/auth/my-organizations
+// @desc    Get list of organizations the logged-in user belongs to
+// @access  Private
+router.get('/my-organizations', protect, getMyOrganizations);
 
 // @route   GET /api/auth/me
 // @desc    Get the logged-in user's data from their token

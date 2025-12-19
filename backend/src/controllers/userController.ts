@@ -151,15 +151,18 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
     return res.status(403).json({ msg: 'Not authorized' });
   }
 
-  const { users, temporaryPassword } = req.body;
+  const { users, temporaryPassword, useRandomPassword } = req.body;
 
   // Validate input
   if (!Array.isArray(users) || users.length === 0) {
     return res.status(400).json({ msg: 'Users array is required and must not be empty' });
   }
 
-  if (!temporaryPassword || temporaryPassword.length < 6) {
-    return res.status(400).json({ msg: 'Temporary password is required and must be at least 6 characters' });
+  // Validate password requirements
+  if (!useRandomPassword) {
+    if (!temporaryPassword || temporaryPassword.length < 6) {
+      return res.status(400).json({ msg: 'Temporary password is required and must be at least 6 characters when not using random passwords' });
+    }
   }
 
   try {
@@ -198,10 +201,25 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Create new EndUser with the temporary password
+      // Generate password: random if useRandomPassword is true, otherwise use temporaryPassword
+      let userPassword: string;
+      if (useRandomPassword) {
+        // Generate a random 6-character alphanumeric password
+        // Using crypto for secure randomness
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        userPassword = '';
+        for (let i = 0; i < 6; i++) {
+          const randomIndex = crypto.randomBytes(1)[0] % chars.length;
+          userPassword += chars[randomIndex];
+        }
+      } else {
+        userPassword = temporaryPassword;
+      }
+
+      // Create new EndUser with the password
       const newEndUser = new UserCollection({
         email: email.toLowerCase(),
-        password: temporaryPassword, // Will be hashed by the pre-save hook
+        password: userPassword, // Will be hashed by the pre-save hook
         role: 'EndUser',
         profile: {
           firstName,
@@ -240,7 +258,7 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
           <h3 style="color: #f04129;">Welcome to AttendMark!</h3>
           <p>Your account has been created by your administrator.</p>
           <p><strong>Email:</strong> ${email.toLowerCase()}</p>
-          <p><strong>Temporary Password:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${temporaryPassword}</code></p>
+          <p><strong>Temporary Password:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${userPassword}</code></p>
           <p>Please log in at: <a href="${clientUrl}">${clientUrl}</a></p>
           <p style="color: #666; font-size: 14px;">Note: You will be asked to change this password on your first login.</p>
         </div>

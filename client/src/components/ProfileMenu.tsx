@@ -10,9 +10,21 @@ interface ProfileMenuProps {
   profilePicture?: string;
 }
 
+interface Organization {
+  orgName: string;
+  prefix: string;
+  role: string;
+  userId: string;
+  organizationName: string;
+}
+
 const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userRole, profilePicture }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showOrgSwitchModal, setShowOrgSwitchModal] = useState(false);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     // Check localStorage first, default to 'light' if not set
     const stored = localStorage.getItem('theme');
@@ -29,7 +41,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const menuRef = useRef<HTMLDivElement>(null);
-  const { logout, refetchUser } = useAuth();
+  const { logout, refetchUser, switchOrganization, user } = useAuth();
   const navigate = useNavigate();
 
   // Close menu when clicking outside
@@ -59,6 +71,25 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Fetch user's organizations when modal opens
+  useEffect(() => {
+    if (showOrgSwitchModal) {
+      const fetchOrganizations = async () => {
+        setIsLoadingOrgs(true);
+        try {
+          const { data } = await api.get('/api/auth/my-organizations');
+          setOrganizations(data.organizations || []);
+        } catch (err: any) {
+          console.error('Failed to fetch organizations:', err);
+          setOrganizations([]);
+        } finally {
+          setIsLoadingOrgs(false);
+        }
+      };
+      fetchOrganizations();
+    }
+  }, [showOrgSwitchModal]);
+
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
@@ -66,6 +97,18 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleSwitchOrganization = async (targetPrefix: string) => {
+    setIsSwitching(true);
+    try {
+      await switchOrganization(targetPrefix);
+      // switchOrganization will reload the page, so we don't need to do anything else
+    } catch (err: any) {
+      console.error('Failed to switch organization:', err);
+      alert(err.response?.data?.msg || 'Failed to switch organization. Please try again.');
+      setIsSwitching(false);
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -176,6 +219,17 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
               >
                 <span className="material-symbols-outlined mr-3 text-lg">person</span>
                 View Profile
+              </button>
+              
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setShowOrgSwitchModal(true);
+                }}
+                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <span className="material-symbols-outlined mr-3 text-lg">swap_horiz</span>
+                ⇄ Switch Organization
               </button>
             </div>
             
@@ -288,6 +342,74 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({ userInitials, userName, userR
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Organization Switch Modal */}
+      {showOrgSwitchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Switch Organization</h2>
+              <button
+                onClick={() => {
+                  setShowOrgSwitchModal(false);
+                  setOrganizations([]);
+                }}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {isLoadingOrgs ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : organizations.filter((org) => org.prefix !== user?.collectionPrefix).length === 0 ? (
+              <p className="text-gray-600 dark:text-gray-400 text-center py-4">No other organizations available.</p>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {organizations
+                  .filter((org) => org.prefix !== user?.collectionPrefix)
+                  .map((org) => (
+                    <button
+                      key={org.prefix}
+                      onClick={() => handleSwitchOrganization(org.prefix)}
+                      disabled={isSwitching}
+                      className="w-full flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">
+                          {org.organizationName}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {org.role}
+                        </span>
+                      </div>
+                      {isSwitching ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                      ) : (
+                        <span className="material-symbols-outlined text-gray-400">arrow_forward</span>
+                      )}
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOrgSwitchModal(false);
+                  setOrganizations([]);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

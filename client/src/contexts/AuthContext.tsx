@@ -15,6 +15,8 @@ export interface IUser {
   profilePicture?: string;
   createdAt?: string;
   mustResetPassword: boolean;
+  organization?: string;
+  collectionPrefix?: string;
 }
 
 interface IAuthContext {
@@ -24,6 +26,7 @@ interface IAuthContext {
   login: (formData: any) => Promise<void>;
   logout: () => void;
   refetchUser: () => Promise<void>;
+  switchOrganization: (targetPrefix: string) => Promise<void>;
   // Role helper booleans
   isSuperAdmin: boolean;
   isCompanyAdmin: boolean;
@@ -134,6 +137,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Switch to a different organization
+  const switchOrganization = async (targetPrefix: string) => {
+    try {
+      const response = await api.post('/api/auth/switch-organization', {
+        targetPrefix,
+      });
+
+      const { token, user } = response.data;
+
+      // Update token and user
+      setToken(token);
+      setUser(user);
+      localStorage.setItem('token', token);
+
+      // Reload the page to refresh the dashboard with new organization context
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      console.error('Failed to switch organization:', err);
+      throw err;
+    }
+  };
+
   const value = {
     user,
     token,
@@ -141,6 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     login,
     logout,
     refetchUser,
+    switchOrganization,
     isSuperAdmin,
     isCompanyAdmin,
     isManager,

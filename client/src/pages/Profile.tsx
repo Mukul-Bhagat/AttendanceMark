@@ -2,13 +2,25 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 
+interface Organization {
+  orgName: string;
+  prefix: string;
+  role: string;
+  userId: string;
+  organizationName: string;
+}
+
 const Profile: React.FC = () => {
-  const { user, refetchUser, isSuperAdmin } = useAuth();
+  const { user, refetchUser, isSuperAdmin, switchOrganization } = useAuth();
   const [activeTab, setActiveTab] = useState<'personal' | 'preferences' | 'organization'>('personal');
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showOrgSwitchModal, setShowOrgSwitchModal] = useState(false);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [isLoadingOrgs, setIsLoadingOrgs] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
 
   // Personal Details Form State
   const [personalForm, setPersonalForm] = useState({
@@ -36,6 +48,37 @@ const Profile: React.FC = () => {
   });
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Fetch user's organizations when modal opens
+  useEffect(() => {
+    if (showOrgSwitchModal) {
+      const fetchOrganizations = async () => {
+        setIsLoadingOrgs(true);
+        try {
+          const { data } = await api.get('/api/auth/my-organizations');
+          setOrganizations(data.organizations || []);
+        } catch (err: any) {
+          console.error('Failed to fetch organizations:', err);
+          setOrganizations([]);
+        } finally {
+          setIsLoadingOrgs(false);
+        }
+      };
+      fetchOrganizations();
+    }
+  }, [showOrgSwitchModal]);
+
+  const handleSwitchOrganization = async (targetPrefix: string) => {
+    setIsSwitching(true);
+    try {
+      await switchOrganization(targetPrefix);
+      // switchOrganization will reload the page, so we don't need to do anything else
+    } catch (err: any) {
+      console.error('Failed to switch organization:', err);
+      alert(err.response?.data?.msg || 'Failed to switch organization. Please try again.');
+      setIsSwitching(false);
+    }
+  };
 
   // Fetch organization settings on mount (if SuperAdmin)
   useEffect(() => {
@@ -472,6 +515,29 @@ const Profile: React.FC = () => {
                     </p>
                   </div>
 
+                  {user?.organization && (
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
+                        Current Organization
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="text"
+                          value={user.organization}
+                          disabled
+                          className="flex-1 px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-slate-100 dark:bg-slate-800 text-text-secondary-light dark:text-text-secondary-dark cursor-not-allowed"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowOrgSwitchModal(true)}
+                          className="px-4 py-2 rounded-lg bg-[#f04129] text-white font-medium hover:bg-[#d63a25] transition-colors whitespace-nowrap"
+                        >
+                          Switch
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
                       Phone
@@ -758,6 +824,74 @@ const Profile: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Organization Switch Modal */}
+      {showOrgSwitchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Switch Organization</h2>
+              <button
+                onClick={() => {
+                  setShowOrgSwitchModal(false);
+                  setOrganizations([]);
+                }}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {isLoadingOrgs ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : organizations.filter((org) => org.prefix !== user?.collectionPrefix).length === 0 ? (
+              <p className="text-gray-600 dark:text-gray-400 text-center py-4">No other organizations available.</p>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {organizations
+                  .filter((org) => org.prefix !== user?.collectionPrefix)
+                  .map((org) => (
+                    <button
+                      key={org.prefix}
+                      onClick={() => handleSwitchOrganization(org.prefix)}
+                      disabled={isSwitching}
+                      className="w-full flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">
+                          {org.organizationName}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {org.role}
+                        </span>
+                      </div>
+                      {isSwitching ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+                      ) : (
+                        <span className="material-symbols-outlined text-gray-400">arrow_forward</span>
+                      )}
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOrgSwitchModal(false);
+                  setOrganizations([]);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

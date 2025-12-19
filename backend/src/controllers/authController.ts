@@ -298,6 +298,115 @@ export const selectOrganization = async (req: Request, res: Response) => {
   }
 };
 
+// @route   POST /api/auth/switch-organization
+// @desc    Switch to a different organization for the logged-in user
+// @access  Private
+export const switchOrganization = async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { targetPrefix } = req.body;
+  const { id: currentUserId, email: currentEmail, collectionPrefix: currentPrefix } = req.user!;
+
+  try {
+    // 1. Look up user in UserOrganizationMap
+    const userMap = await UserOrganizationMap.findOne({ email: currentEmail.toLowerCase() });
+    if (!userMap) {
+      return res.status(401).json({ msg: 'User not found in organization map' });
+    }
+
+    // 2. Verify user belongs to targetPrefix
+    const orgEntry = userMap.organizations.find((org) => org.prefix === targetPrefix);
+    if (!orgEntry) {
+      return res.status(403).json({ msg: 'You do not have access to this organization' });
+    }
+
+    // 3. Get the organization details
+    const org = await Organization.findOne({ collectionPrefix: targetPrefix });
+    if (!org) {
+      return res.status(404).json({ msg: 'Organization not found' });
+    }
+
+    // 4. Get the user from the target organization-specific collection
+    const UserCollection = createUserModel(`${targetPrefix}_users`);
+    const user = await UserCollection.findById(orgEntry.userId);
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found in organization' });
+    }
+
+    // 5. Generate new JWT token with target organization context
+    const payload = {
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        collectionPrefix: targetPrefix,
+        organizationName: org.name,
+      },
+    };
+
+    jwt.sign(
+      payload,
+      process.env.JWT_SECRET as string,
+      { expiresIn: '7d' },
+      (err, token) => {
+        if (err) throw err;
+        res.json({
+          token,
+          user: {
+            id: user._id,
+            email: user.email,
+            role: user.role,
+            profile: user.profile,
+            profilePicture: user.profilePicture,
+            createdAt: user.createdAt,
+            mustResetPassword: user.mustResetPassword,
+          },
+        });
+      }
+    );
+  } catch (err: any) {
+    console.error('Switch organization error:', err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+// @route   GET /api/auth/my-organizations
+// @desc    Get list of organizations the logged-in user belongs to
+// @access  Private
+export const getMyOrganizations = async (req: Request, res: Response) => {
+  const { email } = req.user!;
+
+  try {
+    // 1. Look up user in UserOrganizationMap
+    const userMap = await UserOrganizationMap.findOne({ email: email.toLowerCase() });
+    if (!userMap) {
+      return res.status(404).json({ msg: 'User not found in organization map' });
+    }
+
+    // 2. Get organization details for all organizations
+    const orgDetails = await Promise.all(
+      userMap.organizations.map(async (orgEntry) => {
+        const org = await Organization.findOne({ collectionPrefix: orgEntry.prefix });
+        return {
+          orgName: orgEntry.orgName,
+          prefix: orgEntry.prefix,
+          role: orgEntry.role,
+          userId: orgEntry.userId,
+          organizationName: org?.name || orgEntry.orgName,
+        };
+      })
+    );
+
+    res.json({ organizations: orgDetails });
+  } catch (err: any) {
+    console.error('Get my organizations error:', err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+};
+
 // @route   GET /api/auth/me
 // @desc    Get the logged-in user's data from their token
 // @access  Private
@@ -332,6 +441,7 @@ export const getMe = async (req: Request, res: Response) => {
         createdAt: user.createdAt,
         mustResetPassword: user.mustResetPassword,
         organization: org.name,
+        collectionPrefix: collectionPrefix,
       },
     });
   } catch (err: any) {
