@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
-import { getOrganizationUsers, createStaff, createEndUser, resetDevice, deleteUser, uploadProfilePicture, updateProfile, changePassword, removeProfilePicture, bulkCreateUsers, updateUserQuota } from '../controllers/userController';
+import { getOrganizationUsers, createStaff, createEndUser, resetDevice, deleteUser, uploadProfilePicture, updateProfile, changePassword, removeProfilePicture, bulkCreateUsers, bulkCreateStaff, updateUserQuota } from '../controllers/userController';
 import { upload } from '../middleware/uploadMiddleware';
 
 const router = Router();
@@ -87,6 +87,30 @@ router.post(
       }),
   ],
   bulkCreateUsers
+);
+
+// @route   POST /api/users/staff/bulk
+// @desc    Bulk create Staff members (Manager or SessionAdmin) from CSV data
+// @access  Private (SuperAdmin only)
+router.post(
+  '/staff/bulk',
+  protect,
+  [
+    check('staff', 'Staff array is required').isArray(),
+    // temporaryPassword is optional if useRandomPassword is true
+    check('temporaryPassword')
+      .optional()
+      .custom((value, { req }) => {
+        if (req.body.useRandomPassword === true) {
+          return true; // Skip validation if useRandomPassword is true
+        }
+        if (!value || value.length < 6) {
+          throw new Error('Temporary password is required and must be at least 6 characters when not using random passwords');
+        }
+        return true;
+      }),
+  ],
+  bulkCreateStaff
 );
 
 // @route   POST /api/users/end-user

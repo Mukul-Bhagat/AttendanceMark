@@ -293,6 +293,164 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
   }
 };
 
+// @route   POST /api/users/staff/bulk
+// @desc    Bulk create Staff members (Manager or SessionAdmin) from CSV data
+// @access  Private (SuperAdmin only)
+export const bulkCreateStaff = async (req: Request, res: Response) => {
+  const { collectionPrefix, role: requesterRole } = req.user!;
+
+  // 1. Security Check: Only SuperAdmin can bulk create staff
+  if (requesterRole !== 'SuperAdmin') {
+    return res.status(403).json({ msg: 'Only Super Admin can bulk create staff members' });
+  }
+
+  const { staff, temporaryPassword, useRandomPassword } = req.body;
+
+  // Validate input
+  if (!Array.isArray(staff) || staff.length === 0) {
+    return res.status(400).json({ msg: 'Staff array is required and must not be empty' });
+  }
+
+  // Validate password requirements
+  if (!useRandomPassword) {
+    if (!temporaryPassword || temporaryPassword.length < 6) {
+      return res.status(400).json({ msg: 'Temporary password is required and must be at least 6 characters when not using random passwords' });
+    }
+  }
+
+  try {
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    let successCount = 0;
+    let duplicateCount = 0;
+    const errors: string[] = [];
+    const emailPromises: Promise<void>[] = [];
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+    // Process each staff member
+    for (let index = 0; index < staff.length; index++) {
+      const staffData = staff[index];
+      const { firstName, lastName, email, role, phone } = staffData;
+      const rowNumber = index + 1;
+
+      // Validate required fields
+      if (!firstName || !lastName || !email || !role) {
+        errors.push(`Row ${rowNumber}: Missing required fields for ${email || 'unknown'}`);
+        continue;
+      }
+
+      // Validate role (case-insensitive)
+      const normalizedRole = role.trim();
+      const validRoles = ['Manager', 'SessionAdmin'];
+      const roleMatch = validRoles.find(r => r.toLowerCase() === normalizedRole.toLowerCase());
+      
+      if (!roleMatch) {
+        errors.push(`Row ${rowNumber}: Invalid role "${role}" for ${email}. Role must be 'Manager' or 'SessionAdmin' (case-insensitive)`);
+        continue;
+      }
+      
+      // Use the properly cased role
+      const finalRole = roleMatch;
+
+      // Check if user already exists
+      const existingUser = await UserCollection.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        duplicateCount++;
+        errors.push(`Row ${rowNumber}: Duplicate email ${email} already exists`);
+        continue;
+      }
+
+      // Generate password: random if useRandomPassword is true, otherwise use temporaryPassword
+      let userPassword: string;
+      if (useRandomPassword) {
+        // Generate a random 6-character alphanumeric password
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        userPassword = '';
+        for (let i = 0; i < 6; i++) {
+          const randomIndex = crypto.randomBytes(1)[0] % chars.length;
+          userPassword += chars[randomIndex];
+        }
+      } else {
+        userPassword = temporaryPassword;
+      }
+
+      // Create new staff member
+      const newStaff = new UserCollection({
+        email: email.toLowerCase(),
+        password: userPassword, // Will be hashed by the pre-save hook
+        role: finalRole,
+        profile: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone ? phone.trim() : undefined,
+        },
+        mustResetPassword: true, // Staff members must reset password on first login
+      });
+
+      await newStaff.save();
+
+      // Add user to UserOrganizationMap
+      const org = await Organization.findOne({ collectionPrefix });
+      if (org) {
+        await UserOrganizationMap.findOneAndUpdate(
+          { email: email.toLowerCase() },
+          {
+            $push: {
+              organizations: {
+                orgName: org.name,
+                prefix: collectionPrefix,
+                role: finalRole,
+                userId: newStaff._id.toString(),
+              },
+            },
+          },
+          { upsert: true, new: true }
+        );
+      }
+
+      successCount++;
+
+      // Queue welcome email (don't await - collect for Promise.all)
+      const welcomeEmailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h3 style="color: #f04129;">Welcome to AttendMark!</h3>
+          <p>Your staff account has been created by your administrator.</p>
+          <p><strong>Email:</strong> ${email.toLowerCase()}</p>
+          <p><strong>Role:</strong> ${finalRole}</p>
+          <p><strong>Temporary Password:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${userPassword}</code></p>
+          <p>Please log in at: <a href="${clientUrl}">${clientUrl}</a></p>
+          <p style="color: #666; font-size: 14px;">Note: You will be asked to change this password on your first login.</p>
+        </div>
+      `;
+
+      emailPromises.push(
+        sendEmail({
+          email: email.toLowerCase(),
+          subject: 'Welcome to AttendMark - Your Staff Login Credentials',
+          message: welcomeEmailHtml,
+        }).catch((emailErr: any) => {
+          console.error(`Staff ${email} created but failed to send welcome email:`, emailErr.message);
+          // Don't fail - just log
+        })
+      );
+    }
+
+    // Send all welcome emails in parallel (don't block response)
+    Promise.all(emailPromises).catch((err) => {
+      console.error('Error sending bulk welcome emails:', err);
+    });
+
+    res.status(201).json({
+      msg: `Bulk import completed: ${successCount} staff members created, ${duplicateCount} duplicates skipped`,
+      successCount,
+      duplicateCount,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err: any) {
+    console.error('Error in bulk staff creation:', err);
+    res.status(500).json({ msg: 'Server error during bulk import', error: err.message });
+  }
+};
+
 // @route   POST /api/users/end-user
 // @desc    Create a new EndUser
 // @access  Private (SuperAdmin or CompanyAdmin)

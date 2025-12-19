@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
+import BulkImportStaff from '../components/BulkImportStaff';
 
 type StaffUser = {
   _id?: string;
@@ -55,6 +56,9 @@ const ManageStaff: React.FC = () => {
   // Dropdown menu state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  // Bulk import state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Fetch existing staff
   const fetchStaff = async () => {
@@ -362,10 +366,22 @@ const ManageStaff: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-4">
               {/* Create Staff Form */}
               <div className="lg:col-span-1 bg-white dark:bg-slate-800 dark:border dark:border-slate-700 rounded-xl shadow-sm p-6 sm:p-8 lg:sticky lg:top-8 lg:self-start">
-                <h2 className="text-[#181511] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] pb-5 flex items-center">
-                  <span className="material-symbols-outlined mr-3 text-[#f04129]" style={{ fontSize: '28px' }}>manage_accounts</span>
-                  Add Staff Member
-                </h2>
+                <div className="flex items-center justify-between pb-5">
+                  <h2 className="text-[#181511] dark:text-white text-[22px] font-bold leading-tight tracking-[-0.015em] flex items-center">
+                    <span className="material-symbols-outlined mr-3 text-[#f04129]" style={{ fontSize: '28px' }}>manage_accounts</span>
+                    Add Staff Member
+                  </h2>
+                  {isSuperAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setIsImportModalOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#f04129] border border-[#f04129] rounded-lg hover:bg-[#f04129]/10 dark:hover:bg-[#f04129]/20 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-lg">upload_file</span>
+                      Import CSV
+                    </button>
+                  )}
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <label className="flex flex-col min-w-40 flex-1">
@@ -788,6 +804,13 @@ const ManageStaff: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Bulk Import Staff Modal */}
+      <BulkImportStaff
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={fetchStaff}
+      />
     </div>
   );
 };
