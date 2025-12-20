@@ -153,8 +153,8 @@ const Sessions: React.FC = () => {
   };
 
   // ROBUST STATUS HELPER: Returns 'Past', 'Live', or 'Upcoming'
-  // Handles both "HH:mm" time strings and full Date objects
   // Sessions are marked as 'Past' only 10 minutes AFTER the end time
+  // NOTE: Grace Period (Late Attendance Limit) is NOT used here - it only affects attendance status (Present vs Late)
   const getSessionStatus = (session: ISession): 'Past' | 'Live' | 'Upcoming' => {
     try {
       // Handle cancelled/completed sessions
@@ -163,44 +163,42 @@ const Sessions: React.FC = () => {
       
       // Use currentTime state to ensure consistent status calculations and trigger re-renders
       const now = currentTime;
+      const sessionDate = new Date(session.startDate);
       
-      // 1. Parse Start DateTime - Combine startDate with startTime
-      let startDateTime = new Date(session.startDate);
-      
-      // If startTime is a string "HH:mm", combine it with the date
+      // 1. Parse Start Time
+      let startTime = new Date(sessionDate);
       if (session.startTime && typeof session.startTime === 'string' && session.startTime.includes(':')) {
-        const [sHours, sMinutes] = session.startTime.split(':').map(Number);
-        startDateTime.setHours(sHours, sMinutes, 0, 0);
+        const [startHours, startMinutes] = session.startTime.split(':').map(Number);
+        startTime.setHours(startHours, startMinutes, 0, 0);
       }
       
-      // 2. Parse End DateTime - Combine endDate (or startDate) with endTime
-      // Use endDate if available, otherwise use startDate for the date part
-      let endDateTime = new Date(session.endDate || session.startDate);
-      
-      // If endTime is a string "HH:mm", combine it with the date
+      // 2. Parse End Time - Create Date object for End Time
+      let endTime = new Date(session.endDate || sessionDate);
       if (session.endTime && typeof session.endTime === 'string' && session.endTime.includes(':')) {
-        const [eHours, eMinutes] = session.endTime.split(':').map(Number);
-        endDateTime.setHours(eHours, eMinutes, 0, 0);
+        const [endHours, endMinutes] = session.endTime.split(':').map(Number);
+        endTime.setHours(endHours, endMinutes, 0, 0);
         
         // Handle overnight sessions (if end time < start time on the same day)
-        if (!session.endDate && endDateTime < startDateTime) {
-          endDateTime.setDate(endDateTime.getDate() + 1);
+        if (!session.endDate && endTime < startTime) {
+          endTime.setDate(endTime.getDate() + 1);
         }
-      } else if (!session.endTime) {
+      } else {
         // If no end time, assume end of day
-        endDateTime.setHours(23, 59, 59, 999);
+        endTime.setHours(23, 59, 59, 999);
       }
       
-      // 3. Create buffered end time (end time + 10 minutes)
-      const bufferedEndTime = addMinutes(endDateTime, 10);
+      // 3. Define Cutoff Time: End Time + 10 minute buffer
+      const cutoffTime = new Date(endTime.getTime() + 10 * 60000); // +10 minutes
       
-      // 4. Compare and return status with buffer logic
-      // Past: Only if now > bufferedEndTime (10 minutes after end)
-      if (now > bufferedEndTime) return 'Past';
-      // Live: If now is between start and buffered end time
-      if (now >= startDateTime && now <= bufferedEndTime) return 'Live';
-      // Upcoming: Otherwise
-      return 'Upcoming';
+      // 4. Status Logic (Grace Period is NOT used here)
+      // Upcoming: If now < startTime
+      if (now < startTime) return 'Upcoming';
+      
+      // Live: If now >= startTime AND now <= cutoffTime
+      if (now >= startTime && now <= cutoffTime) return 'Live';
+      
+      // Past: ONLY if now > cutoffTime
+      return 'Past';
     } catch (error) {
       console.error('Error parsing session status:', error);
       return 'Upcoming'; // Default to upcoming if parsing fails
