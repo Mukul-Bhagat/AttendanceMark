@@ -82,7 +82,7 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
         }
 
         // Transform data to match backend format
-        const users = data.map((row: any, index: number) => {
+        const users = data.map((row: any) => {
           const firstNameKey = headers.find(h => h.toLowerCase() === 'firstname') || 'FirstName';
           const lastNameKey = headers.find(h => h.toLowerCase() === 'lastname') || 'LastName';
           const emailKey = headers.find(h => h.toLowerCase() === 'email') || 'Email';

@@ -258,7 +258,7 @@ const ManageUsers: React.FC = () => {
 
         // Transform data to match backend format
         // Note: Role column is optional - if missing, backend will default to 'EndUser'
-        const users = data.map((row: any, index: number) => {
+        const users = data.map((row: any) => {
           const firstNameKey = headers.find(h => h.toLowerCase() === 'firstname') || 'FirstName';
           const lastNameKey = headers.find(h => h.toLowerCase() === 'lastname') || 'LastName';
           const emailKey = headers.find(h => h.toLowerCase() === 'email') || 'Email';
