@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { check } from 'express-validator';
 import { protect } from '../middleware/authMiddleware';
 import { getOrganizationUsers, createStaff, createEndUser, resetDevice, deleteUser, uploadProfilePicture, updateProfile, changePassword, removeProfilePicture, bulkCreateUsers, bulkCreateStaff, updateUserQuota } from '../controllers/userController';
@@ -66,7 +66,7 @@ router.post(
 );
 
 // @route   POST /api/users/bulk
-// @desc    Bulk create EndUsers from CSV data
+// @desc    Bulk create users (EndUser, Manager, or SessionAdmin) from CSV data
 // @access  Private (SuperAdmin or CompanyAdmin)
 router.post(
   '/bulk',
@@ -91,7 +91,9 @@ router.post(
 
 // @route   POST /api/users/staff/bulk
 // @desc    Bulk create Staff members (Manager or SessionAdmin) from CSV data
+// @desc    DEPRECATED: Use /api/users/bulk instead (unified endpoint)
 // @access  Private (SuperAdmin only)
+// Note: This endpoint is kept for backward compatibility but now calls the unified bulkCreateUsers function
 router.post(
   '/staff/bulk',
   protect,
@@ -110,7 +112,14 @@ router.post(
         return true;
       }),
   ],
-  bulkCreateStaff
+  // Transform request body to match unified format and call bulkCreateUsers
+  (req: Request, res: Response, next: NextFunction) => {
+    if (req.body.staff && Array.isArray(req.body.staff)) {
+      req.body.users = req.body.staff;
+    }
+    next();
+  },
+  bulkCreateUsers
 );
 
 // @route   POST /api/users/end-user

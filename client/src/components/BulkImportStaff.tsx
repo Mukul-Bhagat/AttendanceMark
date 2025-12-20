@@ -76,13 +76,13 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
         const hasRole = headers.some(h => h.toLowerCase() === 'role');
 
         if (!hasFirstName || !hasLastName || !hasEmail || !hasRole) {
-          setError('CSV must contain "FirstName", "LastName", "Email", and "Role" columns');
+          setError('CSV must contain "FirstName", "LastName", "Email", and "Role" columns. Role must be "Manager" or "SessionAdmin".');
           setIsBulkImporting(false);
           return;
         }
 
         // Transform data to match backend format
-        const staff = data.map((row: any) => {
+        const users = data.map((row: any, index: number) => {
           const firstNameKey = headers.find(h => h.toLowerCase() === 'firstname') || 'FirstName';
           const lastNameKey = headers.find(h => h.toLowerCase() === 'lastname') || 'LastName';
           const emailKey = headers.find(h => h.toLowerCase() === 'email') || 'Email';
@@ -93,25 +93,25 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
             firstName: row[firstNameKey]?.trim() || '',
             lastName: row[lastNameKey]?.trim() || '',
             email: row[emailKey]?.trim() || '',
-            role: row[roleKey]?.trim() || '',
+            role: row[roleKey]?.trim() || '', // Required for staff
             phone: row[phoneKey]?.trim() || '',
           };
-        }).filter(staffMember => staffMember.firstName && staffMember.lastName && staffMember.email && staffMember.role); // Filter out empty rows
+        }).filter(user => user.firstName && user.lastName && user.email && user.role); // Filter out empty rows, role is required
 
-        if (staff.length === 0) {
-          setError('No valid staff members found in CSV file');
+        if (users.length === 0) {
+          setError('No valid users found in CSV file');
           setIsBulkImporting(false);
           return;
         }
 
         try {
-          const { data: response } = await api.post('/api/users/staff/bulk', {
-            staff,
+          const { data: response } = await api.post('/api/users/bulk', {
+            users,
             temporaryPassword: useRandomPassword ? undefined : temporaryPassword,
             useRandomPassword,
           });
 
-          setMessage(response.msg || `Successfully imported ${response.successCount} staff members`);
+          setMessage(response.msg || `Successfully imported ${response.successCount} users`);
           onClose();
           setCsvFile(null);
           setTemporaryPassword('');
@@ -123,7 +123,7 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
             const errorMessages = err.response.data.errors.slice(0, 10).join(', ');
             setError(`${err.response.data.msg || 'Bulk import failed'}. Errors: ${errorMessages}${err.response.data.errors.length > 10 ? '...' : ''}`);
           } else {
-            setError(err.response?.data?.msg || 'Failed to import staff members. Please try again.');
+            setError(err.response?.data?.msg || 'Failed to import users. Please try again.');
           }
         } finally {
           setIsBulkImporting(false);
@@ -145,7 +145,7 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
         <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-[#e6e2db] dark:border-slate-700 px-6 py-4 flex items-center justify-between">
           <h3 className="text-xl font-bold text-[#181511] dark:text-white flex items-center">
             <span className="material-symbols-outlined text-[#f04129] mr-2">upload_file</span>
-            Bulk Import Staff Members
+            Bulk Import Users
           </h3>
           <button
             onClick={() => {
@@ -183,8 +183,32 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
         {/* CSV Format Instructions - Above Grid */}
         <div className="px-6 pt-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 p-3 rounded-md text-sm">
-            <p><strong>Required Columns:</strong> FirstName, LastName, Email, Role, Phone.</p>
+            <p><strong>Required Columns:</strong> FirstName, LastName, Email, Role, Phone (optional).</p>
             <p className="mt-1">Note: <strong>Role</strong> must be 'Manager' or 'SessionAdmin'.</p>
+            <button
+              type="button"
+              onClick={() => {
+                const sampleData = [
+                  ['FirstName', 'LastName', 'Email', 'Phone', 'Role'],
+                  ['Suresh', 'Patil', 'suresh.manager@test.com', '9876543210', 'Manager'],
+                  ['Anita', 'Desai', 'anita.admin@test.com', '9123456789', 'SessionAdmin'],
+                ];
+                const csvContent = sampleData.map(row => row.join(',')).join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'staff_import_sample.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="mt-2 flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 rounded hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">download</span>
+              Download Staff Sample CSV
+            </button>
           </div>
         </div>
 
@@ -319,13 +343,13 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
                   className="w-4 h-4 text-primary bg-white border-[#e6e2db] dark:border-slate-700 rounded focus:ring-2 focus:ring-primary dark:bg-slate-900 dark:checked:bg-primary"
                 />
                 <span className="text-sm font-medium text-[#181511] dark:text-gray-200">
-                  Auto-generate random 6-character password for each staff member
+                  Auto-generate random 6-character password for each user
                 </span>
               </label>
               
               <label className="flex flex-col">
                 <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">
-                  Temporary Password for All Staff
+                  Temporary Password for All Users
                 </p>
                 <input
                   type="password"
@@ -342,8 +366,8 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
                 />
                 <p className="text-xs text-[#8a7b60] dark:text-gray-500 mt-1.5">
                   {useRandomPassword 
-                    ? 'Each staff member will receive a unique random 6-character password via email.'
-                    : 'This password will be applied to every staff account in the uploaded file.'}
+                    ? 'Each user will receive a unique random 6-character password via email.'
+                    : 'This password will be applied to every account in the uploaded file.'}
                 </p>
               </label>
             </div>
@@ -386,7 +410,7 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
             ) : (
               <>
                 <span className="material-symbols-outlined">upload_file</span>
-                <span>Import Staff</span>
+                <span>Import Users</span>
               </>
             )}
           </button>

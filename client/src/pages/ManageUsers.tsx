@@ -246,27 +246,39 @@ const ManageUsers: React.FC = () => {
 
         // Validate headers
         const headers = Object.keys(data[0] || {});
-        const hasName = headers.some(h => h.toLowerCase() === 'name');
+        const hasFirstName = headers.some(h => h.toLowerCase() === 'firstname');
+        const hasLastName = headers.some(h => h.toLowerCase() === 'lastname');
         const hasEmail = headers.some(h => h.toLowerCase() === 'email');
 
-        if (!hasName || !hasEmail) {
-          setError('CSV must contain "Name" and "Email" columns');
+        if (!hasFirstName || !hasLastName || !hasEmail) {
+          setError('CSV must contain "FirstName", "LastName", and "Email" columns. Phone is optional.');
           setIsBulkImporting(false);
           return;
         }
 
         // Transform data to match backend format
-        const users = data.map((row: any) => {
-          const nameKey = headers.find(h => h.toLowerCase() === 'name') || 'name';
-          const emailKey = headers.find(h => h.toLowerCase() === 'email') || 'email';
-          const phoneKey = headers.find(h => h.toLowerCase() === 'phone') || 'phone';
+        // Note: Role column is optional - if missing, backend will default to 'EndUser'
+        const users = data.map((row: any, index: number) => {
+          const firstNameKey = headers.find(h => h.toLowerCase() === 'firstname') || 'FirstName';
+          const lastNameKey = headers.find(h => h.toLowerCase() === 'lastname') || 'LastName';
+          const emailKey = headers.find(h => h.toLowerCase() === 'email') || 'Email';
+          const roleKey = headers.find(h => h.toLowerCase() === 'role'); // Optional - may not exist
+          const phoneKey = headers.find(h => h.toLowerCase() === 'phone'); // Optional
 
-          return {
-            name: row[nameKey]?.trim() || '',
+          const userObj: any = {
+            firstName: row[firstNameKey]?.trim() || '',
+            lastName: row[lastNameKey]?.trim() || '',
             email: row[emailKey]?.trim() || '',
-            phone: row[phoneKey]?.trim() || '',
+            phone: phoneKey ? (row[phoneKey]?.trim() || '') : '',
           };
-        }).filter(user => user.name && user.email); // Filter out empty rows
+          
+          // Only include role if the column exists
+          if (roleKey) {
+            userObj.role = row[roleKey]?.trim() || '';
+          }
+          
+          return userObj;
+        }).filter(user => user.firstName && user.lastName && user.email); // Filter out empty rows
 
         if (users.length === 0) {
           setError('No valid users found in CSV file');
@@ -890,11 +902,33 @@ const ManageUsers: React.FC = () => {
 
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2">CSV Format Requirements:</p>
-                  <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1 list-disc list-inside">
-                    <li>Headers: <strong>Name</strong>, <strong>Email</strong>, <strong>Phone</strong> (optional)</li>
-                    <li>Name column will be split into First Name and Last Name</li>
-                    <li>Email must be unique</li>
-                  </ul>
+                  <p className="text-xs text-blue-700 dark:text-blue-400 mb-2">
+                    <strong>Required Columns:</strong> FirstName, LastName, Email, Phone (optional).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const sampleData = [
+                        ['FirstName', 'LastName', 'Email', 'Phone'],
+                        ['Rahul', 'Sharma', 'rahul.student@test.com', '9988776655'],
+                        ['Priya', 'Verma', 'priya.student@test.com', '8877665544'],
+                      ];
+                      const csvContent = sampleData.map(row => row.join(',')).join('\n');
+                      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                      const link = document.createElement('a');
+                      const url = URL.createObjectURL(blob);
+                      link.setAttribute('href', url);
+                      link.setAttribute('download', 'user_import_sample.csv');
+                      link.style.visibility = 'hidden';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="mt-2 flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700 rounded hover:bg-blue-200 dark:hover:bg-blue-900/60 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">download</span>
+                    Download User Sample CSV
+                  </button>
                 </div>
 
                 {/* CSV Preview */}

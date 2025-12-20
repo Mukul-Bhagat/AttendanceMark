@@ -174,106 +174,148 @@ export const bulkCreateUsers = async (req: Request, res: Response) => {
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
     // Process each user
-    for (const userData of users) {
-      const { name, email, phone } = userData;
+    for (const [index, userData] of users.entries()) {
+      const rowNumber = index + 1;
+      
+      try {
+        const { firstName, lastName, email, role, phone } = userData;
 
-      // Validate required fields
-      if (!name || !email) {
-        errors.push(`Skipped: Missing name or email for entry`);
-        continue;
-      }
-
-      // Parse name into firstName and lastName
-      const nameParts = name.trim().split(/\s+/);
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      if (!firstName) {
-        errors.push(`Skipped: Invalid name format for ${email}`);
-        continue;
-      }
-
-      // Check if user already exists
-      const existingUser = await UserCollection.findOne({ email: email.toLowerCase() });
-      if (existingUser) {
-        duplicateCount++;
-        errors.push(`Duplicate: ${email} already exists`);
-        continue;
-      }
-
-      // Generate password: random if useRandomPassword is true, otherwise use temporaryPassword
-      let userPassword: string;
-      if (useRandomPassword) {
-        // Generate a random 6-character alphanumeric password
-        // Using crypto for secure randomness
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        userPassword = '';
-        for (let i = 0; i < 6; i++) {
-          const randomIndex = crypto.randomBytes(1)[0] % chars.length;
-          userPassword += chars[randomIndex];
+        // Validate required fields
+        if (!firstName || !lastName || !email) {
+          errors.push(`Row ${rowNumber}: Missing required fields (FirstName, LastName, Email) for ${email || 'unknown'}`);
+          continue;
         }
-      } else {
-        userPassword = temporaryPassword;
-      }
 
-      // Create new EndUser with the password
-      const newEndUser = new UserCollection({
-        email: email.toLowerCase(),
-        password: userPassword, // Will be hashed by the pre-save hook
-        role: 'EndUser',
-        profile: {
-          firstName,
-          lastName,
-          phone: phone || undefined,
-        },
-        mustResetPassword: true,
-      });
+        // Handle role mapping (case-insensitive)
+        // If role column is missing or empty, default to EndUser
+        let finalRole: string;
+        const normalizedRole = (role !== undefined && role !== null ? String(role) : '').trim();
+        
+        if (!normalizedRole || normalizedRole.toLowerCase() === 'user' || normalizedRole.toLowerCase() === 'enduser') {
+          finalRole = 'EndUser';
+        } else if (normalizedRole.toLowerCase() === 'manager') {
+          finalRole = 'Manager';
+        } else if (normalizedRole.toLowerCase() === 'sessionadmin' || normalizedRole.toLowerCase() === 'session admin') {
+          finalRole = 'SessionAdmin';
+        } else {
+          errors.push(`Row ${rowNumber}: Invalid role "${role}" for ${email}. Role must be 'Manager' or 'SessionAdmin' (case-insensitive), or empty/missing (defaults to 'User')`);
+          continue;
+        }
 
-      await newEndUser.save();
-      
-      // Add user to UserOrganizationMap
-      const org = await Organization.findOne({ collectionPrefix });
-      if (org) {
-        await UserOrganizationMap.findOneAndUpdate(
-          { email: email.toLowerCase() },
-          {
-            $push: {
-              organizations: {
-                orgName: org.name,
-                prefix: collectionPrefix,
-                role: 'EndUser',
-                userId: newEndUser._id.toString(),
-              },
+        // Check if user already exists (wrap in try/catch for duplicate key errors)
+        let existingUser;
+        try {
+          existingUser = await UserCollection.findOne({ email: email.toLowerCase() });
+        } catch (dbErr: any) {
+          console.error(`Row ${rowNumber}: Database error checking existing user:`, dbErr.message);
+          errors.push(`Row ${rowNumber}: Error checking duplicate email "${email}"`);
+          continue;
+        }
+        
+        if (existingUser) {
+          duplicateCount++;
+          errors.push(`Row ${rowNumber}: Duplicate email "${email}" already exists`);
+          continue;
+        }
+
+        // Generate password: random if useRandomPassword is true, otherwise use temporaryPassword
+        let userPassword: string;
+        if (useRandomPassword) {
+          // Generate a random 6-character alphanumeric password
+          // Using crypto for secure randomness
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+          userPassword = '';
+          for (let i = 0; i < 6; i++) {
+            const randomIndex = crypto.randomBytes(1)[0] % chars.length;
+            userPassword += chars[randomIndex];
+          }
+        } else {
+          userPassword = temporaryPassword;
+        }
+
+        // Create new user with the determined role (wrap in try/catch)
+        try {
+          const newUser = new UserCollection({
+            email: email.toLowerCase(),
+            password: userPassword, // Will be hashed by the pre-save hook
+            role: finalRole,
+            profile: {
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              phone: phone ? phone.trim() : undefined,
             },
-          },
-          { upsert: true, new: true }
-        );
+            mustResetPassword: true,
+          });
+
+          await newUser.save();
+          
+          // Add user to UserOrganizationMap
+          try {
+            const org = await Organization.findOne({ collectionPrefix });
+            if (org) {
+              await UserOrganizationMap.findOneAndUpdate(
+                { email: email.toLowerCase() },
+                {
+                  $push: {
+                    organizations: {
+                      orgName: org.name,
+                      prefix: collectionPrefix,
+                      role: finalRole,
+                      userId: newUser._id.toString(),
+                    },
+                  },
+                },
+                { upsert: true, new: true }
+              );
+            }
+          } catch (mapErr: any) {
+            // Log but don't fail the entire import if UserOrganizationMap update fails
+            console.error(`Row ${rowNumber}: Error updating UserOrganizationMap for ${email}:`, mapErr.message);
+          }
+          
+          successCount++;
+
+          // Queue welcome email (don't await - collect for Promise.all)
+          const roleDisplayName = finalRole === 'EndUser' ? 'User' : finalRole;
+          const welcomeEmailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h3 style="color: #f04129;">Welcome to AttendMark!</h3>
+              <p>Your account has been created by your administrator.</p>
+              <p><strong>Email:</strong> ${email.toLowerCase()}</p>
+              ${finalRole !== 'EndUser' ? `<p><strong>Role:</strong> ${roleDisplayName}</p>` : ''}
+              <p><strong>Temporary Password:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${userPassword}</code></p>
+              <p>Please log in at: <a href="${clientUrl}">${clientUrl}</a></p>
+              <p style="color: #666; font-size: 14px;">Note: You will be asked to change this password on your first login.</p>
+            </div>
+          `;
+
+          emailPromises.push(
+            sendEmail({
+              email: email.toLowerCase(),
+              subject: 'Welcome to AttendMark - Your Login Credentials',
+              message: welcomeEmailHtml,
+            }).catch((emailErr: any) => {
+              console.error(`User ${email} created but failed to send welcome email:`, emailErr.message);
+              // Don't fail - just log
+            })
+          );
+        } catch (saveErr: any) {
+          // Handle duplicate email or other database errors
+          if (saveErr.code === 11000 || saveErr.message?.includes('duplicate')) {
+            duplicateCount++;
+            errors.push(`Row ${rowNumber}: Duplicate email "${email || 'unknown'}" already exists`);
+          } else {
+            console.error(`Row ${rowNumber}: Error saving user:`, saveErr.message);
+            errors.push(`Row ${rowNumber}: Failed to create user: ${saveErr.message || 'Unknown error'}`);
+          }
+          continue;
+        }
+      } catch (rowErr: any) {
+        // Catch any unexpected errors for this row
+        console.error(`Row ${rowNumber}: Unexpected error:`, rowErr.message);
+        errors.push(`Row ${rowNumber}: Processing error: ${rowErr.message || 'Unknown error'}`);
+        continue;
       }
-      
-      successCount++;
-
-      // Queue welcome email (don't await - collect for Promise.all)
-      const welcomeEmailHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h3 style="color: #f04129;">Welcome to AttendMark!</h3>
-          <p>Your account has been created by your administrator.</p>
-          <p><strong>Email:</strong> ${email.toLowerCase()}</p>
-          <p><strong>Temporary Password:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">${userPassword}</code></p>
-          <p>Please log in at: <a href="${clientUrl}">${clientUrl}</a></p>
-          <p style="color: #666; font-size: 14px;">Note: You will be asked to change this password on your first login.</p>
-        </div>
-      `;
-
-      emailPromises.push(
-        sendEmail({
-          email: email.toLowerCase(),
-          subject: 'Welcome to AttendMark - Your Login Credentials',
-          message: welcomeEmailHtml,
-        }).catch((emailErr: any) => {
-          console.error(`User ${email} created but failed to send welcome email:`, emailErr.message);
-          // Don't fail - just log
-        })
-      );
     }
 
     // Send all welcome emails in parallel (don't block response)
