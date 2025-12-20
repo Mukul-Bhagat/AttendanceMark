@@ -152,8 +152,8 @@ const Sessions: React.FC = () => {
   };
 
   // ROBUST STATUS HELPER: Returns 'Past', 'Live', or 'Upcoming'
-  // Sessions are marked as 'Past' only 10 minutes AFTER the end time
-  // NOTE: Grace Period (Late Attendance Limit) is NOT used here - it only affects attendance status (Present vs Late)
+  // Sessions are marked as 'Past' ONLY 10 minutes AFTER the end time
+  // CRITICAL: Grace Period (Late Attendance Limit) is NEVER used here - it only affects attendance status (Present vs Late)
   const getSessionStatus = (session: ISession): 'Past' | 'Live' | 'Upcoming' => {
     try {
       // Handle cancelled/completed sessions
@@ -162,41 +162,60 @@ const Sessions: React.FC = () => {
       
       // Use currentTime state to ensure consistent status calculations and trigger re-renders
       const now = currentTime;
-      const sessionDate = new Date(session.startDate);
       
-      // 1. Parse Start Time
-      let startTime = new Date(sessionDate);
+      // 1. Parse Session Date: Extract date components from startDate to avoid timezone issues
+      const sessionDateObj = new Date(session.startDate);
+      const sessionYear = sessionDateObj.getFullYear();
+      const sessionMonth = sessionDateObj.getMonth();
+      const sessionDay = sessionDateObj.getDate();
+      
+      // 2. Parse Start DateTime: Session Date + startTime
+      const sessionStartTime = new Date(sessionYear, sessionMonth, sessionDay);
       if (session.startTime && typeof session.startTime === 'string' && session.startTime.includes(':')) {
         const [startHours, startMinutes] = session.startTime.split(':').map(Number);
-        startTime.setHours(startHours, startMinutes, 0, 0);
+        sessionStartTime.setHours(startHours, startMinutes, 0, 0);
       }
       
-      // 2. Parse End Time - Create Date object for End Time
-      let endTime = new Date(session.endDate || sessionDate);
+      // 3. Parse End DateTime: Session Date + endTime
+      // For single-day sessions, use the same date. For multi-day, use endDate.
+      let sessionEndTime: Date;
+      if (session.endDate) {
+        // Multi-day session: use endDate
+        const endDateObj = new Date(session.endDate);
+        sessionEndTime = new Date(endDateObj.getFullYear(), endDateObj.getMonth(), endDateObj.getDate());
+      } else {
+        // Single-day session: use startDate as the date
+        sessionEndTime = new Date(sessionYear, sessionMonth, sessionDay);
+      }
+      
       if (session.endTime && typeof session.endTime === 'string' && session.endTime.includes(':')) {
         const [endHours, endMinutes] = session.endTime.split(':').map(Number);
-        endTime.setHours(endHours, endMinutes, 0, 0);
+        sessionEndTime.setHours(endHours, endMinutes, 0, 0);
         
-        // Handle overnight sessions (if end time < start time on the same day)
-        if (!session.endDate && endTime < startTime) {
-          endTime.setDate(endTime.getDate() + 1);
+        // Handle overnight sessions (if end time < start time on the same day and no endDate)
+        if (!session.endDate && sessionEndTime < sessionStartTime) {
+          sessionEndTime.setDate(sessionEndTime.getDate() + 1);
         }
       } else {
         // If no end time, assume end of day
-        endTime.setHours(23, 59, 59, 999);
+        sessionEndTime.setHours(23, 59, 59, 999);
       }
       
-      // 3. Define Cutoff Time: End Time + 10 minute buffer
-      const cutoffTime = new Date(endTime.getTime() + 10 * 60000); // +10 minutes
+      // 4. Define pastCutoff: End Time + 10 minute buffer
+      // CRITICAL: Do NOT use lateTimeLimit, gracePeriod, or any other attendance-related timing
+      // This is the ONLY cutoff that determines if a session is "Past"
+      const pastCutoff = new Date(sessionEndTime.getTime() + 10 * 60000); // +10 minutes
       
-      // 4. Status Logic (Grace Period is NOT used here)
-      // Upcoming: If now < startTime
-      if (now < startTime) return 'Upcoming';
+      // 5. Status Logic (Strict - Grace Period is NEVER used here)
+      // "Upcoming": now < sessionStartTime
+      if (now.getTime() < sessionStartTime.getTime()) return 'Upcoming';
       
-      // Live: If now >= startTime AND now <= cutoffTime
-      if (now >= startTime && now <= cutoffTime) return 'Live';
+      // "Live": now >= sessionStartTime AND now <= pastCutoff
+      // A session remains "Live" until 10 minutes AFTER the end time
+      if (now.getTime() >= sessionStartTime.getTime() && now.getTime() <= pastCutoff.getTime()) return 'Live';
       
-      // Past: ONLY if now > cutoffTime
+      // "Past Session": ONLY if now > pastCutoff
+      // This means the session ended more than 10 minutes ago
       return 'Past';
     } catch (error) {
       console.error('Error parsing session status:', error);
