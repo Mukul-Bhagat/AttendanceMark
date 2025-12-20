@@ -93,70 +93,45 @@ const ScanQR: React.FC = () => {
 
   // Filter sessions based on 2-Hour Rule - STRICTLY TODAY ONLY
   const getFilteredSessions = (): ISession[] => {
-    const now = new Date(); // Current date and time
-    
+    // Helper function to check if a date is today (explicit day/month/year comparison)
+    const isToday = (dateString: string | Date): boolean => {
+      const today = new Date();
+      const check = new Date(dateString);
+      return today.getDate() === check.getDate() &&
+             today.getMonth() === check.getMonth() &&
+             today.getFullYear() === check.getFullYear();
+    };
+
+    const now = new Date();
+
     return sessions.filter(session => {
-      if (session.isCancelled) return false;
-
       try {
-        // STEP 1: STRICT DATE CHECK - Session must be TODAY
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        let sessionDate: Date;
-        
-        if (session.frequency === 'OneTime' || session.frequency === 'Random') {
-          // For one-time or random sessions, use the exact start date
-          sessionDate = new Date(session.startDate);
-          sessionDate.setHours(0, 0, 0, 0);
-        } else {
-          // For recurring sessions, check if today is within the date range
-          const sessionStartDate = new Date(session.startDate);
-          sessionStartDate.setHours(0, 0, 0, 0);
-          
-          const sessionEndDate = session.endDate ? new Date(session.endDate) : null;
-          if (sessionEndDate) {
-            sessionEndDate.setHours(23, 59, 59, 999);
-          }
+        // 1. Strict Day Check: MUST be today
+        if (!isToday(session.startDate)) return false;
 
-          // Check if today is within the session date range
-          const isTodayInRange = today >= sessionStartDate && (!sessionEndDate || today <= sessionEndDate);
-          if (!isTodayInRange) return false;
+        // 2. Cancellation Check
+        if (session.isCancelled) return false;
 
-          // For Weekly sessions, check if today is one of the scheduled days
-          if (session.frequency === 'Weekly' && session.weeklyDays && session.weeklyDays.length > 0) {
-            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const todayDayName = dayNames[now.getDay()];
-            if (!session.weeklyDays.includes(todayDayName)) return false;
-          }
+        // 3. Time Window Check (Start Time)
+        // Parse session start time (e.g., "11:00")
+        const [startHours, startMinutes] = session.startTime.split(':').map(Number);
+        const sessionStart = new Date();
+        sessionStart.setHours(startHours, startMinutes, 0, 0);
 
-          // Use today's date for recurring sessions
-          sessionDate = new Date(today);
-        }
+        // Create "Scan Window Open" time (2 hours before start)
+        const scanWindowOpen = new Date(sessionStart);
+        scanWindowOpen.setHours(sessionStart.getHours() - 2);
 
-        // STRICT CHECK: Session date must be exactly TODAY
-        const isToday = today.toDateString() === sessionDate.toDateString();
-        if (!isToday) return false;
+        // 4. Time Window Check (End Time + 10 mins buffer)
+        const [endHours, endMinutes] = session.endTime.split(':').map(Number);
+        const sessionEnd = new Date();
+        sessionEnd.setHours(endHours, endMinutes, 0, 0);
 
-        // STEP 2: TIME CHECK - Construct full Date objects for session start and end
-        const [startHour, startMinute] = session.startTime.split(':').map(Number);
-        const [endHour, endMinute] = session.endTime.split(':').map(Number);
+        const scanWindowClose = new Date(sessionEnd);
+        scanWindowClose.setMinutes(sessionEnd.getMinutes() + 10); // 10 min buffer
 
-        // Use the session date (which is now confirmed to be today) with session times
-        const sessionStartDateTime = new Date(sessionDate);
-        sessionStartDateTime.setHours(startHour, startMinute, 0, 0);
-        
-        const sessionEndDateTime = new Date(sessionDate);
-        sessionEndDateTime.setHours(endHour, endMinute, 59, 999);
-
-        // Condition A: Session is Live (happening right now)
-        const isLive = now >= sessionStartDateTime && now <= sessionEndDateTime;
-
-        // Condition B: Session is Upcoming Soon (starts within 2 hours)
-        const isUpcomingSoon = sessionStartDateTime > now && (sessionStartDateTime.getTime() - now.getTime()) <= (2 * 60 * 60 * 1000);
-
-        // Return true if Live OR Upcoming Soon (both conditions ensure it's today)
-        return isLive || isUpcomingSoon;
+        // Final Logic: Must be TODAY + Inside the Time Window
+        return now >= scanWindowOpen && now <= scanWindowClose;
       } catch (err) {
         console.error('Error filtering session:', err);
         return false;
