@@ -179,9 +179,9 @@ const SessionDetails: React.FC = () => {
     );
   }
 
-  // The value of the QR code will be the session's unique _id
-  // This is what the End User's app will scan
-  const qrValue = session._id;
+  // The value of the QR code will be a deep link URL to the quick-scan page
+  // This allows students to scan with their system camera or Google Lens
+  const qrValue = session._id ? `${window.location.origin}/quick-scan/${session._id}` : '';
 
   const formatDate = (dateString: string) => {
     try {
@@ -443,11 +443,14 @@ const SessionDetails: React.FC = () => {
                   </div>
                 </div>
                 <footer className="mt-6 w-full">
-                  <span className="inline-block bg-gray-100 dark:bg-background-dark text-[#181511] dark:text-gray-300 px-3 py-1 rounded-md font-mono text-sm mb-3">
-                    Session ID: {qrValue}
+                  <span className="inline-block bg-gray-100 dark:bg-background-dark text-[#181511] dark:text-gray-300 px-3 py-1 rounded-md font-mono text-sm mb-3 break-all">
+                    Session ID: {session._id}
                   </span>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 italic">
-                    Point the End User's camera at this code to mark attendance.
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic mb-2">
+                    Students can scan this with their system camera or Google Lens to mark attendance.
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+                    The QR code contains a deep link that will automatically open the attendance page.
                   </p>
                 </footer>
               </div>

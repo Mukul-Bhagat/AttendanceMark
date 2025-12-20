@@ -1,5 +1,7 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Organization {
   orgName: string;
@@ -13,6 +15,7 @@ interface OrganizationSelectorProps {
   organizations: Organization[];
   tempToken: string;
   email: string;
+  redirectTo?: string;
   onError: (error: string) => void;
 }
 
@@ -20,9 +23,12 @@ const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   organizations,
   tempToken,
   email,
+  redirectTo = '/dashboard',
   onError,
 }) => {
   const [isLoading, setIsLoading] = React.useState<string | null>(null);
+  const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSelectOrganization = async (org: Organization) => {
     setIsLoading(org.prefix);
@@ -32,13 +38,16 @@ const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
         prefix: org.prefix,
       });
 
-      const { token } = response.data;
+      const { token, user } = response.data;
 
-      // Store token - AuthContext will handle user state update
+      // Store token and update AuthContext
       localStorage.setItem('token', token);
       
-      // Navigate to dashboard - AuthContext will handle user state update
-      window.location.href = '/dashboard';
+      // Update AuthContext with the new token and user
+      await login({ token, user });
+      
+      // Navigate to the redirect path (from login state) or dashboard
+      navigate(redirectTo, { replace: true });
     } catch (err: any) {
       setIsLoading(null);
       const errorMessage = err.response?.data?.msg || 'Failed to select organization. Please try again.';

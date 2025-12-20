@@ -18,6 +18,7 @@ import ManageUsers from './pages/ManageUsers';
 import EditSession from './pages/EditSession';
 import Profile from './pages/Profile';
 import Leaves from './pages/Leaves';
+import QuickScanHandler from './pages/QuickScanHandler';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
@@ -99,6 +100,8 @@ function App() {
             <Route path="/my-sessions" element={<MySessions />} />
             <Route path="/leaves" element={<Leaves />} />
           </Route>
+          {/* Deep Link Attendance - No Layout wrapper (full page) */}
+          <Route path="/quick-scan/:sessionId" element={<QuickScanHandler />} />
         </Route>
         
         {/* Classes routes - Accessible to all authenticated users (including EndUsers) */}

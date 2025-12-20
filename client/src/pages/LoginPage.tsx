@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import OrganizationSelector from '../components/OrganizationSelector';
 import api from '../api';
@@ -38,8 +38,12 @@ const LoginPage: React.FC = () => {
   const [tempToken, setTempToken] = useState<string | null>(null);
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const emailInputRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const errorPersistRef = useRef<string>('');
+
+  // Get the redirect path from location state, default to /dashboard
+  const from = (location.state as any)?.from?.pathname || '/dashboard';
 
   const { email, password } = formData;
 
@@ -105,8 +109,8 @@ const LoginPage: React.FC = () => {
         // Use the login function to update context
         await login({ token: finalToken, user });
         
-        // Navigate to dashboard
-        navigate('/dashboard');
+        // Navigate to the original destination or dashboard
+        navigate(from, { replace: true });
       } else if (orgs && orgs.length > 1) {
         // Show organization selector
         setOrganizations(orgs);
@@ -194,6 +198,7 @@ const LoginPage: React.FC = () => {
               organizations={organizations}
               tempToken={tempToken}
               email={email}
+              redirectTo={from}
               onError={(errorMsg) => {
                 setError(errorMsg);
                 setOrganizations([]);

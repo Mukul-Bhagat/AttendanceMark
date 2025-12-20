@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -11,15 +11,16 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   const { token, isLoading, user } = useAuth();
+  const location = useLocation();
 
   // Show a loading spinner while context is checking for a token
   if (isLoading) {
     return <LoadingSpinner />;
   }
 
-  // If there is no token, redirect to the /login page
+  // If there is no token, redirect to the /login page with current location as state
   if (!token) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // CRITICAL: Wait for user data to be loaded before allowing access
