@@ -5,7 +5,6 @@ import { ISession, IClassBatch } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { Eye, Edit, ArrowLeft } from 'lucide-react';
 import SessionCalendar from '../components/SessionCalendar';
-import { addMinutes } from 'date-fns';
 
 const Sessions: React.FC = () => {
   const navigate = useNavigate();
