@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { check } from 'express-validator';
-import { protect } from '../middleware/authMiddleware';
+import { protect, protectPowerBI } from '../middleware/authMiddleware';
 import { getOrganizationUsers, createStaff, createEndUser, resetDevice, deleteUser, uploadProfilePicture, updateProfile, changePassword, removeProfilePicture, bulkCreateUsers, bulkCreateStaff, updateUserQuota } from '../controllers/userController';
 import { upload } from '../middleware/uploadMiddleware';
 
@@ -8,8 +8,8 @@ const router = Router();
 
 // @route   GET /api/users/my-organization
 // @desc    Get all users in the token's organization
-// @access  Private
-router.get('/my-organization', protect, getOrganizationUsers);
+// @access  Private (JWT token OR Power BI API key)
+router.get('/my-organization', protectPowerBI, getOrganizationUsers);
 
 // @route   POST /api/users/profile-picture
 // @desc    Upload profile picture

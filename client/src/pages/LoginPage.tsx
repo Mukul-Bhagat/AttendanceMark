@@ -168,7 +168,7 @@ const LoginPage: React.FC = () => {
     <div className="h-screen w-screen overflow-hidden flex bg-background-light dark:bg-background-dark" style={{ fontFamily: 'Manrope, "Noto Sans", sans-serif' }}>
       {/* Left Side - Branding Panel */}
       <div className="hidden md:flex md:w-1/2 h-full bg-slate-900 flex-col items-center justify-center text-center p-12">
-        <div className="flex flex-col items-center gap-6 text-white">
+        <Link to="/landing" className="flex flex-col items-center gap-6 text-white cursor-pointer hover:opacity-80 transition-opacity">
           <div className="flex items-center gap-3">
             <svg className="h-10 w-10 text-primary" fill="none" height="24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
@@ -177,18 +177,20 @@ const LoginPage: React.FC = () => {
             <h1 className="font-display text-4xl font-bold tracking-tight">AttendMark</h1>
           </div>
           <p className="max-w-xs text-lg font-light text-slate-300">Marking presence, perfecting performance. Your success, recorded.</p>
-        </div>
+        </Link>
       </div>
 
       {/* Right Side - Form Container */}
       <div className="w-full md:w-1/2 h-full flex flex-col bg-background-light dark:bg-background-dark">
         {/* Top - Logo */}
         <div className="flex-none pt-6 pb-2 flex justify-center">
-          <img
-            src="/assets/attendmarklogo.png"
-            alt="AttendMark"
-            className="h-16 w-auto object-contain"
-          />
+          <Link to="/landing" className="cursor-pointer hover:opacity-80 transition-opacity">
+            <img
+              src="/assets/attendmarklogo.png"
+              alt="AttendMark"
+              className="h-16 w-auto object-contain"
+            />
+          </Link>
         </div>
 
         {/* Middle - Form or Organization Selector */}

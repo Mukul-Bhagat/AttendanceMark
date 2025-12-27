@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
-import { protect } from '../middleware/authMiddleware';
+import { protect, protectPowerBI } from '../middleware/authMiddleware';
 import { createSession, getSessions, getSessionById, updateSession, deleteSession } from '../controllers/sessionController';
 
 const router = Router();
@@ -25,8 +25,8 @@ router.post(
 
 // @route   GET /api/sessions
 // @desc    Get all sessions for the user's organization
-// @access  Private
-router.get('/', protect, getSessions);
+// @access  Private (JWT token OR Power BI API key)
+router.get('/', protectPowerBI, getSessions);
 
 // @route   GET /api/sessions/:id
 // @desc    Get a single session by its ID

@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
 import RegisterSuperAdmin from './pages/RegisterSuperAdmin';
 import LoginPage from './pages/LoginPage';
 import ForgotPassword from './pages/ForgotPassword';
@@ -36,6 +37,14 @@ function App() {
       
       <Routes>
         {/* Public Routes - Redirect to dashboard if already logged in */}
+        <Route 
+          path="/landing" 
+          element={
+            <PublicRoute>
+              <LandingPage />
+            </PublicRoute>
+          } 
+        />
         <Route 
           path="/register" 
           element={

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
-import { protect } from '../middleware/authMiddleware';
+import { protect, protectPowerBI } from '../middleware/authMiddleware';
 import { markAttendance, getMyAttendance, getSessionAttendance, getUserAttendance } from '../controllers/attendanceController';
 
 const router = Router();
@@ -28,13 +28,13 @@ router.get('/me', protect, getMyAttendance);
 
 // @route   GET /api/attendance/session/:id
 // @desc    Get all attendance records for a specific session (with user data)
-// @access  Private (Manager, SuperAdmin only)
-router.get('/session/:id', protect, getSessionAttendance);
+// @access  Private (Manager, SuperAdmin only) - JWT token OR Power BI API key
+router.get('/session/:id', protectPowerBI, getSessionAttendance);
 
 // @route   GET /api/attendance/user/:id
 // @desc    Get all attendance records for a specific user (with session data)
-// @access  Private (Manager, SuperAdmin only)
-router.get('/user/:id', protect, getUserAttendance);
+// @access  Private (Manager, SuperAdmin only) - JWT token OR Power BI API key
+router.get('/user/:id', protectPowerBI, getUserAttendance);
 
 export default router;
 

@@ -80,13 +80,13 @@ const RegisterSuperAdmin: React.FC = () => {
       <div className="flex-1">
         <div className="grid min-h-screen lg:grid-cols-2">
           <div className="hidden lg:flex flex-col items-center justify-center bg-[#111827] text-white p-12">
-            <div className="flex flex-col items-center justify-center text-center max-w-md">
+            <Link to="/landing" className="flex flex-col items-center justify-center text-center max-w-md cursor-pointer hover:opacity-80 transition-opacity">
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-primary text-5xl">checklist</span>
                 <h2 className="text-4xl font-bold tracking-tighter">AttendMark</h2>
               </div>
               <p className="mt-4 text-lg text-gray-300">Seamless Attendance Tracking for Modern Organizations.</p>
-            </div>
+            </Link>
           </div>
 
           <div className="flex w-full items-center justify-center bg-white dark:bg-zinc-900 p-6 sm:p-8 lg:p-12">

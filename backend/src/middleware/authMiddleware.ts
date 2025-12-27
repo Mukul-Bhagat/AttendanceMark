@@ -58,6 +58,32 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
+// Protect routes for Power BI - accepts API key OR falls back to JWT
+export const protectPowerBI = async (req: Request, res: Response, next: NextFunction) => {
+  // Check for Power BI API key in header
+  const apiKey = req.headers['x-api-key'] as string;
+  const powerBISecretKey = process.env.POWERBI_SECRET_KEY;
+
+  if (apiKey && powerBISecretKey && apiKey === powerBISecretKey) {
+    // API key matches - create dummy admin user for Power BI
+    // Allow organization prefix to be specified via header, or use default from env
+    const orgPrefix = (req.headers['x-organization-prefix'] as string) || process.env.POWERBI_DEFAULT_ORG_PREFIX || '';
+    
+    req.user = {
+      id: 'powerbi-service-account',
+      email: 'powerbi@system',
+      role: 'SuperAdmin',
+      collectionPrefix: orgPrefix,
+      organizationName: 'Power BI Access',
+    };
+
+    return next();
+  }
+
+  // API key doesn't match or not provided - fall back to standard JWT authentication
+  return protect(req, res, next);
+};
+
 // Authorize routes - check if user has required role
 export const authorize = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
