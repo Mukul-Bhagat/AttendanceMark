@@ -185,11 +185,11 @@ const LoginPage: React.FC = () => {
         {/* Top - Logo */}
         <div className="flex-none pt-6 pb-2 flex justify-center">
           <Link to="/landing" className="cursor-pointer hover:opacity-80 transition-opacity">
-            <img
-              src="/assets/attendmarklogo.png"
-              alt="AttendMark"
-              className="h-16 w-auto object-contain"
-            />
+          <img
+            src="/assets/attendmarklogo.png"
+            alt="AttendMark"
+            className="h-16 w-auto object-contain"
+          />
           </Link>
         </div>
 

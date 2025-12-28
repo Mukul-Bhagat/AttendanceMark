@@ -218,20 +218,13 @@ const LandingPage: React.FC = () => {
             <p className="mt-6 text-xl md:text-2xl text-neutral-400 max-w-2xl mx-auto font-light leading-relaxed">
               Streamline tracking with QR codes, geolocation, and real-time insights. The all-in-one solution for schools and businesses.
             </p>
-            <div className="mt-12 flex flex-col sm:flex-row justify-center gap-6">
+            <div className="mt-12 flex justify-center">
               <Link 
                 className="inline-flex items-center justify-center px-8 py-4 text-base font-bold rounded-full text-white bg-red-gradient border border-[#D61C22]/30 hover:opacity-90 shadow-lg shadow-red-500/25 transition-all hover:scale-105 btn-glow" 
                 to="/register"
               >
                 Get Started
                 <span className="material-symbols-outlined ml-2 text-[20px]">arrow_forward</span>
-              </Link>
-              <Link 
-                className="inline-flex items-center justify-center px-8 py-4 text-base font-bold rounded-full text-white glass-card hover:border-white/20 transition-all hover:scale-105" 
-                to="/login"
-              >
-                <span className="material-symbols-outlined mr-2 text-[20px] text-red-400">play_circle</span>
-                Watch Demo
               </Link>
             </div>
           </div>
