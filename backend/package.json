@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "nodemon src/server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "seed:platform-owner": "ts-node src/scripts/seedPlatformOwner.ts"
   },
   "dependencies": {
     "@types/html-to-text": "^9.0.4",

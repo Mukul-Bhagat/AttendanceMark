@@ -3,26 +3,37 @@ import { validationResult } from 'express-validator';
 import createUserModel from '../models/User';
 import UserOrganizationMap from '../models/UserOrganizationMap';
 import Organization from '../models/Organization';
+import AuditLog from '../models/AuditLog';
 import path from 'path';
 import fs from 'fs';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { sendEmail } from '../utils/email';
+import { logAction } from '../utils/auditLogger';
 
 // @route   GET /api/users/my-organization
 export const getOrganizationUsers = async (req: Request, res: Response) => {
-  const { collectionPrefix } = req.user!;
+  const { collectionPrefix, role: requesterRole } = req.user!;
 
   try {
     // 1. Get the organization-specific User model
     const UserCollection = createUserModel(`${collectionPrefix}_users`);
 
-    // 2. Find all users in that collection
+    // 2. Determine which roles to fetch
+    // Default: Exclude PLATFORM_OWNER (they must remain invisible to tenant admins)
+    // For Platform Owner: Also include COMPANY_ADMIN so they can manage them
+    let roleFilter: any = { role: { $ne: 'PLATFORM_OWNER' } };
+    
+    // If Platform Owner is requesting, include COMPANY_ADMIN in the results
+    // (The filter already includes COMPANY_ADMIN by default since we only exclude PLATFORM_OWNER)
+    // This is just for clarity - the filter will return all roles except PLATFORM_OWNER
+
+    // 3. Find all users in that collection
     // We only select fields the admin needs to see
     // Include registeredDeviceId explicitly using + prefix (it's marked select: false in schema)
     // Include customLeaveQuota for quota management
-    const users = await UserCollection.find().select(
+    const users = await UserCollection.find(roleFilter).select(
       'profile.firstName profile.lastName profile.phone email role +registeredDeviceId customLeaveQuota'
     );
 
@@ -99,6 +110,28 @@ export const createStaff = async (req: Request, res: Response) => {
         { upsert: true, new: true }
       );
     }
+
+    // Log staff creation to audit log
+    await logAction(
+      'CREATE_STAFF',
+      {
+        id: req.user!.id,
+        email: req.user!.email,
+        role: requesterRole,
+        collectionPrefix,
+      },
+      newStaff._id,
+      {
+        message: `Added new user: ${firstName} ${lastName} (${email.toLowerCase()}).`,
+        firstName,
+        lastName,
+        email: email.toLowerCase(),
+        role,
+      },
+      org?._id,
+      org?.name,
+      email.toLowerCase()
+    );
 
     // Send welcome email with login credentials
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
@@ -493,6 +526,181 @@ export const bulkCreateStaff = async (req: Request, res: Response) => {
   }
 };
 
+// @route   POST /api/users/staff/bulk-import
+// @desc    Bulk import Staff members (Manager or SessionAdmin) from CSV data
+// @access  Private (SuperAdmin or CompanyAdmin or Platform Owner)
+export const bulkImportStaff = async (req: Request, res: Response) => {
+  const { collectionPrefix, role: requesterRole } = req.user!;
+
+  // 1. Security Check: Only SuperAdmin, CompanyAdmin, or Platform Owner can bulk import staff
+  if (requesterRole !== 'SuperAdmin' && requesterRole !== 'CompanyAdmin' && requesterRole !== 'PLATFORM_OWNER') {
+    return res.status(403).json({ msg: 'Not authorized to bulk import staff members' });
+  }
+
+  const { staff } = req.body; // Array of { firstName, lastName, email, phone, role }
+
+  // Validate input
+  if (!Array.isArray(staff) || staff.length === 0) {
+    return res.status(400).json({ msg: 'Staff array is required and must not be empty' });
+  }
+
+  try {
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    let successCount = 0;
+    let duplicateCount = 0;
+    const errors: string[] = [];
+    const emailPromises: Promise<void>[] = [];
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+    // Process each staff member
+    for (let index = 0; index < staff.length; index++) {
+      const staffData = staff[index];
+      const { firstName, lastName, email, phone, role } = staffData;
+      const rowNumber = index + 1;
+
+      // Validate required fields
+      if (!firstName || !lastName || !email || !role) {
+        errors.push(`Row ${rowNumber}: Missing required fields (firstName, lastName, email, or role)`);
+        continue;
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        errors.push(`Row ${rowNumber}: Invalid email format for ${email}`);
+        continue;
+      }
+
+      // Validate role (case-insensitive)
+      const normalizedRole = role.trim();
+      const validRoles = ['Manager', 'SessionAdmin'];
+      const roleMatch = validRoles.find(r => r.toLowerCase() === normalizedRole.toLowerCase());
+      
+      if (!roleMatch) {
+        errors.push(`Row ${rowNumber}: Invalid role "${role}" for ${email}. Role must be 'Manager' or 'SessionAdmin'`);
+        continue;
+      }
+      
+      // Use the properly cased role
+      const finalRole = roleMatch;
+
+      // Check if user already exists
+      const existingUser = await UserCollection.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        duplicateCount++;
+        errors.push(`Row ${rowNumber}: User with email ${email} already exists`);
+        continue;
+      }
+
+      // Generate default password: "Staff@123" or random 6-digit numeric
+      // Using default "Staff@123" as specified, but can be changed to random if needed
+      const defaultPassword = 'Staff@123';
+      // Alternative: Generate random 6-digit numeric password
+      // const defaultPassword = crypto.randomInt(100000, 999999).toString();
+
+      // Create new staff member
+      const newStaff = new UserCollection({
+        email: email.toLowerCase(),
+        password: defaultPassword, // Will be hashed by the pre-save hook
+        role: finalRole,
+        profile: {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone ? phone.trim() : undefined,
+        },
+        mustResetPassword: true, // Staff members must reset password on first login
+      });
+
+      await newStaff.save();
+
+      // Add user to UserOrganizationMap
+      const org = await Organization.findOne({ collectionPrefix });
+      if (org) {
+        await UserOrganizationMap.findOneAndUpdate(
+          { email: email.toLowerCase() },
+          {
+            $push: {
+              organizations: {
+                orgName: org.name,
+                prefix: collectionPrefix,
+                role: finalRole,
+                userId: newStaff._id.toString(),
+              },
+            },
+          },
+          { upsert: true, new: true }
+        );
+      }
+
+      successCount++;
+
+      // Send welcome email
+      const welcomeEmailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h3 style="color: #f04129;">Welcome to AttendMark!</h3>
+          <p>Your staff account has been created by your administrator.</p>
+          <p><strong>Email:</strong> ${email.toLowerCase()}</p>
+          <p><strong>Role:</strong> ${finalRole}</p>
+          <p><strong>Temporary Password:</strong> <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-size: 16px; font-weight: bold;">${defaultPassword}</code></p>
+          <p>Please log in at: <a href="${clientUrl}">${clientUrl}</a></p>
+          <p style="color: #666; font-size: 14px;">Note: You will be asked to change this password on your first login.</p>
+        </div>
+      `;
+
+      emailPromises.push(
+        sendEmail({
+          email: email.toLowerCase(),
+          subject: 'Welcome to AttendMark - Your Staff Login Credentials',
+          message: welcomeEmailHtml,
+        }).catch((emailErr: any) => {
+          console.error(`Staff ${email} created but failed to send welcome email:`, emailErr.message);
+          // Don't fail - just log
+        })
+      );
+    }
+
+    // Send all welcome emails in parallel (don't block response)
+    Promise.all(emailPromises).catch((err) => {
+      console.error('Error sending bulk welcome emails:', err);
+    });
+
+    // Get organization details for audit log
+    const org = await Organization.findOne({ collectionPrefix });
+
+    // Log bulk import to audit log
+    if (successCount > 0) {
+      await logAction(
+        'BULK_IMPORT_STAFF',
+        {
+          id: req.user!.id,
+          email: req.user!.email,
+          role: requesterRole,
+          collectionPrefix,
+        },
+        undefined, // No specific target user for bulk import
+        {
+          message: `Imported ${successCount} new staff members via CSV.`,
+          successCount,
+          duplicateCount,
+          totalProcessed: staff.length,
+        },
+        org?._id,
+        org?.name
+      );
+    }
+
+    res.status(201).json({
+      msg: `Successfully imported ${successCount} staff members${duplicateCount > 0 ? `. ${duplicateCount} duplicates skipped.` : ''}`,
+      successCount,
+      duplicateCount,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (err: any) {
+    console.error('Error in bulk import staff:', err.message);
+    res.status(500).json({ msg: 'Server error while bulk importing staff members' });
+  }
+};
+
 // @route   POST /api/users/end-user
 // @desc    Create a new EndUser
 // @access  Private (SuperAdmin or CompanyAdmin)
@@ -555,6 +763,28 @@ export const createEndUser = async (req: Request, res: Response) => {
       );
     }
 
+    // Log user creation to audit log
+    await logAction(
+      'CREATE_USER',
+      {
+        id: req.user!.id,
+        email: req.user!.email,
+        role: requesterRole,
+        collectionPrefix,
+      },
+      newEndUser._id,
+      {
+        message: `Added new user: ${firstName} ${lastName} (${email.toLowerCase()}).`,
+        firstName,
+        lastName,
+        email: email.toLowerCase(),
+        role: 'EndUser',
+      },
+      org?._id,
+      org?.name,
+      email.toLowerCase()
+    );
+
     // Send welcome email with login credentials
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const welcomeEmailHtml = `
@@ -602,8 +832,8 @@ export const resetDevice = async (req: Request, res: Response) => {
   const { collectionPrefix, role: requesterRole } = req.user!;
   const { userId } = req.params;
 
-  // 1. Security Check
-  if (requesterRole !== 'SuperAdmin' && requesterRole !== 'CompanyAdmin') {
+  // 1. Security Check: Allow SuperAdmin, CompanyAdmin, and Platform Owner
+  if (requesterRole !== 'SuperAdmin' && requesterRole !== 'CompanyAdmin' && requesterRole !== 'PLATFORM_OWNER') {
     return res.status(403).json({ msg: 'Not authorized' });
   }
 
@@ -623,8 +853,9 @@ export const resetDevice = async (req: Request, res: Response) => {
     user.registeredDeviceId = undefined;
     user.registeredUserAgent = undefined;
 
-    // 5. Generate New Password: Create a random 8-character string
-    const newPassword = crypto.randomBytes(4).toString('hex').substring(0, 8);
+    // 5. Generate New Password: Create a secure 6-digit numeric string (e.g., "482910")
+    // Using crypto.randomInt for cryptographically secure random number generation
+    const newPassword = crypto.randomInt(100000, 999999).toString();
 
     // 6. Hash Password: Hash this new password using bcrypt
     // Note: The User model has a pre-save hook that automatically hashes passwords
@@ -638,14 +869,14 @@ export const resetDevice = async (req: Request, res: Response) => {
     // Using user.save() ensures only modified fields are updated, preserving all other data
     await user.save();
 
-    // 8. Send Email: Email the user with the new temporary password
-    const emailSubject = 'Your Account Device has been Reset';
+    // 8. Send Email: Email the user with the new temporary 6-digit PIN
+    const emailSubject = 'Action Required: Device Reset & New Login PIN';
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #f04129;">Device Reset Notification</h2>
-        <p>Your device lock has been cleared by an administrator.</p>
-        <p><strong>Your new temporary password is: <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 16px;">${newPassword}</code></strong></p>
-        <p>Please log in on your new device to secure it. You will be required to change your password on first login.</p>
+        <p>Your device binding has been reset by the administrator.</p>
+        <p><strong>Your new temporary login PIN is: <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-size: 18px; font-weight: bold; letter-spacing: 2px;">${newPassword}</code></strong></p>
+        <p>Please use this PIN to log in on your new device.</p>
         <p style="color: #666; font-size: 12px; margin-top: 20px;">If you did not request this reset, please contact your administrator immediately.</p>
       </div>
     `;
@@ -667,7 +898,7 @@ export const resetDevice = async (req: Request, res: Response) => {
     const updatedUser = await UserCollection.findById(userId).select('-password');
     
     res.json({
-      msg: 'Device restriction removed. User can now link a new device.',
+      msg: 'Device restriction removed. User can now link a new device. A new 6-digit PIN has been sent to their email.',
       user: updatedUser, // Return user object to confirm Name/Email/profile data are preserved
     });
   } catch (err: any) {
@@ -713,11 +944,112 @@ export const deleteUser = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Cannot delete Super Admin accounts' });
     }
 
+    // Store user details for audit log before deletion
+    const userName = `${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`.trim() || user.email;
+    const userEmail = user.email;
+    const userRole = user.role;
+
+    // Get organization details for audit log
+    const org = await Organization.findOne({ collectionPrefix });
+
     // 6. Delete the user
     await UserCollection.findByIdAndDelete(userId);
 
+    // Log user deletion to audit log
+    await logAction(
+      'DELETE_USER',
+      {
+        id: requesterId,
+        email: req.user!.email,
+        role: requesterRole,
+        collectionPrefix,
+      },
+      userId,
+      {
+        message: `Deleted user: ${userName}.`,
+        deletedUserName: userName,
+        deletedUserEmail: userEmail,
+        deletedUserRole: userRole,
+      },
+      org?._id,
+      org?.name,
+      userEmail
+    );
+
     res.json({
       msg: 'User account deleted successfully',
+    });
+  } catch (err: any) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   PUT /api/users/:userId/reset-device-only
+// @desc    Reset a user's registered device ID ONLY (without password reset) - Platform Owner only
+// @access  Private (Platform Owner only)
+export const resetDeviceOnly = async (req: Request, res: Response) => {
+  const { collectionPrefix, role: requesterRole, id: performerId, email: performerEmail } = req.user!;
+  const { userId } = req.params;
+
+  // STRICT CHECK: Only Platform Owner can use this endpoint
+  if (requesterRole !== 'PLATFORM_OWNER') {
+    return res.status(403).json({ msg: 'Forbidden: Only Platform Owner can use this endpoint' });
+  }
+
+  // Validate userId is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ msg: 'Invalid user ID format' });
+  }
+
+  try {
+    // Get the User collection
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+
+    // Find the user
+    const user = await UserCollection.findById(userId).select('+registeredDeviceId +registeredUserAgent');
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // Store old values for audit log
+    const oldDeviceId = user.registeredDeviceId;
+    const oldUserAgent = user.registeredUserAgent;
+
+    // Clear Security Locks: Set registeredDeviceId and registeredUserAgent to null
+    user.registeredDeviceId = undefined;
+    user.registeredUserAgent = undefined;
+
+    // Save the user (only device fields are modified)
+    await user.save();
+
+    // Log the action in AuditLog
+    await AuditLog.create({
+      organizationPrefix: collectionPrefix,
+      action: 'DEVICE_RESET',
+      performedBy: {
+        userId: performerId.toString(),
+        email: performerEmail,
+        role: 'PLATFORM_OWNER',
+      },
+      targetUser: {
+        userId: userId.toString(),
+        email: user.email,
+      },
+      details: {
+        oldDeviceId: oldDeviceId || null,
+        oldUserAgent: oldUserAgent || null,
+        note: 'Device reset without password change (Platform Owner action)',
+      },
+    });
+
+    res.json({
+      msg: 'Device restriction removed. User can now link a new device.',
+      user: {
+        id: user._id,
+        email: user.email,
+        registeredDeviceId: null,
+      },
     });
   } catch (err: any) {
     console.error(err.message);

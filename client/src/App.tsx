@@ -20,6 +20,8 @@ import EditSession from './pages/EditSession';
 import Profile from './pages/Profile';
 import Leaves from './pages/Leaves';
 import QuickScanHandler from './pages/QuickScanHandler';
+import PlatformDashboard from './pages/PlatformDashboard';
+import PlatformAuditLogs from './pages/PlatformAuditLogs';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import Layout from './components/Layout';
@@ -91,13 +93,25 @@ function App() {
                 </div>
               </div>
             ) : user ? (
-              <Navigate to="/dashboard" replace />
+              user.role === 'PLATFORM_OWNER' ? (
+                <Navigate to="/platform/dashboard" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
             ) : (
               <Navigate to="/login" replace />
             )
           } 
         />
         
+        {/* Platform Owner Routes */}
+        <Route element={<ProtectedRoute allowedRoles={['PLATFORM_OWNER']} />}>
+          <Route element={<Layout />}>
+            <Route path="/platform/dashboard" element={<PlatformDashboard />} />
+            <Route path="/platform/audit-logs" element={<PlatformAuditLogs />} />
+          </Route>
+        </Route>
+
         {/* Protected Routes - Wrapped in ProtectedRoute and Layout */}
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
@@ -121,9 +135,9 @@ function App() {
           </Route>
         </Route>
         
-        {/* Classes edit route - Only for Admins */}
+        {/* Classes edit route - Only for Admins and Platform Owner */}
         <Route 
-          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin']} />}
+          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin', 'PLATFORM_OWNER']} />}
         >
           <Route element={<Layout />}>
             <Route path="/classes/edit/:id" element={<EditClass />} />
@@ -139,27 +153,27 @@ function App() {
           </Route>
         </Route>
         
-        {/* Sessions edit route - Only for Admins */}
+        {/* Sessions edit route - Only for Admins and Platform Owner */}
         <Route 
-          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin']} />}
+          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin', 'PLATFORM_OWNER']} />}
         >
           <Route element={<Layout />}>
             <Route path="/sessions/edit/:id" element={<EditSession />} />
           </Route>
         </Route>
         
-        {/* Routes restricted to Manager and SuperAdmin */}
+        {/* Routes restricted to Manager, SuperAdmin, and Platform Owner */}
         <Route 
-          element={<ProtectedRoute allowedRoles={['Manager', 'SuperAdmin']} />}
+          element={<ProtectedRoute allowedRoles={['Manager', 'SuperAdmin', 'PLATFORM_OWNER']} />}
         >
           <Route element={<Layout />}>
             <Route path="/reports" element={<AttendanceReport />} />
           </Route>
         </Route>
         
-        {/* Routes restricted to SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
+        {/* Routes restricted to SuperAdmin, CompanyAdmin, Manager, SessionAdmin, and Platform Owner */}
         <Route 
-          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin']} />}
+          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin', 'PLATFORM_OWNER']} />}
         >
           <Route element={<Layout />}>
             <Route path="/classes/create" element={<CreateSession />} />
@@ -167,18 +181,18 @@ function App() {
           </Route>
         </Route>
         
-        {/* Routes restricted to SuperAdmin only */}
+        {/* Routes restricted to SuperAdmin and Platform Owner */}
         <Route 
-          element={<ProtectedRoute allowedRoles={['SuperAdmin']} />}
+          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'PLATFORM_OWNER']} />}
         >
           <Route element={<Layout />}>
             <Route path="/manage-staff" element={<ManageStaff />} />
           </Route>
         </Route>
         
-        {/* Routes restricted to SuperAdmin and CompanyAdmin */}
+        {/* Routes restricted to SuperAdmin, CompanyAdmin, and Platform Owner */}
         <Route 
-          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin']} />}
+          element={<ProtectedRoute allowedRoles={['SuperAdmin', 'CompanyAdmin', 'PLATFORM_OWNER']} />}
         >
           <Route element={<Layout />}>
             <Route path="/manage-users" element={<ManageUsers />} />

@@ -3,7 +3,7 @@ import { validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import Organization from '../models/Organization';
-import createUserModel from '../models/User'; // Import the factory
+import createUserModel, { IUser } from '../models/User'; // Import the factory and interface
 import UserOrganizationMap from '../models/UserOrganizationMap';
 import { sendEmail } from '../utils/email';
 
@@ -130,7 +130,97 @@ export const login = async (req: Request, res: Response) => {
   }
 
   try {
-    // 1. Look up email in UserOrganizationMap
+    console.log('[LOGIN] Attempting login for:', email.toLowerCase());
+    
+    // 1. Check if user is Platform Owner (stored in special collection)
+    const PLATFORM_OWNERS_COLLECTION = 'platform_owners_users';
+    const PlatformOwnerCollection = createUserModel(PLATFORM_OWNERS_COLLECTION);
+    
+    let platformOwner: IUser | null = null;
+    try {
+      console.log('[LOGIN] Querying Platform Owner collection...');
+      platformOwner = await PlatformOwnerCollection.findOne({ email: email.toLowerCase() }).select('+password');
+      console.log('[LOGIN] Platform Owner query result:', platformOwner ? 'Found' : 'Not found');
+    } catch (dbError: any) {
+      console.error('[LOGIN] Error querying Platform Owner collection:', dbError);
+      // Continue to regular user flow if Platform Owner query fails
+    }
+    
+    if (platformOwner && platformOwner.role === 'PLATFORM_OWNER') {
+      console.log('[LOGIN] Platform Owner detected, verifying password...');
+      // Verify password
+      if (!platformOwner.password) {
+        console.error('Platform Owner found but password field is missing');
+        return res.status(500).json({ msg: 'Account configuration error' });
+      }
+      
+      let isMatch = false;
+      try {
+        isMatch = await platformOwner.matchPassword(password);
+      } catch (pwdError: any) {
+        console.error('Password verification error:', pwdError);
+        return res.status(500).json({ msg: 'Error verifying password' });
+      }
+      
+      if (!isMatch) {
+        return res.status(401).json({ msg: 'Invalid credentials' });
+      }
+
+      // Platform Owner: Get all organizations for selection
+      console.log('[LOGIN] Fetching all organizations...');
+      const allOrganizations = await Organization.find({}).sort({ name: 1 });
+      console.log('[LOGIN] Found organizations:', allOrganizations.length);
+      
+      // TypeScript knows platformOwner is not null here due to the if check above
+      const platformOwnerId = platformOwner._id.toString();
+      const orgDetails = allOrganizations.map((org) => ({
+        orgName: org.name,
+        prefix: org.collectionPrefix,
+        role: 'PLATFORM_OWNER',
+        userId: platformOwnerId,
+        organizationName: org.name,
+      }));
+
+      // Generate temporary token for organization selection
+      const tempPayload = {
+        email: email.toLowerCase(),
+        verified: true,
+        isPlatformOwner: true,
+      };
+
+      if (!process.env.JWT_SECRET) {
+        console.error('[LOGIN] JWT_SECRET is not defined in environment variables');
+        return res.status(500).json({ msg: 'Server configuration error' });
+      }
+
+      console.log('[LOGIN] Generating JWT token...');
+      try {
+        jwt.sign(
+          tempPayload,
+          process.env.JWT_SECRET,
+          { expiresIn: '5m' },
+          (err, tempToken) => {
+            if (err) {
+              console.error('JWT signing error:', err);
+              return res.status(500).json({ msg: 'Failed to generate token' });
+            }
+            if (!tempToken) {
+              return res.status(500).json({ msg: 'Failed to generate token' });
+            }
+            res.json({
+              tempToken,
+              organizations: orgDetails,
+            });
+          }
+        );
+      } catch (jwtError: any) {
+        console.error('JWT signing exception:', jwtError);
+        return res.status(500).json({ msg: 'Failed to generate token' });
+      }
+      return;
+    }
+
+    // 2. Regular user flow: Look up email in UserOrganizationMap
     const userMap = await UserOrganizationMap.findOne({ email: email.toLowerCase() });
     
     // CRITICAL: Check if userMap exists and has organizations
@@ -148,7 +238,7 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // 2. Get the first organization to verify password
+    // 3. Get the first organization to verify password
     const firstOrg = userMap.organizations[0];
     if (!firstOrg || !firstOrg.prefix || !firstOrg.userId) {
       return res.status(401).json({ 
@@ -159,56 +249,96 @@ export const login = async (req: Request, res: Response) => {
 
     const UserCollection = createUserModel(`${firstOrg.prefix}_users`);
 
-    // 3. Find the user by userId - MUST select password since it's select: false by default
+    // 4. Find the user by userId - MUST select password since it's select: false by default
     const user = await UserCollection.findById(firstOrg.userId).select('+password');
     if (!user) {
       return res.status(401).json({ msg: 'Invalid credentials' });
     }
 
-    // 4. Verify password against the first organization's user account
+    // 5. Verify password against the first organization's user account
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       return res.status(401).json({ msg: 'Invalid credentials' });
     }
 
-    // 5. Get organization details for all organizations
+    // 6. Get organization details for all organizations (filter out suspended ones for regular users)
     const orgDetails = await Promise.all(
       userMap.organizations.map(async (orgEntry) => {
         const org = await Organization.findOne({ collectionPrefix: orgEntry.prefix });
+        // Filter out suspended organizations (they won't be able to select them)
+        if (!org || org.status === 'SUSPENDED') {
+          return null; // Will be filtered out
+        }
         return {
           orgName: orgEntry.orgName,
           prefix: orgEntry.prefix,
           role: orgEntry.role,
           userId: orgEntry.userId,
-          organizationName: org?.name || orgEntry.orgName, // Fallback to orgName if org not found
+          organizationName: org.name,
         };
       })
     );
+    
+    // Filter out null entries (suspended organizations)
+    const activeOrgDetails = orgDetails.filter((org) => org !== null) as Array<{
+      orgName: string;
+      prefix: string;
+      role: string;
+      userId: string;
+      organizationName: string;
+    }>;
+    
+    // If no active organizations, return error
+    if (activeOrgDetails.length === 0) {
+      return res.status(403).json({ 
+        msg: 'All your organizations are suspended. Contact support.',
+      });
+    }
 
-    // 6. Generate temporary token (short-lived, 5 minutes) for organization selection
+    // 7. Generate temporary token (short-lived, 5 minutes) for organization selection
     const tempPayload = {
       email: email.toLowerCase(),
       verified: true,
     };
 
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not defined in environment variables');
+      return res.status(500).json({ msg: 'Server configuration error' });
+    }
+
     jwt.sign(
       tempPayload,
-      process.env.JWT_SECRET as string,
+      process.env.JWT_SECRET,
       { expiresIn: '5m' }, // Short-lived token for security
       (err, tempToken) => {
-        if (err) throw err;
+        if (err) {
+          console.error('JWT signing error (regular user):', err);
+          return res.status(500).json({ msg: 'Failed to generate token' });
+        }
+        if (!tempToken) {
+          return res.status(500).json({ msg: 'Failed to generate token' });
+        }
         res.json({
           tempToken, // Temporary token for organization selection
-          organizations: orgDetails, // List of organizations user belongs to
+          organizations: activeOrgDetails, // List of active organizations user belongs to
         });
       }
     );
   } catch (err: any) {
     console.error('Login error:', err.message);
     console.error('Stack:', err.stack);
+    console.error('Error details:', {
+      email: email,
+      errorType: err.constructor.name,
+      errorCode: err.code,
+    });
     res.status(500).json({ 
       msg: 'Server error during login',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      details: process.env.NODE_ENV === 'development' ? {
+        type: err.constructor.name,
+        code: err.code,
+      } : undefined
     });
   }
 };
@@ -236,32 +366,99 @@ export const selectOrganization = async (req: Request, res: Response) => {
       return res.status(401).json({ msg: 'Invalid token' });
     }
 
-    // 2. Find user in UserOrganizationMap
+    // 2. Check if this is a Platform Owner login
+    if (decoded.isPlatformOwner) {
+      // Platform Owner: Allow access to any organization
+      const PLATFORM_OWNERS_COLLECTION = 'platform_owners_users';
+      const PlatformOwnerCollection = createUserModel(PLATFORM_OWNERS_COLLECTION);
+      const platformOwner = await PlatformOwnerCollection.findOne({ email: decoded.email.toLowerCase() });
+      
+      if (!platformOwner) {
+        return res.status(401).json({ msg: 'Platform Owner not found' });
+      }
+
+      // Verify organization exists
+      const org = await Organization.findOne({ collectionPrefix: prefix });
+      if (!org) {
+        return res.status(404).json({ msg: 'Organization not found' });
+      }
+      
+      // Platform Owner can access suspended organizations (to unsuspend them)
+      // No status check needed for Platform Owner
+
+      // Generate final JWT token with organization context for Platform Owner
+      const payload = {
+        user: {
+          id: platformOwner._id.toString(),
+          email: platformOwner.email,
+          role: 'PLATFORM_OWNER',
+          collectionPrefix: prefix,
+          organizationName: org.name,
+        },
+      };
+
+      jwt.sign(
+        payload,
+        process.env.JWT_SECRET as string,
+        { expiresIn: '7d' },
+        (err, token) => {
+          if (err) throw err;
+          res.json({
+            token,
+            user: {
+              id: platformOwner._id,
+              email: platformOwner.email,
+              role: platformOwner.role,
+              profile: platformOwner.profile,
+              profilePicture: platformOwner.profilePicture,
+              createdAt: platformOwner.createdAt,
+              mustResetPassword: platformOwner.mustResetPassword,
+            },
+          });
+        }
+      );
+      return;
+    }
+
+    // 3. Regular user flow: Find user in UserOrganizationMap
     const userMap = await UserOrganizationMap.findOne({ email: decoded.email.toLowerCase() });
     if (!userMap) {
       return res.status(401).json({ msg: 'User not found' });
     }
 
-    // 3. Find the organization entry
+    // 4. Find the organization entry
     const orgEntry = userMap.organizations.find((org) => org.prefix === prefix);
     if (!orgEntry) {
       return res.status(403).json({ msg: 'You do not have access to this organization' });
     }
 
-    // 4. Get the organization details
+    // 5. Get the organization details and check status
     const org = await Organization.findOne({ collectionPrefix: prefix });
     if (!org) {
       return res.status(404).json({ msg: 'Organization not found' });
     }
+    
+    // Block access if organization is suspended (for regular users)
+    if (org.status === 'SUSPENDED') {
+      return res.status(403).json({ 
+        msg: 'Organization is suspended. Contact support.',
+      });
+    }
 
-    // 5. Get the user from the organization-specific collection
+    // 6. Get the user from the organization-specific collection
     const UserCollection = createUserModel(`${prefix}_users`);
     const user = await UserCollection.findById(orgEntry.userId);
     if (!user) {
       return res.status(404).json({ msg: 'User not found in organization' });
     }
 
-    // 6. Generate final JWT token with organization context
+    // 7. Update lastLogin timestamp (Ghost Mode: Skip for Platform Owner)
+    if (user.role !== 'PLATFORM_OWNER') {
+      user.lastLogin = new Date();
+      await user.save();
+    }
+
+    // 8. Generate final JWT token with organization context
     const payload = {
       user: {
         id: user._id,
@@ -308,35 +505,94 @@ export const switchOrganization = async (req: Request, res: Response) => {
   }
 
   const { targetPrefix } = req.body;
-  const { id: currentUserId, email: currentEmail, collectionPrefix: currentPrefix } = req.user!;
+  const { id: currentUserId, email: currentEmail, role: currentRole, collectionPrefix: currentPrefix } = req.user!;
 
   try {
-    // 1. Look up user in UserOrganizationMap
+    // 1. Platform Owner: Allow access to any organization
+    if (currentRole === 'PLATFORM_OWNER') {
+      const PLATFORM_OWNERS_COLLECTION = 'platform_owners_users';
+      const PlatformOwnerCollection = createUserModel(PLATFORM_OWNERS_COLLECTION);
+      const platformOwner = await PlatformOwnerCollection.findOne({ email: currentEmail.toLowerCase() });
+      
+      if (!platformOwner) {
+        return res.status(401).json({ msg: 'Platform Owner not found' });
+      }
+
+      // Verify organization exists
+      const org = await Organization.findOne({ collectionPrefix: targetPrefix });
+      if (!org) {
+        return res.status(404).json({ msg: 'Organization not found' });
+      }
+      
+      // Platform Owner can access suspended organizations (to unsuspend them)
+      // No status check needed for Platform Owner
+
+      // Generate new JWT token with target organization context
+      const payload = {
+        user: {
+          id: platformOwner._id.toString(),
+          email: platformOwner.email,
+          role: 'PLATFORM_OWNER',
+          collectionPrefix: targetPrefix,
+          organizationName: org.name,
+        },
+      };
+
+      jwt.sign(
+        payload,
+        process.env.JWT_SECRET as string,
+        { expiresIn: '7d' },
+        (err, token) => {
+          if (err) throw err;
+          res.json({
+            token,
+            user: {
+              id: platformOwner._id,
+              email: platformOwner.email,
+              role: platformOwner.role,
+              profile: platformOwner.profile,
+              profilePicture: platformOwner.profilePicture,
+              createdAt: platformOwner.createdAt,
+              mustResetPassword: platformOwner.mustResetPassword,
+            },
+          });
+        }
+      );
+      return;
+    }
+
+    // 2. Regular user flow: Look up user in UserOrganizationMap
     const userMap = await UserOrganizationMap.findOne({ email: currentEmail.toLowerCase() });
     if (!userMap) {
       return res.status(401).json({ msg: 'User not found in organization map' });
     }
 
-    // 2. Verify user belongs to targetPrefix
+    // 3. Verify user belongs to targetPrefix
     const orgEntry = userMap.organizations.find((org) => org.prefix === targetPrefix);
     if (!orgEntry) {
       return res.status(403).json({ msg: 'You do not have access to this organization' });
     }
 
-    // 3. Get the organization details
+    // 4. Get the organization details
     const org = await Organization.findOne({ collectionPrefix: targetPrefix });
     if (!org) {
       return res.status(404).json({ msg: 'Organization not found' });
     }
 
-    // 4. Get the user from the target organization-specific collection
+    // 5. Get the user from the target organization-specific collection
     const UserCollection = createUserModel(`${targetPrefix}_users`);
     const user = await UserCollection.findById(orgEntry.userId);
     if (!user) {
       return res.status(404).json({ msg: 'User not found in organization' });
     }
 
-    // 5. Generate new JWT token with target organization context
+    // 6. Update lastLogin timestamp (Ghost Mode: Skip for Platform Owner)
+    if (user.role !== 'PLATFORM_OWNER') {
+      user.lastLogin = new Date();
+      await user.save();
+    }
+
+    // 7. Generate new JWT token with target organization context
     const payload = {
       user: {
         id: user._id,
@@ -377,16 +633,29 @@ export const switchOrganization = async (req: Request, res: Response) => {
 // @desc    Get list of organizations the logged-in user belongs to
 // @access  Private
 export const getMyOrganizations = async (req: Request, res: Response) => {
-  const { email } = req.user!;
+  const { email, role } = req.user!;
 
   try {
-    // 1. Look up user in UserOrganizationMap
+    // 1. Platform Owner: Return all organizations
+    if (role === 'PLATFORM_OWNER') {
+      const allOrganizations = await Organization.find({}).sort({ name: 1 });
+      const orgDetails = allOrganizations.map((org) => ({
+        orgName: org.name,
+        prefix: org.collectionPrefix,
+        role: 'PLATFORM_OWNER',
+        userId: req.user!.id,
+        organizationName: org.name,
+      }));
+      return res.json({ organizations: orgDetails });
+    }
+
+    // 2. Regular user flow: Look up user in UserOrganizationMap
     const userMap = await UserOrganizationMap.findOne({ email: email.toLowerCase() });
     if (!userMap) {
       return res.status(404).json({ msg: 'User not found in organization map' });
     }
 
-    // 2. Get organization details for all organizations
+    // 3. Get organization details for all organizations
     const orgDetails = await Promise.all(
       userMap.organizations.map(async (orgEntry) => {
         const org = await Organization.findOne({ collectionPrefix: orgEntry.prefix });
@@ -411,26 +680,61 @@ export const getMyOrganizations = async (req: Request, res: Response) => {
 // @desc    Get the logged-in user's data from their token
 // @access  Private
 export const getMe = async (req: Request, res: Response) => {
-  const { id: userId, collectionPrefix } = req.user!;
+  const { id: userId, collectionPrefix, role } = req.user!;
 
   try {
-    // 1. Get the correct user collection
+    // 1. Platform Owner: Get from special collection
+    if (role === 'PLATFORM_OWNER') {
+      const PLATFORM_OWNERS_COLLECTION = 'platform_owners_users';
+      const PlatformOwnerCollection = createUserModel(PLATFORM_OWNERS_COLLECTION);
+      const platformOwner = await PlatformOwnerCollection.findById(userId);
+
+      if (!platformOwner) {
+        return res.status(404).json({ msg: 'Platform Owner not found' });
+      }
+
+      // Get organization name if collectionPrefix is set
+      let orgName = 'Platform';
+      if (collectionPrefix) {
+        const org = await Organization.findOne({ collectionPrefix });
+        if (org) {
+          orgName = org.name;
+        }
+      }
+
+      res.json({
+        user: {
+          id: platformOwner._id,
+          email: platformOwner.email,
+          role: platformOwner.role,
+          profile: platformOwner.profile,
+          profilePicture: platformOwner.profilePicture,
+          createdAt: platformOwner.createdAt,
+          mustResetPassword: platformOwner.mustResetPassword,
+          organization: orgName,
+          collectionPrefix: collectionPrefix || null,
+        },
+      });
+      return;
+    }
+
+    // 2. Regular user flow: Get the correct user collection
     const UserCollection = createUserModel(`${collectionPrefix}_users`);
 
-    // 2. Find the user by their ID (from the token)
+    // 3. Find the user by their ID (from the token)
     const user = await UserCollection.findById(userId);
 
     if (!user) {
       return res.status(404).json({ msg: 'User not found' });
     }
 
-    // 3. Find the organization name
+    // 4. Find the organization name
     const org = await Organization.findOne({ collectionPrefix });
     if (!org) {
       return res.status(404).json({ msg: 'Organization not found' });
     }
 
-    // 4. Send back the same user object as the login route (plus organization)
+    // 5. Send back the same user object as the login route (plus organization)
     res.json({
       user: {
         id: user._id,

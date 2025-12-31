@@ -46,6 +46,24 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
       // Add user info to request
       req.user = decoded.user;
 
+      // PLATFORM_OWNER: Allow overriding collectionPrefix from query params or headers
+      // This enables Platform Owner to access any organization's data
+      if (req.user && req.user.role === 'PLATFORM_OWNER') {
+        // Check for organization prefix in query params or headers
+        const overridePrefix = 
+          (req.query.organizationPrefix as string) || 
+          (req.query.collectionPrefix as string) ||
+          (req.headers['x-organization-prefix'] as string) ||
+          (req.headers['x-collection-prefix'] as string);
+        
+        if (overridePrefix) {
+          // Override the collectionPrefix for Platform Owner
+          req.user.collectionPrefix = overridePrefix;
+          // Try to get organization name if possible (optional, won't fail if not found)
+          // This is handled in controllers if needed
+        }
+      }
+
       next();
     } catch (error) {
       console.error('Token verification failed:', error);

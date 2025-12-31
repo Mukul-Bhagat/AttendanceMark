@@ -12,8 +12,8 @@ export const getClassAnalytics = async (req: Request, res: Response) => {
     const { collectionPrefix, role: userRole } = req.user!;
     const { classBatchId, startDate, endDate } = req.query;
 
-    // Check if user has permission (Manager or SuperAdmin)
-    if (userRole !== 'Manager' && userRole !== 'SuperAdmin') {
+    // Check if user has permission (Manager, SuperAdmin, or Platform Owner)
+    if (userRole !== 'Manager' && userRole !== 'SuperAdmin' && userRole !== 'PLATFORM_OWNER') {
       return res.status(403).json({ msg: 'Not authorized to view analytics' });
     }
 
@@ -284,8 +284,8 @@ export const getSessionLogs = async (req: Request, res: Response) => {
     const { collectionPrefix, role: userRole } = req.user!;
     const { classBatchId, startDate, endDate } = req.query;
 
-    // Check if user has permission (Manager or SuperAdmin)
-    if (userRole !== 'Manager' && userRole !== 'SuperAdmin') {
+    // Check if user has permission (Manager, SuperAdmin, or Platform Owner)
+    if (userRole !== 'Manager' && userRole !== 'SuperAdmin' && userRole !== 'PLATFORM_OWNER') {
       return res.status(403).json({ msg: 'Not authorized to view session logs' });
     }
 

@@ -7,7 +7,7 @@ type StaffUser = {
   _id?: string;
   id?: string;
   email: string;
-  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser';
+  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser' | 'PLATFORM_OWNER';
   profile: {
     firstName: string;
     lastName: string;
@@ -22,8 +22,8 @@ type StaffUser = {
 };
 
 const ManageStaff: React.FC = () => {
-  const { isSuperAdmin, isCompanyAdmin } = useAuth();
-  const canManageQuota = isSuperAdmin || isCompanyAdmin;
+  const { isSuperAdmin, isCompanyAdmin, isPlatformOwner } = useAuth();
+  const canManageQuota = isSuperAdmin || isCompanyAdmin || isPlatformOwner;
   
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -66,9 +66,18 @@ const ManageStaff: React.FC = () => {
       setIsLoading(true);
       setError(''); // Clear any previous errors
       const { data } = await api.get('/api/users/my-organization');
-      // Filter for staff roles (Manager and SessionAdmin)
+      // Filter for staff roles (Manager, SessionAdmin, and CompanyAdmin for Platform Owner)
       const staff = data.filter(
-        (user: StaffUser) => user.role === 'SessionAdmin' || user.role === 'Manager'
+        (user: StaffUser) => {
+          if (user.role === 'SessionAdmin' || user.role === 'Manager') {
+            return true;
+          }
+          // Platform Owner can also see Company Admins
+          if (isPlatformOwner && user.role === 'CompanyAdmin') {
+            return true;
+          }
+          return false;
+        }
       );
       setStaffList(staff);
     } catch (err: any) {
@@ -248,7 +257,7 @@ const ManageStaff: React.FC = () => {
 
   // Handle device reset (SuperAdmin only)
   const handleResetDevice = async (staffId: string) => {
-    if (!window.confirm('Are you sure you want to reset this staff member\'s device? They will need to register a new device on their next scan.')) {
+    if (!window.confirm('This will reset the device ID and send a new 6-digit password to the user\'s email. Continue?')) {
       return;
     }
 
@@ -260,6 +269,33 @@ const ManageStaff: React.FC = () => {
       await api.put(`/api/users/${staffId}/reset-device`);
       
       setMessage('Staff device reset successfully. New credentials have been emailed.');
+      // Refresh the list to show updated device status
+      await fetchStaff();
+    } catch (err: any) {
+      if (err.response?.status === 403) {
+        setError('You do not have permission to reset devices.');
+      } else {
+        setError(err.response?.data?.msg || 'Failed to reset device. Please try again.');
+      }
+    } finally {
+      setResettingDevice(null);
+    }
+  };
+
+  // Handle device reset (Platform Owner only - without password reset)
+  const handleResetDeviceOnly = async (staffId: string) => {
+    if (!window.confirm('Are you sure you want to reset this staff member\'s device ID? This will allow them to register a new device without changing their password.')) {
+      return;
+    }
+
+    setResettingDevice(staffId);
+    setError('');
+    setMessage('');
+
+    try {
+      await api.put(`/api/users/${staffId}/reset-device-only`);
+      
+      setMessage('Device ID reset successfully! Staff member can now register a new device.');
       // Refresh the list to show updated device status
       await fetchStaff();
     } catch (err: any) {
@@ -316,7 +352,8 @@ const ManageStaff: React.FC = () => {
     const roleMap: { [key: string]: string } = {
       'All Roles': 'All',
       'Session Admin': 'SessionAdmin',
-      'Manager': 'Manager'
+      'Manager': 'Manager',
+      ...(isPlatformOwner ? { 'Company Admin': 'CompanyAdmin' } : {})
     };
     const mappedRole = roleMap[roleFilter] || roleFilter;
     const matchesRole = mappedRole === 'All' || staff.role === mappedRole;
@@ -541,6 +578,7 @@ const ManageStaff: React.FC = () => {
                       <option value="All Roles">All Roles</option>
                       <option value="Session Admin">Session Admin</option>
                       <option value="Manager">Manager</option>
+                      {isPlatformOwner && <option value="Company Admin">Company Admin</option>}
                     </select>
                     <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
                   </div>
@@ -565,6 +603,9 @@ const ManageStaff: React.FC = () => {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Email</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Role</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
+                          {isPlatformOwner && (
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider" scope="col">Device Reset</th>
+                          )}
                           {(isSuperAdmin || canManageQuota) && (
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-16" scope="col">Actions</th>
                           )}
@@ -573,7 +614,11 @@ const ManageStaff: React.FC = () => {
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                         {filteredStaff.map((staff) => {
                           const staffId = staff._id || staff.id || '';
-                          const roleDisplay = staff.role === 'SessionAdmin' ? 'Session Admin' : staff.role;
+                          const roleDisplay = staff.role === 'SessionAdmin' 
+                            ? 'Session Admin' 
+                            : staff.role === 'CompanyAdmin' 
+                            ? 'Company Admin' 
+                            : staff.role;
                           const isDeviceLocked = !!staff.registeredDeviceId;
                           const isResetting = resettingDevice === staffId;
                           const isDeleting = deletingStaff === staffId;
@@ -603,6 +648,11 @@ const ManageStaff: React.FC = () => {
                                     <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>shield_person</span>
                                     {roleDisplay}
                                   </span>
+                                ) : staff.role === 'CompanyAdmin' ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full border bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-800">
+                                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>admin_panel_settings</span>
+                                    {roleDisplay}
+                                  </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs leading-5 font-semibold rounded-full border bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-800">
                                     <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>supervisor_account</span>
@@ -613,6 +663,31 @@ const ManageStaff: React.FC = () => {
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                 {staff.profile.phone || 'N/A'}
                               </td>
+                              {isPlatformOwner && (
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                  <button
+                                    onClick={() => handleResetDeviceOnly(staffId)}
+                                    disabled={isResetting}
+                                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                                    title="Reset Device ID (Platform Owner only)"
+                                  >
+                                    {isResetting ? (
+                                      <>
+                                        <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                          <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                                        </svg>
+                                        Resetting...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className="material-symbols-outlined text-sm">restart_alt</span>
+                                        Reset Device ID
+                                      </>
+                                    )}
+                                  </button>
+                                </td>
+                              )}
                               {(isSuperAdmin || canManageQuota) && (
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium w-16">
                                   <div className="relative" ref={(el) => { menuRefs.current[staffId] = el; }}>

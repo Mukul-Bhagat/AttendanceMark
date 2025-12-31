@@ -34,7 +34,7 @@ const UserOrganizationMapSchema: Schema = new Schema({
     role: {
       type: String,
       required: true,
-      enum: ['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin', 'EndUser'],
+      enum: ['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin', 'EndUser', 'PLATFORM_OWNER'],
     },
     userId: {
       type: String,

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { check } from 'express-validator';
 import { protect, protectPowerBI } from '../middleware/authMiddleware';
-import { markAttendance, getMyAttendance, getSessionAttendance, getUserAttendance } from '../controllers/attendanceController';
+import { markAttendance, getMyAttendance, getSessionAttendance, getUserAttendance, forceMarkAttendance } from '../controllers/attendanceController';
 
 const router = Router();
 
@@ -35,6 +35,20 @@ router.get('/session/:id', protectPowerBI, getSessionAttendance);
 // @desc    Get all attendance records for a specific user (with session data)
 // @access  Private (Manager, SuperAdmin only) - JWT token OR Power BI API key
 router.get('/user/:id', protectPowerBI, getUserAttendance);
+
+// @route   POST /api/attendance/force-mark
+// @desc    Force mark attendance (Platform Owner only) - bypasses all checks
+// @access  Private (Platform Owner only)
+router.post(
+  '/force-mark',
+  protect,
+  [
+    check('sessionId', 'Session ID is required').not().isEmpty(),
+    check('userId', 'User ID is required').not().isEmpty(),
+    check('status', 'Status is required').isIn(['Present', 'Absent']),
+  ],
+  forceMarkAttendance
+);
 
 export default router;
 

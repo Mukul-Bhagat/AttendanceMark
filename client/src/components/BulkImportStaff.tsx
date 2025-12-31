@@ -53,11 +53,7 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
       return;
     }
 
-    if (!useRandomPassword && (!temporaryPassword || temporaryPassword.length < 6)) {
-      setError('Please enter a temporary password (min 6 characters) or enable random password generation');
-      return;
-    }
-
+    // Password is now handled by the backend (default: "Staff@123")
     setIsBulkImporting(true);
     setError('');
     setMessage('');
@@ -105,13 +101,12 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
         }
 
         try {
-          const { data: response } = await api.post('/api/users/bulk', {
-            users,
-            temporaryPassword: useRandomPassword ? undefined : temporaryPassword,
-            useRandomPassword,
+          // Use the new staff-specific bulk import endpoint
+          const { data: response } = await api.post('/api/users/staff/bulk-import', {
+            staff: users, // Send as 'staff' array to match backend expectation
           });
 
-          setMessage(response.msg || `Successfully imported ${response.successCount} users`);
+          setMessage(response.msg || `Successfully imported ${response.successCount} staff members`);
           onClose();
           setCsvFile(null);
           setTemporaryPassword('');
@@ -123,7 +118,7 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
             const errorMessages = err.response.data.errors.slice(0, 10).join(', ');
             setError(`${err.response.data.msg || 'Bulk import failed'}. Errors: ${errorMessages}${err.response.data.errors.length > 10 ? '...' : ''}`);
           } else {
-            setError(err.response?.data?.msg || 'Failed to import users. Please try again.');
+            setError(err.response?.data?.msg || 'Failed to import staff members. Please try again.');
           }
         } finally {
           setIsBulkImporting(false);
@@ -324,52 +319,17 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
             )}
           </div>
 
-          {/* Right Side - Credentials */}
+          {/* Right Side - Info */}
           <div className="space-y-4">
-            <h4 className="text-lg font-semibold text-[#181511] dark:text-white">Credentials</h4>
+            <h4 className="text-lg font-semibold text-[#181511] dark:text-white">Import Information</h4>
             
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useRandomPassword}
-                  onChange={(e) => {
-                    setUseRandomPassword(e.target.checked);
-                    if (e.target.checked) {
-                      setTemporaryPassword('');
-                    }
-                    if (error) setError('');
-                  }}
-                  className="w-4 h-4 text-primary bg-white border-[#e6e2db] dark:border-slate-700 rounded focus:ring-2 focus:ring-primary dark:bg-slate-900 dark:checked:bg-primary"
-                />
-                <span className="text-sm font-medium text-[#181511] dark:text-gray-200">
-                  Auto-generate random 6-character password for each user
-                </span>
-              </label>
-              
-              <label className="flex flex-col">
-                <p className="text-[#181511] dark:text-gray-200 text-sm font-medium leading-normal pb-2">
-                  Temporary Password for All Users
-                </p>
-                <input
-                  type="password"
-                  value={temporaryPassword}
-                  onChange={(e) => {
-                    setTemporaryPassword(e.target.value);
-                    if (error) setError('');
-                  }}
-                  disabled={useRandomPassword}
-                  className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#181511] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 focus:border-primary/50 dark:focus:border-primary/50 h-12 p-3 text-base font-normal leading-normal placeholder:text-[#8a7b60] dark:placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800"
-                  placeholder="Min 6 characters"
-                  minLength={6}
-                  required={!useRandomPassword}
-                />
-                <p className="text-xs text-[#8a7b60] dark:text-gray-500 mt-1.5">
-                  {useRandomPassword 
-                    ? 'Each user will receive a unique random 6-character password via email.'
-                    : 'This password will be applied to every account in the uploaded file.'}
-                </p>
-              </label>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-2">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>Password Generation:</strong> Each staff member will receive a default password (<code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">Staff@123</code>) via email.
+              </p>
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>Note:</strong> Staff members will be required to change their password on first login.
+              </p>
             </div>
           </div>
         </div>
@@ -396,7 +356,7 @@ const BulkImportStaff: React.FC<BulkImportStaffProps> = ({ isOpen, onClose, onSu
           <button
             type="button"
             onClick={handleBulkImport}
-            disabled={!csvFile || (!useRandomPassword && (!temporaryPassword || temporaryPassword.length < 6)) || isBulkImporting}
+            disabled={!csvFile || isBulkImporting}
             className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-orange-500 to-[#f04129] text-white rounded-lg font-semibold transition-all duration-200 hover:from-orange-600 hover:to-[#d63a25] disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isBulkImporting ? (

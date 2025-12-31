@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { check } from 'express-validator';
 import { protect, protectPowerBI } from '../middleware/authMiddleware';
-import { getOrganizationUsers, createStaff, createEndUser, resetDevice, deleteUser, uploadProfilePicture, updateProfile, changePassword, removeProfilePicture, bulkCreateUsers, bulkCreateStaff, updateUserQuota } from '../controllers/userController';
+import { getOrganizationUsers, createStaff, createEndUser, resetDevice, resetDeviceOnly, deleteUser, uploadProfilePicture, updateProfile, changePassword, removeProfilePicture, bulkCreateUsers, bulkCreateStaff, bulkImportStaff, updateUserQuota } from '../controllers/userController';
 import { upload } from '../middleware/uploadMiddleware';
 
 const router = Router();
@@ -122,6 +122,23 @@ router.post(
   bulkCreateUsers
 );
 
+// @route   POST /api/users/staff/bulk-import
+// @desc    Bulk import Staff members (Manager or SessionAdmin) from CSV data
+// @access  Private (SuperAdmin, CompanyAdmin, or Platform Owner)
+router.post(
+  '/staff/bulk-import',
+  protect,
+  [
+    check('staff', 'Staff array is required').isArray(),
+    check('staff.*.firstName', 'First name is required').not().isEmpty(),
+    check('staff.*.lastName', 'Last name is required').not().isEmpty(),
+    check('staff.*.email', 'Valid email is required').isEmail(),
+    check('staff.*.role', 'Role must be Manager or SessionAdmin').isIn(['Manager', 'SessionAdmin']),
+    check('staff.*.phone', 'Phone must be a valid phone number').optional().isMobilePhone('any'),
+  ],
+  bulkImportStaff
+);
+
 // @route   POST /api/users/end-user
 // @desc    Create a new EndUser
 // @access  Private (SuperAdmin or CompanyAdmin)
@@ -139,9 +156,14 @@ router.post(
 );
 
 // @route   PUT /api/users/:userId/reset-device
-// @desc    Reset a user's registered device ID
+// @desc    Reset a user's registered device ID and generate new password
 // @access  Private (SuperAdmin or CompanyAdmin)
 router.put('/:userId/reset-device', protect, resetDevice);
+
+// @route   PUT /api/users/:userId/reset-device-only
+// @desc    Reset a user's registered device ID ONLY (without password reset) - Platform Owner only
+// @access  Private (Platform Owner only)
+router.put('/:userId/reset-device-only', protect, resetDeviceOnly);
 
 // @route   PUT /api/users/:userId/quota
 // @desc    Update a user's custom leave quota

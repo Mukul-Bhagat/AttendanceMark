@@ -5,7 +5,7 @@ import LoadingSpinner from './LoadingSpinner';
 import ProfileMenu from './ProfileMenu';
 
 const Layout: React.FC = () => {
-  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isLoading } = useAuth();
+  const { user, isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isPlatformOwner, isLoading } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -17,6 +17,8 @@ const Layout: React.FC = () => {
   // Get page title based on current route
   const getPageTitle = () => {
     const path = location.pathname;
+    if (path === '/platform/dashboard') return 'Platform Dashboard';
+    if (path === '/platform/audit-logs') return 'Audit Logs';
     if (path === '/dashboard') return 'Dashboard';
     if (path.startsWith('/classes')) return 'Classes/Batches';
     if (path.startsWith('/sessions')) return 'Sessions';
@@ -58,6 +60,7 @@ const Layout: React.FC = () => {
       'Manager': 'Manager',
       'SessionAdmin': 'Session Administrator',
       'EndUser': 'End User',
+      'PLATFORM_OWNER': 'Platform Owner',
     };
     return roleMap[user.role] || user.role;
   };
@@ -120,56 +123,93 @@ const Layout: React.FC = () => {
         {/* Navigation Links - Scrollable middle section */}
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1">
-            <li>
-              <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
-            </li>
+            {/* Platform Owner Routes - Show only when on Platform pages */}
+            {isPlatformOwner && (location.pathname.startsWith('/platform')) ? (
+              <>
+                <li>
+                  <NavLinkItem to="/platform/dashboard" icon="dashboard">Platform Dashboard</NavLinkItem>
+                </li>
+                <li>
+                  <NavLinkItem to="/platform/audit-logs" icon="history">Audit Logs</NavLinkItem>
+                </li>
+              </>
+            ) : (
+              <>
+                {/* Regular User Routes - Hide when Platform Owner is on Platform pages */}
+                {(!isPlatformOwner || !location.pathname.startsWith('/platform')) && (
+                  <>
+                    <li>
+                      <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
+                    </li>
 
-            {/* Classes/Batches - visible to all authenticated users (including EndUsers) */}
-            <li>
-              <NavLinkItem to="/classes" icon="groups" end={true}>Classes/Batches</NavLinkItem>
-            </li>
+                    {/* Classes/Batches - visible to all authenticated users (including EndUsers) */}
+                    <li>
+                      <NavLinkItem to="/classes" icon="groups" end={true}>Classes/Batches</NavLinkItem>
+                    </li>
 
-            {/* Create Class/Batch - for SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
-            {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin) && (
-              <li>
-                <NavLinkItem to="/classes/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
-              </li>
-            )}
+                    {/* Create Class/Batch - for SuperAdmin, CompanyAdmin, Manager, SessionAdmin, and Platform Owner */}
+                    {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin || isPlatformOwner) && (
+                      <li>
+                        <NavLinkItem to="/classes/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
+                      </li>
+                    )}
 
-            {/* Scan QR - visible to all authenticated users */}
-            <li>
-              <NavLinkItem to="/scan" icon="qr_code_scanner">Scan QR</NavLinkItem>
-            </li>
+                    {/* Scan QR - visible to all authenticated users (except Platform Owner) */}
+                    {!isPlatformOwner && (
+                      <li>
+                        <NavLinkItem to="/scan" icon="qr_code_scanner">Scan QR</NavLinkItem>
+                      </li>
+                    )}
 
-            {/* My Attendance - visible to all authenticated users */}
-            <li>
-              <NavLinkItem to="/my-attendance" icon="checklist">My Attendance</NavLinkItem>
-            </li>
+                    {/* My Attendance - visible to all authenticated users (except Platform Owner) */}
+                    {!isPlatformOwner && (
+                      <li>
+                        <NavLinkItem to="/my-attendance" icon="checklist">My Attendance</NavLinkItem>
+                      </li>
+                    )}
 
-            {/* Leaves - visible to all authenticated users */}
-            <li>
-              <NavLinkItem to="/leaves" icon="event">Leaves</NavLinkItem>
-            </li>
+                    {/* Leaves - visible to all authenticated users (except Platform Owner) */}
+                    {!isPlatformOwner && (
+                      <li>
+                        <NavLinkItem to="/leaves" icon="event">Leaves</NavLinkItem>
+                      </li>
+                    )}
 
-            {/* Attendance Report - for Manager and SuperAdmin */}
-            {(isSuperAdmin || isManager) && (
-              <li>
-                <NavLinkItem to="/reports" icon="summarize">Attendance Report</NavLinkItem>
-              </li>
-            )}
+                    {/* Attendance Report - for Manager, SuperAdmin, and Platform Owner */}
+                    {(isSuperAdmin || isManager || isPlatformOwner) && (
+                      <li>
+                        <NavLinkItem to="/reports" icon="summarize">Attendance Report</NavLinkItem>
+                      </li>
+                    )}
 
-            {/* Manage Staff - only for SuperAdmin */}
-            {isSuperAdmin && (
-              <li>
-                <NavLinkItem to="/manage-staff" icon="work">Manage Staff</NavLinkItem>
-              </li>
-            )}
+                    {/* Manage Staff - for SuperAdmin and Platform Owner */}
+                    {(isSuperAdmin || isPlatformOwner) && (
+                      <li>
+                        <NavLinkItem to="/manage-staff" icon="work">Manage Staff</NavLinkItem>
+                      </li>
+                    )}
 
-            {/* Manage Users - only for SuperAdmin and CompanyAdmin */}
-            {(isSuperAdmin || isCompanyAdmin) && (
-              <li>
-                <NavLinkItem to="/manage-users" icon="manage_accounts">Manage Users</NavLinkItem>
-              </li>
+                    {/* Manage Users - for SuperAdmin, CompanyAdmin, and Platform Owner */}
+                    {(isSuperAdmin || isCompanyAdmin || isPlatformOwner) && (
+                      <li>
+                        <NavLinkItem to="/manage-users" icon="manage_accounts">Manage Users</NavLinkItem>
+                      </li>
+                    )}
+
+                    {/* Platform Owner Routes - Show when not on Platform pages */}
+                    {isPlatformOwner && (
+                      <>
+                        <li className="pt-4 mt-4 border-t border-border-light dark:border-border-dark">
+                          <NavLinkItem to="/platform/dashboard" icon="dashboard">Platform Dashboard</NavLinkItem>
+                        </li>
+                        <li>
+                          <NavLinkItem to="/platform/audit-logs" icon="history">Audit Logs</NavLinkItem>
+                        </li>
+                      </>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </ul>
         </nav>
@@ -280,50 +320,87 @@ const Layout: React.FC = () => {
         {/* Navigation Links - Scrollable middle section */}
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1">
-            <li>
-              <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
-            </li>
+            {/* Platform Owner Routes - Show only when on Platform pages */}
+            {isPlatformOwner && location.pathname.startsWith('/platform') ? (
+              <>
+                <li>
+                  <NavLinkItem to="/platform/dashboard" icon="dashboard">Platform Dashboard</NavLinkItem>
+                </li>
+                <li>
+                  <NavLinkItem to="/platform/audit-logs" icon="history">Audit Logs</NavLinkItem>
+                </li>
+              </>
+            ) : (
+              <>
+                {/* Regular User Routes - Hide when Platform Owner is on Platform pages */}
+                {(!isPlatformOwner || !location.pathname.startsWith('/platform')) && (
+                  <>
+                    <li>
+                      <NavLinkItem to="/dashboard" icon="home">Dashboard</NavLinkItem>
+                    </li>
 
-            {/* Classes/Batches - visible to all authenticated users (including EndUsers) */}
-            <li>
-              <NavLinkItem to="/classes" icon="groups" end={true}>Classes/Batches</NavLinkItem>
-            </li>
+                    {/* Classes/Batches - visible to all authenticated users (including EndUsers) */}
+                    <li>
+                      <NavLinkItem to="/classes" icon="groups" end={true}>Classes/Batches</NavLinkItem>
+                    </li>
 
-            {/* Create Class/Batch - for SuperAdmin, CompanyAdmin, Manager, and SessionAdmin */}
-            {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin) && (
-              <li>
-                <NavLinkItem to="/classes/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
-              </li>
-            )}
+                    {/* Create Class/Batch - for SuperAdmin, CompanyAdmin, Manager, SessionAdmin, and Platform Owner */}
+                    {(isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin || isPlatformOwner) && (
+                      <li>
+                        <NavLinkItem to="/classes/create" icon="calendar_add_on">Create Class/Batch</NavLinkItem>
+                      </li>
+                    )}
 
-            <li>
-              <NavLinkItem to="/scan" icon="qr_code_scanner">Scan QR</NavLinkItem>
-            </li>
+                    {!isPlatformOwner && (
+                      <li>
+                        <NavLinkItem to="/scan" icon="qr_code_scanner">Scan QR</NavLinkItem>
+                      </li>
+                    )}
 
-            <li>
-              <NavLinkItem to="/my-attendance" icon="checklist">My Attendance</NavLinkItem>
-            </li>
+                    {!isPlatformOwner && (
+                      <li>
+                        <NavLinkItem to="/my-attendance" icon="checklist">My Attendance</NavLinkItem>
+                      </li>
+                    )}
 
-            <li>
-              <NavLinkItem to="/leaves" icon="event">Leaves</NavLinkItem>
-            </li>
+                    {!isPlatformOwner && (
+                      <li>
+                        <NavLinkItem to="/leaves" icon="event">Leaves</NavLinkItem>
+                      </li>
+                    )}
 
-            {(isSuperAdmin || isManager) && (
-              <li>
-                <NavLinkItem to="/reports" icon="summarize">Attendance Report</NavLinkItem>
-              </li>
-            )}
+                    {(isSuperAdmin || isManager || isPlatformOwner) && (
+                      <li>
+                        <NavLinkItem to="/reports" icon="summarize">Attendance Report</NavLinkItem>
+                      </li>
+                    )}
 
-            {isSuperAdmin && (
-              <li>
-                <NavLinkItem to="/manage-staff" icon="work">Manage Staff</NavLinkItem>
-              </li>
-            )}
+                    {(isSuperAdmin || isPlatformOwner) && (
+                      <li>
+                        <NavLinkItem to="/manage-staff" icon="work">Manage Staff</NavLinkItem>
+                      </li>
+                    )}
 
-            {(isSuperAdmin || isCompanyAdmin) && (
-              <li>
-                <NavLinkItem to="/manage-users" icon="manage_accounts">Manage Users</NavLinkItem>
-              </li>
+                    {(isSuperAdmin || isCompanyAdmin || isPlatformOwner) && (
+                      <li>
+                        <NavLinkItem to="/manage-users" icon="manage_accounts">Manage Users</NavLinkItem>
+                      </li>
+                    )}
+
+                    {/* Platform Owner Routes - Show when not on Platform pages */}
+                    {isPlatformOwner && (
+                      <>
+                        <li className="pt-4 mt-4 border-t border-border-light dark:border-border-dark">
+                          <NavLinkItem to="/platform/dashboard" icon="dashboard">Platform Dashboard</NavLinkItem>
+                        </li>
+                        <li>
+                          <NavLinkItem to="/platform/audit-logs" icon="history">Audit Logs</NavLinkItem>
+                        </li>
+                      </>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </ul>
         </nav>

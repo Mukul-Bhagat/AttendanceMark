@@ -12,8 +12,10 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return <LoadingSpinner />;
   }
 
-  // If user is already logged in, redirect to dashboard
+  // If user is already logged in, redirect to appropriate dashboard
   if (token) {
+    // We can't check user role here without making an API call, so redirect to dashboard
+    // The App.tsx root route will handle Platform Owner redirect
     return <Navigate to="/dashboard" replace />;
   }
 

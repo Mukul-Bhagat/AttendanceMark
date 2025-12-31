@@ -35,7 +35,14 @@ export const applyLeave = async (req: Request, res: Response) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { collectionPrefix, id: userId } = req.user!;
+    const { collectionPrefix, id: userId, role } = req.user!;
+    
+    // STRICT BLOCK: Platform Owner cannot apply for leave for themselves
+    if (role === 'PLATFORM_OWNER') {
+      return res.status(403).json({ 
+        msg: 'Forbidden: Platform Owner cannot apply for leave' 
+      });
+    }
     
     console.log('Apply Leave Request:', {
       collectionPrefix,

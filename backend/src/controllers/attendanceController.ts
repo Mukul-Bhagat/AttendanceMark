@@ -7,6 +7,7 @@ import createAttendanceModel from '../models/Attendance';
 import createUserModel from '../models/User'; // We need this now
 import createOrganizationSettingsModel from '../models/OrganizationSettings';
 import createLeaveRequestModel from '../models/LeaveRequest';
+import AuditLog from '../models/AuditLog';
 
 // @route   POST /api/attendance/scan
 export const markAttendance = async (req: Request, res: Response) => {
@@ -16,8 +17,15 @@ export const markAttendance = async (req: Request, res: Response) => {
   }
 
   // 1. GET ALL DATA
-  const { id: userId, collectionPrefix } = req.user!;
+  const { id: userId, collectionPrefix, role } = req.user!;
   const { sessionId, userLocation, deviceId, userAgent } = req.body;
+
+  // STRICT BLOCK: Platform Owner cannot mark their own attendance
+  if (role === 'PLATFORM_OWNER') {
+    return res.status(403).json({ 
+      msg: 'Forbidden: Platform Owner cannot mark their own attendance' 
+    });
+  }
 
   if (!mongoose.Types.ObjectId.isValid(sessionId)) {
     return res.status(400).json({ msg: 'Invalid Session ID. Please scan a valid QR code.' });
@@ -440,8 +448,8 @@ export const getSessionAttendance = async (req: Request, res: Response) => {
     const { collectionPrefix, role: userRole } = req.user!;
     const { id: sessionId } = req.params;
 
-    // Check if user has permission (Manager or SuperAdmin)
-    if (userRole !== 'Manager' && userRole !== 'SuperAdmin') {
+    // Check if user has permission (Manager, SuperAdmin, or Platform Owner)
+    if (userRole !== 'Manager' && userRole !== 'SuperAdmin' && userRole !== 'PLATFORM_OWNER') {
       return res.status(403).json({ msg: 'Not authorized to view attendance reports' });
     }
 
@@ -587,8 +595,8 @@ export const getUserAttendance = async (req: Request, res: Response) => {
     const { collectionPrefix, role: userRole } = req.user!;
     const { id: userId } = req.params;
 
-    // Check if user has permission (Manager or SuperAdmin)
-    if (userRole !== 'Manager' && userRole !== 'SuperAdmin') {
+    // Check if user has permission (Manager, SuperAdmin, or Platform Owner)
+    if (userRole !== 'Manager' && userRole !== 'SuperAdmin' && userRole !== 'PLATFORM_OWNER') {
       return res.status(403).json({ msg: 'Not authorized to view attendance reports' });
     }
 
@@ -656,6 +664,140 @@ export const getUserAttendance = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'User not found' });
     }
     res.status(500).send('Server error');
+  }
+};
+
+// @route   POST /api/attendance/force-mark
+// @desc    Force mark attendance (Platform Owner only) - bypasses all checks
+// @access  Private (Platform Owner only)
+export const forceMarkAttendance = async (req: Request, res: Response) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const { collectionPrefix, role, id: performerId, email: performerEmail } = req.user!;
+  const { sessionId, userId, status } = req.body; // status: 'Present' or 'Absent'
+
+  // STRICT CHECK: Only Platform Owner can force mark attendance
+  if (role !== 'PLATFORM_OWNER') {
+    return res.status(403).json({ 
+      msg: 'Forbidden: Only Platform Owner can force mark attendance' 
+    });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+    return res.status(400).json({ msg: 'Invalid Session ID' });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ msg: 'Invalid User ID' });
+  }
+
+  if (status !== 'Present' && status !== 'Absent') {
+    return res.status(400).json({ msg: 'Status must be either "Present" or "Absent"' });
+  }
+
+  try {
+    // Load organization-specific collections
+    const UserCollection = createUserModel(`${collectionPrefix}_users`);
+    const SessionCollection = createSessionModel(`${collectionPrefix}_sessions`);
+    const AttendanceCollection = createAttendanceModel(`${collectionPrefix}_attendance`);
+
+    // Verify user and session exist
+    const [user, session] = await Promise.all([
+      UserCollection.findById(userId),
+      SessionCollection.findById(sessionId)
+    ]);
+
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+    if (!session) {
+      return res.status(404).json({ msg: 'Session not found' });
+    }
+
+    if (status === 'Present') {
+      // Check if attendance record already exists
+      const existingAttendance = await AttendanceCollection.findOne({
+        userId,
+        sessionId,
+      });
+
+      if (existingAttendance) {
+        // Update existing record
+        existingAttendance.locationVerified = true; // Force verified
+        existingAttendance.isLate = false; // Reset late status
+        existingAttendance.lateByMinutes = undefined;
+        await existingAttendance.save();
+      } else {
+        // Create new attendance record
+        const newAttendance = new AttendanceCollection({
+          userId,
+          sessionId,
+          checkInTime: new Date(),
+          locationVerified: true, // Force verified
+          isLate: false,
+          deviceId: 'FORCED_BY_PLATFORM_OWNER', // Special marker
+        });
+        await newAttendance.save();
+      }
+
+      // Update session's assignedUsers array
+      const assignmentIndex = session.assignedUsers.findIndex(
+        (u: any) => u.userId.toString() === userId.toString()
+      );
+      if (assignmentIndex !== -1) {
+        session.assignedUsers[assignmentIndex].attendanceStatus = 'Present';
+        session.assignedUsers[assignmentIndex].isLate = false;
+        await session.save();
+      }
+    } else if (status === 'Absent') {
+      // Remove attendance record if exists
+      await AttendanceCollection.deleteOne({
+        userId,
+        sessionId,
+      });
+
+      // Update session's assignedUsers array
+      const assignmentIndex = session.assignedUsers.findIndex(
+        (u: any) => u.userId.toString() === userId.toString()
+      );
+      if (assignmentIndex !== -1) {
+        session.assignedUsers[assignmentIndex].attendanceStatus = 'Absent';
+        session.assignedUsers[assignmentIndex].isLate = false;
+        await session.save();
+      }
+    }
+
+    // Log the action in AuditLog
+    await AuditLog.create({
+      organizationPrefix: collectionPrefix,
+      action: 'FORCE_ATTENDANCE_CORRECTION',
+      performedBy: {
+        userId: performerId.toString(),
+        email: performerEmail,
+        role: 'PLATFORM_OWNER',
+      },
+      targetUser: {
+        userId: userId.toString(),
+        email: user.email,
+      },
+      details: {
+        sessionId: sessionId.toString(),
+        sessionName: session.name,
+        status,
+        date: session.startDate,
+      },
+    });
+
+    res.json({
+      msg: `Attendance ${status === 'Present' ? 'marked as Present' : 'marked as Absent'} successfully`,
+      status,
+    });
+  } catch (err: any) {
+    console.error('Error in force mark attendance:', err);
+    res.status(500).json({ msg: 'Server error', error: err.message });
   }
 };
 

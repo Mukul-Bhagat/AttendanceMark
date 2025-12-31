@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import createSessionModel from '../models/Session';
 import createClassBatchModel from '../models/ClassBatch';
+import { logAction } from '../utils/auditLogger';
+import Organization from '../models/Organization';
 
 // @route   POST /api/sessions
 // @desc    Create a new session
@@ -335,12 +337,54 @@ export const updateSession = async (req: Request, res: Response) => {
     
     // Handle cancellation
     if (isCancelled !== undefined) {
+      const wasCancelled = session.isCancelled;
       session.isCancelled = isCancelled;
       if (isCancelled) {
         session.cancellationReason = cancellationReason || undefined;
       } else {
         // If uncancelling, clear the reason
         session.cancellationReason = undefined;
+      }
+
+      // Log cancellation to audit log
+      if (isCancelled && !wasCancelled) {
+        // Get organization details for audit log
+        const org = await Organization.findOne({ collectionPrefix });
+        let className = 'Unknown Class';
+        
+        // Try to get class name if classBatchId exists
+        if (session.classBatchId) {
+          try {
+            const ClassBatchCollection = createClassBatchModel(`${collectionPrefix}_classbatches`);
+            const classBatch = await ClassBatchCollection.findById(session.classBatchId).select('name').lean();
+            if (classBatch) {
+              className = classBatch.name;
+            }
+          } catch (err) {
+            console.error('Error fetching class name for audit log:', err);
+          }
+        }
+
+        const sessionDate = session.startDate ? new Date(session.startDate).toLocaleDateString() : 'Unknown Date';
+        await logAction(
+          'CANCEL_SESSION',
+          {
+            id: userId,
+            email: req.user!.email,
+            role: userRole,
+            collectionPrefix,
+          },
+          session._id,
+          {
+            message: `Session for ${className} on ${sessionDate} was cancelled.`,
+            sessionName: session.name,
+            className,
+            sessionDate,
+            cancellationReason: cancellationReason || 'No reason provided',
+          },
+          org?._id,
+          org?.name
+        );
       }
     } else if (cancellationReason !== undefined && session.isCancelled) {
       // Allow updating cancellation reason if session is already cancelled

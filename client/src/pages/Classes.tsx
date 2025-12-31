@@ -7,7 +7,7 @@ import { Eye, Calendar, Users, Edit, Trash2 } from 'lucide-react';
 
 const Classes: React.FC = () => {
   const navigate = useNavigate();
-  const { isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser } = useAuth();
+  const { isSuperAdmin, isCompanyAdmin, isManager, isSessionAdmin, isEndUser, isPlatformOwner } = useAuth();
   const [classes, setClasses] = useState<IClassBatch[]>([]);
   const [sessionCounts, setSessionCounts] = useState<{ [key: string]: number }>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -16,10 +16,10 @@ const Classes: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPastClasses, setShowPastClasses] = useState(false);
   
-  // SuperAdmin, CompanyAdmin, Manager, and SessionAdmin can create classes
-  const canCreateClass = isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin;
+  // SuperAdmin, CompanyAdmin, Manager, SessionAdmin, and Platform Owner can create classes
+  const canCreateClass = isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin || isPlatformOwner;
   // Same roles can edit and delete classes
-  const canEditClass = isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin;
+  const canEditClass = isSuperAdmin || isCompanyAdmin || isManager || isSessionAdmin || isPlatformOwner;
 
   useEffect(() => {
     const fetchClasses = async () => {

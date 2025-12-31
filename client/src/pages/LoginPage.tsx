@@ -95,6 +95,31 @@ const LoginPage: React.FC = () => {
       
       const { tempToken: token, organizations: orgs } = response.data;
       
+      // CRITICAL: Check if user is Platform Owner at the very top and force redirect
+      // Check role from organizations array (Platform Owner orgs will have role 'PLATFORM_OWNER')
+      if (orgs && orgs.length > 0 && orgs[0].role === 'PLATFORM_OWNER') {
+        // For Platform Owner, we need to select an organization to get a token
+        // Use the first organization (or any organization - Platform Owner can access all)
+        const selectResponse = await api.post('/api/auth/select-organization', {
+          tempToken: token,
+          prefix: orgs[0].prefix,
+        });
+        
+        const { token: finalToken, user } = selectResponse.data;
+        
+        // Double-check user role from the response
+        if (user.role === 'PLATFORM_OWNER') {
+          localStorage.setItem('token', finalToken);
+          
+          // Use the login function to update context
+          await login({ token: finalToken, user });
+          
+          // Force redirect to platform dashboard immediately
+          navigate('/platform/dashboard', { replace: true });
+          return; // Stop execution - do not proceed to organization selection
+        }
+      }
+      
       // If only one organization, auto-select it
       if (orgs && orgs.length === 1) {
         // Auto-select the single organization
@@ -109,8 +134,12 @@ const LoginPage: React.FC = () => {
         // Use the login function to update context
         await login({ token: finalToken, user });
         
-        // Navigate to the original destination or dashboard
-        navigate(from, { replace: true });
+        // Navigate to the original destination or appropriate dashboard
+        if (user.role === 'PLATFORM_OWNER') {
+          navigate('/platform/dashboard', { replace: true });
+        } else {
+          navigate(from || '/dashboard', { replace: true });
+        }
       } else if (orgs && orgs.length > 1) {
         // Show organization selector
         setOrganizations(orgs);

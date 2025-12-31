@@ -4,6 +4,9 @@ import { Schema, model, Document } from 'mongoose';
 export interface IOrganization extends Document {
   name: string;
   collectionPrefix: string; // e.g., "org_acme"
+  status: 'ACTIVE' | 'SUSPENDED';
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const OrganizationSchema: Schema = new Schema({
@@ -17,6 +20,12 @@ const OrganizationSchema: Schema = new Schema({
     type: String,
     required: true,
     unique: true,
+  },
+  status: {
+    type: String,
+    enum: ['ACTIVE', 'SUSPENDED'],
+    default: 'ACTIVE',
+    required: true,
   },
 }, { timestamps: true });
 

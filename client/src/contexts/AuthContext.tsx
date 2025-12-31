@@ -5,7 +5,7 @@ import api from '../api';
 export interface IUser {
   id: string;
   email: string;
-  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser';
+  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser' | 'PLATFORM_OWNER';
   profile: {
     firstName: string;
     lastName: string;
@@ -33,6 +33,7 @@ interface IAuthContext {
   isManager: boolean;
   isSessionAdmin: boolean;
   isEndUser: boolean;
+  isPlatformOwner: boolean;
 }
 
 // Create the context
@@ -50,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isManager = user?.role === 'Manager';
   const isSessionAdmin = user?.role === 'SessionAdmin';
   const isEndUser = user?.role === 'EndUser';
+  const isPlatformOwner = user?.role === 'PLATFORM_OWNER';
 
   // On initial load, try to load user from token
   useEffect(() => {
@@ -172,6 +174,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isManager,
     isSessionAdmin,
     isEndUser,
+    isPlatformOwner,
   };
 
   return (

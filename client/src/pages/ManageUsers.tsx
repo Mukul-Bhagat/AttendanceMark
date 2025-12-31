@@ -7,7 +7,7 @@ type EndUser = {
   _id?: string;
   id?: string;
   email: string;
-  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser';
+  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser' | 'PLATFORM_OWNER';
   profile: {
     firstName: string;
     lastName: string;
@@ -22,7 +22,7 @@ type EndUser = {
 };
 
 const ManageUsers: React.FC = () => {
-  const { isSuperAdmin, isCompanyAdmin } = useAuth();
+  const { isSuperAdmin, isCompanyAdmin, isPlatformOwner } = useAuth();
   const canManageQuota = isSuperAdmin || isCompanyAdmin;
   
   // Form state
@@ -169,7 +169,7 @@ const ManageUsers: React.FC = () => {
 
   // Handle device reset
   const handleResetDevice = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to reset this user\'s device? They will need to register a new device on their next scan.')) {
+    if (!window.confirm('This will reset the device ID and send a new 6-digit password to the user\'s email. Continue?')) {
       return;
     }
 
@@ -181,6 +181,33 @@ const ManageUsers: React.FC = () => {
       await api.put(`/api/users/${userId}/reset-device`);
       
       setMessage('Device reset successfully! A new password has been generated and emailed to the user.');
+      // Refresh the list to show updated device status
+      await fetchUsers();
+    } catch (err: any) {
+      if (err.response?.status === 403) {
+        setError('You do not have permission to reset devices.');
+      } else {
+        setError(err.response?.data?.msg || 'Failed to reset device. Please try again.');
+      }
+    } finally {
+      setResettingDevice(null);
+    }
+  };
+
+  // Handle device reset (Platform Owner only - without password reset)
+  const handleResetDeviceOnly = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to reset this user\'s device ID? This will allow them to register a new device without changing their password.')) {
+      return;
+    }
+
+    setResettingDevice(userId);
+    setError('');
+    setMessage('');
+
+    try {
+      await api.put(`/api/users/${userId}/reset-device-only`);
+      
+      setMessage('Device ID reset successfully! User can now register a new device.');
       // Refresh the list to show updated device status
       await fetchUsers();
     } catch (err: any) {
@@ -657,6 +684,9 @@ const ManageUsers: React.FC = () => {
                               <th className="px-6 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Name</th>
                               <th className="px-6 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Email</th>
                               <th className="px-6 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Phone</th>
+                              {isPlatformOwner && (
+                                <th className="px-6 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider" scope="col">Device Reset</th>
+                              )}
                               {(isSuperAdmin || canManageQuota) && (
                                 <th className="px-6 py-2 text-left text-xs font-medium text-[#8a7b60] dark:text-gray-300 uppercase tracking-wider w-16" scope="col">Actions</th>
                               )}
@@ -692,6 +722,31 @@ const ManageUsers: React.FC = () => {
                                   <td className="px-6 py-2 whitespace-nowrap text-sm text-[#8a7b60] dark:text-gray-400">
                                     {user.profile.phone || 'N/A'}
                                   </td>
+                                  {isPlatformOwner && (
+                                    <td className="px-6 py-2 whitespace-nowrap text-sm font-medium">
+                                      <button
+                                        onClick={() => handleResetDeviceOnly(userId)}
+                                        disabled={isResetting}
+                                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                                        title="Reset Device ID (Platform Owner only)"
+                                      >
+                                        {isResetting ? (
+                                          <>
+                                            <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                              <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+                                            </svg>
+                                            Resetting...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <span className="material-symbols-outlined text-sm">restart_alt</span>
+                                            Reset Device ID
+                                          </>
+                                        )}
+                                      </button>
+                                    </td>
+                                  )}
                                   {(isSuperAdmin || canManageQuota) && (
                                     <td className="px-6 py-2 whitespace-nowrap text-sm font-medium w-16">
                                       <div className="relative" ref={(el) => { menuRefs.current[userId] = el; }}>

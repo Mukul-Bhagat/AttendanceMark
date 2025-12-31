@@ -6,7 +6,7 @@ import crypto from 'crypto';
 export interface IUser extends Document {
   email: string;
   password?: string;
-  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser';
+  role: 'SuperAdmin' | 'CompanyAdmin' | 'Manager' | 'SessionAdmin' | 'EndUser' | 'PLATFORM_OWNER';
   profile: {
     firstName: string;
     lastName: string;
@@ -24,6 +24,7 @@ export interface IUser extends Document {
   } | null; // If null, use Organization Defaults
   resetPasswordToken?: string;
   resetPasswordExpire?: Date;
+  lastLogin?: Date;
   createdAt?: Date;
   updatedAt?: Date;
   getResetPasswordToken(): string;
@@ -46,7 +47,7 @@ const UserSchema: Schema = new Schema({
   },
   role: {
     type: String,
-    enum: ['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin', 'EndUser'],
+    enum: ['SuperAdmin', 'CompanyAdmin', 'Manager', 'SessionAdmin', 'EndUser', 'PLATFORM_OWNER'],
     required: true,
   },
   profile: {
@@ -82,6 +83,9 @@ const UserSchema: Schema = new Schema({
   resetPasswordExpire: {
     type: Date,
     select: false,
+  },
+  lastLogin: {
+    type: Date,
   },
 }, { timestamps: true });
 

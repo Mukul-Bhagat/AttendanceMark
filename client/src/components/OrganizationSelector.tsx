@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,7 +28,39 @@ const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
 }) => {
   const [isLoading, setIsLoading] = React.useState<string | null>(null);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
+
+  // Safety net: If Platform Owner somehow lands here, redirect immediately
+  useEffect(() => {
+    if (user?.role === 'PLATFORM_OWNER') {
+      navigate('/platform/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
+
+  // Check if user is Platform Owner from organizations array and redirect immediately
+  React.useEffect(() => {
+    const isPlatformOwner = organizations && organizations.length > 0 && organizations[0].role === 'PLATFORM_OWNER';
+    if (isPlatformOwner) {
+      // Auto-select first organization and redirect to platform dashboard
+      const autoSelectAndRedirect = async () => {
+        try {
+          const response = await api.post('/api/auth/select-organization', {
+            tempToken,
+            prefix: organizations[0].prefix,
+          });
+
+          const { token, user } = response.data;
+          localStorage.setItem('token', token);
+          await login({ token, user });
+          navigate('/platform/dashboard', { replace: true });
+        } catch (err: any) {
+          const errorMessage = err.response?.data?.msg || 'Failed to select organization. Please try again.';
+          onError(errorMessage);
+        }
+      };
+      autoSelectAndRedirect();
+    }
+  }, [organizations, tempToken, login, navigate, onError]);
 
   const handleSelectOrganization = async (org: Organization) => {
     setIsLoading(org.prefix);
@@ -46,8 +78,12 @@ const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
       // Update AuthContext with the new token and user
       await login({ token, user });
       
-      // Navigate to the redirect path (from login state) or dashboard
-      navigate(redirectTo, { replace: true });
+      // Navigate to the appropriate dashboard based on user role
+      if (user.role === 'PLATFORM_OWNER') {
+        navigate('/platform/dashboard', { replace: true });
+      } else {
+        navigate(redirectTo, { replace: true });
+      }
     } catch (err: any) {
       setIsLoading(null);
       const errorMessage = err.response?.data?.msg || 'Failed to select organization. Please try again.';

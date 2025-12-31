@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { IClassBatch } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 
@@ -49,6 +50,7 @@ interface SessionAttendanceRecord {
 }
 
 const AttendanceReport: React.FC = () => {
+  const { isPlatformOwner } = useAuth();
   const [searchParams] = useSearchParams();
   const [classes, setClasses] = useState<IClassBatch[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -63,6 +65,17 @@ const AttendanceReport: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingFilters, setIsLoadingFilters] = useState(true);
   const [error, setError] = useState('');
+  
+  // Force Mark Modal State
+  const [showForceMarkModal, setShowForceMarkModal] = useState(false);
+  const [forceMarkDate, setForceMarkDate] = useState('');
+  const [forceMarkUserId, setForceMarkUserId] = useState('');
+  const [forceMarkStatus, setForceMarkStatus] = useState<'Present' | 'Absent'>('Present');
+  const [forceMarkSessionId, setForceMarkSessionId] = useState('');
+  const [availableUsers, setAvailableUsers] = useState<Array<{ _id: string; email: string; profile: { firstName: string; lastName: string } }>>([]);
+  const [availableSessions, setAvailableSessions] = useState<Array<{ _id: string; name: string; startDate: string }>>([]);
+  const [isSubmittingForceMark, setIsSubmittingForceMark] = useState(false);
+  const [forceMarkError, setForceMarkError] = useState('');
 
   // Fetch classes on mount
   useEffect(() => {
@@ -838,10 +851,21 @@ const AttendanceReport: React.FC = () => {
             {/* TAB 2: Logs View */}
             {!isLoading && activeTab === 'logs' && (
               <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-[#e6e2db] dark:border-slate-700 p-6 sm:p-8">
-                <h2 className="text-[#181511] dark:text-white text-xl font-bold mb-6 flex items-center">
-                  <span className="material-symbols-outlined text-[#f04129] mr-2">description</span>
-                  Session Attendance Logs
-                </h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-[#181511] dark:text-white text-xl font-bold flex items-center">
+                    <span className="material-symbols-outlined text-[#f04129] mr-2">description</span>
+                    Session Attendance Logs
+                  </h2>
+                  {isPlatformOwner && (
+                    <button
+                      onClick={() => setShowForceMarkModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold transition-colors shadow-sm"
+                    >
+                      <span className="material-symbols-outlined text-lg">edit</span>
+                      Force Mark Present
+                    </button>
+                  )}
+                </div>
                 {sessionLogs.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-full divide-y divide-[#e6e2db] dark:divide-slate-700">
@@ -1030,6 +1054,187 @@ const AttendanceReport: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Force Mark Attendance Modal */}
+      {showForceMarkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-[#e6e2db] dark:border-slate-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
+            <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-[#e6e2db] dark:border-slate-700 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-[#181511] dark:text-white flex items-center">
+                <span className="material-symbols-outlined text-amber-600 mr-2">edit</span>
+                Force Mark Attendance
+              </h3>
+              <button
+                onClick={() => {
+                  setShowForceMarkModal(false);
+                  setForceMarkError('');
+                  setForceMarkDate('');
+                  setForceMarkUserId('');
+                  setForceMarkSessionId('');
+                  setForceMarkStatus('Present');
+                }}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="p-6">
+              {forceMarkError && (
+                <div className="mb-4 bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20 p-3 rounded-lg">
+                  {forceMarkError}
+                </div>
+              )}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!forceMarkSessionId || !forceMarkUserId || !forceMarkStatus) {
+                    setForceMarkError('Please fill in all fields');
+                    return;
+                  }
+                  setIsSubmittingForceMark(true);
+                  setForceMarkError('');
+                  try {
+                    await api.post('/api/attendance/force-mark', {
+                      sessionId: forceMarkSessionId,
+                      userId: forceMarkUserId,
+                      status: forceMarkStatus,
+                    });
+                    setShowForceMarkModal(false);
+                    setForceMarkDate('');
+                    setForceMarkUserId('');
+                    setForceMarkSessionId('');
+                    setForceMarkStatus('Present');
+                    // Refresh the report if data is loaded
+                    if (selectedClass && startDate && endDate) {
+                      handleViewReport();
+                    }
+                  } catch (err: any) {
+                    setForceMarkError(err.response?.data?.msg || 'Failed to force mark attendance');
+                  } finally {
+                    setIsSubmittingForceMark(false);
+                  }
+                }}
+              >
+                <div className="space-y-4">
+                  <label className="flex flex-col">
+                    <span className="text-[#181511] dark:text-gray-200 text-sm font-medium mb-2">Date</span>
+                    <input
+                      type="date"
+                      value={forceMarkDate}
+                      onChange={async (e) => {
+                        setForceMarkDate(e.target.value);
+                        setForceMarkSessionId('');
+                        if (e.target.value) {
+                          try {
+                            const { data } = await api.get('/api/sessions', {
+                              params: {
+                                // Filter sessions by date if possible
+                              },
+                            });
+                            // Filter sessions by the selected date
+                            const dateStr = e.target.value;
+                            const filtered = (data || []).filter((s: any) => {
+                              const sessionDate = new Date(s.startDate).toISOString().split('T')[0];
+                              return sessionDate === dateStr;
+                            });
+                            setAvailableSessions(filtered);
+                          } catch (err) {
+                            console.error('Failed to fetch sessions:', err);
+                          }
+                        }
+                      }}
+                      className="form-input rounded-lg text-[#181511] dark:text-white border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 h-12 px-4"
+                      required
+                    />
+                  </label>
+
+                  <label className="flex flex-col">
+                    <span className="text-[#181511] dark:text-gray-200 text-sm font-medium mb-2">Session</span>
+                    <select
+                      value={forceMarkSessionId}
+                      onChange={(e) => setForceMarkSessionId(e.target.value)}
+                      className="form-select rounded-lg text-[#181511] dark:text-white border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 h-12 px-4"
+                      required
+                      disabled={!forceMarkDate || availableSessions.length === 0}
+                    >
+                      <option value="">-- Select Session --</option>
+                      {availableSessions.map((session) => (
+                        <option key={session._id} value={session._id}>
+                          {session.name} ({new Date(session.startDate).toLocaleString()})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col">
+                    <span className="text-[#181511] dark:text-gray-200 text-sm font-medium mb-2">User</span>
+                    <select
+                      value={forceMarkUserId}
+                      onChange={(e) => setForceMarkUserId(e.target.value)}
+                      className="form-select rounded-lg text-[#181511] dark:text-white border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 h-12 px-4"
+                      required
+                      onFocus={async () => {
+                        if (availableUsers.length === 0) {
+                          try {
+                            const { data } = await api.get('/api/users/my-organization');
+                            setAvailableUsers(data || []);
+                          } catch (err) {
+                            console.error('Failed to fetch users:', err);
+                          }
+                        }
+                      }}
+                    >
+                      <option value="">-- Select User --</option>
+                      {availableUsers.map((user) => (
+                        <option key={user._id} value={user._id}>
+                          {user.profile.firstName} {user.profile.lastName} ({user.email})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="flex flex-col">
+                    <span className="text-[#181511] dark:text-gray-200 text-sm font-medium mb-2">Status</span>
+                    <select
+                      value={forceMarkStatus}
+                      onChange={(e) => setForceMarkStatus(e.target.value as 'Present' | 'Absent')}
+                      className="form-select rounded-lg text-[#181511] dark:text-white border border-[#e6e2db] dark:border-slate-700 bg-white dark:bg-slate-900 h-12 px-4"
+                      required
+                    >
+                      <option value="Present">Present</option>
+                      <option value="Absent">Absent</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="submit"
+                    disabled={isSubmittingForceMark}
+                    className="flex-1 px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmittingForceMark ? 'Submitting...' : 'Force Mark'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForceMarkModal(false);
+                      setForceMarkError('');
+                      setForceMarkDate('');
+                      setForceMarkUserId('');
+                      setForceMarkSessionId('');
+                      setForceMarkStatus('Present');
+                    }}
+                    className="px-4 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-800 dark:text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
